@@ -1,15 +1,23 @@
-# Phase 1 — Vben Admin V5 bootstrap
+# Phase 1 — Vben Admin V5 UI baseline
 
 本项目仅采用官方 Vue Vben Admin V5，固定上游 commit `e726bc92780c1023c2393042871470d413ad79dc`。V5 与 V2 不兼容，本仓库不保留 V2 API、目录结构或组件兼容层。
 
-GitHub Actions 将导入官方 monorepo，并在 `apps/web-antd` 中生成以下页面：
+## 产品架构
 
-- 仪表盘
-- 订单管理
+阶段一管理端采用单用户、多机器人模式：一个平台所有者统一管理多个 Telegram Bot。没有商户注册、商户独立后台、多租户隔离或代理销售体系。Telegram 群成员仍然是群管理功能的正常业务对象。
+
+## 五个管理页面
+
+- 运营总览
+- 机器人管理
+- 订单管理（按 Bot 筛选）
 - 平台设置
-- 代理管理
-- 支付网关配置
+- 平台统一支付网关配置
 
-页面容器使用 V5 的 `Page`；页面表单和表格采用 V5 Ant Design 应用的 Ant Design Vue 组件。五页通过 `gap-4` 间距检查、no-V2 引用检查、TypeScript 检查、生产构建和人工视觉复核之前，阶段一不得验收，也不得启动阶段二。
+页面容器使用 V5 的 `Page`；表单和表格采用 V5 Ant Design 应用中的 Ant Design Vue 组件。页面必须通过 `gap-4` 间距检查、no-V2 引用检查、单用户多机器人架构检查、TypeScript 检查、生产构建和人工视觉复核，阶段一才可验收。
 
-当前页面为 UI 骨架；演示数据不代表真实业务已接通。
+## CI 行为
+
+GitHub Actions 只负责校验当前分支源码、运行 TypeScript 检查和生产构建，并上传构建产物。CI 不再从上游重新导入 Vben 源码，也不生成或覆盖业务页面，避免覆盖项目已完成的定制内容。
+
+当前页面为 UI 骨架；演示数据不代表真实 Bot、订单、支付或统计服务已经接通。
