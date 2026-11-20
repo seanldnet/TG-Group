@@ -1,6 +1,6 @@
 services:
   app:
-    image: ghcr.io/seanldnet/tg-group:latest
+    image: ${APP_IMAGE:-ghcr.io/seanldnet/tg-group:latest}
     restart: unless-stopped
     depends_on:
       postgres:

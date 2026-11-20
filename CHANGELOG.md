@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.11] - 2026-11-21
+
+### Docker 一键安装、升级与 digest 回滚（PR #11，待验收）
+
+- Compose 应用镜像改为 APP_IMAGE 环境变量，默认 ghcr.io/seanldnet/tg-group:latest，继续保持 image-only，不含 build:。
+- 新增 scripts/deploy/install-docker.sh：检查 Docker daemon/Compose v2，下载并验证 Compose 配置，首次生成随机 PostgreSQL、Redis 和 Bot Token 加密密钥。
+- 已存在 .env 时不覆盖，升级时保留管理员凭据、数据库密码、Redis 密码、Token 加密密钥和镜像 pin。
+- 支持将 APP_IMAGE 固定为 GHCR 不可变 digest 后执行镜像回滚。
+- 更新部署说明，明确 GHCR 私有包登录、安装/升级命令、digest 回滚与数据库迁移注意事项。
+- [x] PR #10 Docker multi-arch build-only CI（linux/amd64、linux/arm64）通过。
+- [ ] PR #11 shell 静态检查与 Compose contract CI。
+- [ ] GHCR 正式镜像发布、全新安装、升级和 digest 回滚验收。
+
+
 ## [0.1.10] - 2026-11-21
 
 ### Docker 云端镜像构建与 V5 静态资源集成（PR #10，CI 待确认）
