@@ -8,6 +8,7 @@ on:
       - feat/backend-foundation
       - feat/auth-session-api
       - feat/bot-management-api
+      - feat/bot-runtime-worker-v2
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
