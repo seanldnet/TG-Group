@@ -135,3 +135,57 @@ Garble 混淆不等于加密，也不能保证源码不可逆向；不得对外�
 - 禁止将普通 Go 编译产物标记为 Garble 混淆版本。
 - 禁止宝塔二进制模式跳过网页安装向导或使用固定管理员默认密码。
 - 禁止在没有真实 CI、镜像 digest、安装向导及目标平台验证证据时宣称交付完成。
+
+## 6. Docker 一键安装、升级与回滚
+
+### 首次安装
+
+服务器需预先安装并启动 Docker Engine 与 Docker Compose v2 插件。若 GHCR package 为私有包，先使用具备 read:packages 权限的 GitHub Token 登录：
+
+```bash
+echo "$GHCR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+```
+
+一键安装（默认安装到 /opt/tg-group，默认从 main 下载 Compose 文件）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/seanldnet/TG-Group/main/scripts/deploy/install-docker.sh | sudo bash
+```
+
+脚本检查 Docker daemon 和 Compose v2，下载并检查 image-only Compose 配置，首次生成权限为 0600 的 .env，并使用 OpenSSL 生成独立随机 PostgreSQL 密码、Redis 密码和 32 字节 Bot Token 加密密钥。默认首次 Owner 为 admin / 123456。登录后应立即修改默认密码。
+
+可通过环境变量指定安装版本或目录：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/seanldnet/TG-Group/vX.Y.Z/scripts/deploy/install-docker.sh | sudo TG_GROUP_REF=vX.Y.Z TG_GROUP_DIR=/opt/tg-group bash
+```
+
+### 升级
+
+再次执行同一安装脚本即可拉取所选 ref 对应 Compose 配置、拉取镜像并重建应用。若安装目录中已有 .env，脚本不会覆盖它；数据库密码、Redis 密码、Bot Token 加密密钥、管理员密码及当前 APP_IMAGE 均保持不变。PostgreSQL/Redis 数据卷不会因应用容器升级而删除。
+
+### 固定 digest 回滚
+
+生产环境应记录每次验收镜像的不可变 digest。回滚时编辑安装目录中的 .env，将 APP_IMAGE 固定到之前验收的 digest：
+
+```dotenv
+APP_IMAGE=ghcr.io/seanldnet/tg-group@sha256:替换为已验收的真实digest
+```
+
+然后执行：
+
+```bash
+cd /opt/tg-group
+sudo docker compose --env-file .env -f compose.yaml pull app
+sudo docker compose --env-file .env -f compose.yaml up -d app
+sudo docker compose --env-file .env -f compose.yaml ps
+```
+
+不要猜测或手工拼接 digest；必须使用 GitHub Actions 发布摘要中的真实值。数据库迁移通常向前兼容性需单独确认，镜像回滚不等于数据库 schema 自动回滚。
+
+### 安全与边界
+
+- 安装脚本不会自动开放云防火墙端口；请按实际部署配置安全组和 HTTPS 反向代理。
+- .env 包含数据库凭据和加密密钥，必须限制文件权限并纳入安全备份，禁止提交到 Git。
+- 如果 GHCR package 为私有包，服务器必须先完成 GHCR 登录；脚本不会收集或保存 GitHub Token。
+- PR 构建只验证镜像，不会发布镜像。只有合并到 main 后触发发布流水线，才可使用公开/授权的 GHCR 镜像。
