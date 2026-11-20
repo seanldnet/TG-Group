@@ -19,6 +19,17 @@
 - Business prices use integer USDT face value (1 = 1 USDT).
 - On-chain USDT settlement uses integer smallest units (1 USDT = 1,000,000 smallest units), converted only at the payment boundary.
 
+## 最终交付要求
+
+正式交付必须同时包含以下两种方式：
+
+1. **Docker 一键部署（默认方式）**：GitHub Actions 预构建并推送 GHCR 镜像。服务器只需 Docker / Compose，执行 `docker compose pull` 和 `docker compose up -d` 即可部署。正式 Compose 文件只使用 `image:`，严禁 `build:`；服务器不编译源码、不安装 Go/Node/pnpm 工具链。
+2. **Garble 混淆 Go 二进制**：Release 必须提供通过 Garble 构建的 Go 二进制，按支持的 OS/ARCH 发布并附 SHA-256。普通 `go build` 二进制不得冒充正式混淆版。
+
+Docker 镜像构建、Garble 二进制构建、测试、扫描和发布均在 GitHub Actions 等 CI 环境完成。正式发布必须记录镜像 digest、源码 commit、工具链版本及校验和。
+
+完整要求见 [交付与部署标准](docs/DEPLOYMENT.md)。
+
 ## Phase 1 gate
 
 The five administration pages must pass source spacing checks, TypeScript validation, production build, and visual review before Phase 1 is accepted:
