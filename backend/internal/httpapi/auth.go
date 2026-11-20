@@ -67,7 +67,7 @@ func (h AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 	}
 	input.Username = strings.TrimSpace(input.Username)
 	if input.Username == "" || input.Password == "" || len(input.Password) > 72 {
-		apiError(w, http.StatusUnauthorized, "invalid username or password")
+		apiError(w, http.StatusBadRequest, "invalid username or password")
 		return
 	}
 
@@ -161,7 +161,7 @@ func (h AuthHandler) changePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if bcrypt.CompareHashAndPassword([]byte(currentHash), []byte(input.CurrentPassword)) != nil {
-		apiError(w, http.StatusUnauthorized, "current password is incorrect")
+		apiError(w, http.StatusBadRequest, "current password is incorrect")
 		return
 	}
 	newHash, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
