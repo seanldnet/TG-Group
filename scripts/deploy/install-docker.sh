@@ -6,8 +6,8 @@ TG_GROUP_REF="${TG_GROUP_REF:-main}"
 TG_GROUP_DIR="${TG_GROUP_DIR:-/opt/tg-group}"
 RAW_BASE="https://raw.githubusercontent.com/${REPO}/${TG_GROUP_REF}"
 
-log() { printf '[tg-group] %s\\n' "$*"; }
-fail() { printf '[tg-group] ERROR: %s\\n' "$*" >&2; exit 1; }
+log() { printf '[tg-group] %s\n' "$*"; }
+fail() { printf '[tg-group] ERROR: %s\n' "$*" >&2; exit 1; }
 
 [[ "$(id -u)" -eq 0 ]] || fail "请使用 sudo 运行，例如 curl ... | sudo bash"
 [[ "$TG_GROUP_REF" != *[[:space:]]* ]] || fail "TG_GROUP_REF 不能包含空白字符"
