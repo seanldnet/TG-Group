@@ -1,11 +1,12 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.6
+- 文档版本：0.1.7
 - 更新日期：2026-11-21
 - 仓库：seanldnet/TG-Group
 - 前端阶段分支：feat/phase-1-vben-v5（PR #1，Draft）
 - 后端基础分支：feat/backend-foundation（PR #2，Draft，基于 PR #1）
-- 当前状态：V5 前端 CI 已通过；后端基础设施已提交，Go CI 与集成验收待完成
+- Owner 认证分支：feat/auth-session-api（PR #3，Draft，基于 PR #2）
+- 当前状态：PR #2 的 Go test/vet/build CI 已通过；PR #3 Owner 认证 API 已提交，CI 验证中
 
 ## 产品架构基线
 
@@ -31,8 +32,9 @@
 - 全新数据库仅在不存在 Owner 时创建 bcrypt 管理员记录，默认用户名/密码为 `admin / 123456`；启动逻辑不更新已有账号密码。
 - 新增 Redis 连接、存活/就绪探针及优雅关闭。
 - 新增 image-only Compose：应用、PostgreSQL、Redis，含健康检查和持久化 volume；Compose 不含 `build:`。
-- Go CI 已配置 test、vet、build；PR #2 的 CI 尚待 GitHub Actions 实际运行确认。
-- 当前尚未提供登录/session API，因此默认管理员记录已初始化不等于登录功能已经可用。
+- PR #2 的 Go CI（test、vet、build）已通过 GitHub Actions。
+- 默认管理员记录已初始化；Owner 登录/session API 已在 PR #3 实现，包含 12 小时会话、退出撤销、密码修改后撤销全部会话，以及 Redis 登录尝试限流；PR #3 CI/审查待确认。
+- V5 登录页面和 API 客户端尚未接入真实后端，因此完整 UI 登录尚不可用。
 - GHCR 镜像发布、Docker 首次安装/升级验收尚未完成；当前 Compose 引用的是待发布镜像。
 
 ## 最终交付与部署基线（强制）
@@ -46,7 +48,7 @@
 - 服务器只需 Docker Engine 与 Compose 插件；不得下载源码或安装编译工具链。
 - 全新数据库首次启动自动迁移并初始化默认管理员：用户名 `admin`，密码 `123456`。
 - 默认管理员只在无管理员记录时创建；升级、重启不得覆盖已有管理员密码。
-- 仍需实现登录/session API、GHCR 构建发布、完整安装/升级/回滚流程并验收。
+- Owner 登录/session API 已在 PR #3 提交；仍需完成 V5 前端接入、GHCR 构建发布、完整安装/升级/回滚流程并验收。
 
 ### B. 宝塔面板 + Garble Go 二进制（网页安装向导）
 
