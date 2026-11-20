@@ -109,6 +109,7 @@ defineExpose({
     </slot>
 
     <Form />
+    <slot name="captcha" />
 
     <div
       v-if="showRememberMe || showForgetPassword"
