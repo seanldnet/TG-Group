@@ -1,11 +1,11 @@
-FROM node:22.18-alpine AS web-build
+FROM --platform=$BUILDPLATFORM node:22.18-bookworm-slim AS web-build
 WORKDIR /src
 RUN corepack enable && corepack prepare pnpm@11.16.0 --activate
 COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @vben/web-antd run build
 
-FROM golang:1.23-alpine AS api-build
+FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS api-build
 WORKDIR /src/backend
 COPY backend/go.mod ./
 RUN go mod download
