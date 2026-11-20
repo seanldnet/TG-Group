@@ -8,7 +8,7 @@
 - Owner 认证分支：feat/auth-session-api（PR #3，Draft，基于 PR #2）
 - Bot 管理 API 分支：feat/bot-management-api（PR #6，Draft，基于 PR #3）
 - V5 认证接入分支：feat/vben-auth-integration-v2（PR #5，Draft，基于 PR #3）
-- 当前状态：PR #2、PR #3 的 Go test/vet/build CI 已通过；PR #5 V5 spacing、TypeScript 与生产构建 CI 已通过；PR #6 Go test/vet 已通过，build 正在运行
+- 当前状态：PR #2、PR #3 的 Go test/vet/build CI 已通过；PR #5 V5 spacing、TypeScript 与生产构建 CI 已通过；PR #6 Go test/vet/build CI 已全部通过
 
 ## 产品架构基线
 
