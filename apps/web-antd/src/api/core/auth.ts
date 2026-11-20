@@ -4,6 +4,7 @@ export namespace AuthApi {
   export interface LoginParams {
     password: string;
     username: string;
+    captchaToken?: string;
   }
 
   export interface LoginResult {
@@ -38,4 +39,16 @@ export async function changePasswordApi(data: AuthApi.PasswordChangeParams) {
 
 export async function getAccessCodesApi() {
   return requestClient.get<string[]>('/auth/codes');
+}
+
+export interface CaptchaConfig {
+  enabled: boolean;
+  mode: 'checkbox' | 'floating' | 'invisible';
+  domain: string;
+  siteKey: string;
+  secretConfigured: boolean;
+}
+
+export async function getPublicCaptchaConfigApi() {
+  return requestClient.get<CaptchaConfig>('/auth/captcha-config');
 }
