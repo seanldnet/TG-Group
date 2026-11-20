@@ -3,8 +3,8 @@ package httpapi
 import (
 	"crypto/rand"
 	"crypto/sha256"
-		"encoding/hex"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net"
@@ -275,6 +275,3 @@ func apiError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]any{"code": status, "message": message})
 }
 
-func constantTimeEqual(a, b string) bool {
-	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
-}
