@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.8] - 2026-11-21
+
+### 新版 Cap 登录人机验证（PR #12，待验收）
+
+- 对接新版 Cap Widget，通过 jsDelivr 加载固定版本 `@cap.js/widget` 与浮动模式脚本；不依赖旧版 Widget files 开关。
+- Owner 登录增加复选框、浮动、隐形三种验证模式；Go 后端对登录 token 调用 Cap `/{site-key}/siteverify`，失败时拒绝登录。
+- 平台设置增加 Cap 域名、Site Key、Secret、启用开关和模式选择；Secret 以 AES-256-GCM 加密保存且不回显。
+- Cap 加密密钥优先使用 `CAP_SECRET_ENCRYPTION_KEY`，回退复用 `BOT_TOKEN_ENCRYPTION_KEY`。
+- 登录组件按 Vben V5 布局渲染，宽度限制不超过账号/密码输入框；中文状态提示。
+- [ ] Go test/vet/build、V5 TypeScript/production build 与真实 Cap 联调。
+
+
 ## [0.1.7] - 2026-11-21
 
 ### Owner 登录与会话 API（PR #3，CI/审查待确认）
