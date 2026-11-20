@@ -9,7 +9,7 @@
 - 新增持久化 update offset；群组和成员使用 upsert 幂等同步。
 - Telegram 返回无效 Token 时将 Bot 标记为 error 并停止对应 worker；临时故障退避重试。
 - 新注册 Bot 在 Token 验证成功后进入 active，由 runtime 自动接管。
-- [ ] Go test/vet/build CI 通过。
+- [x] Go test/vet/build CI 全部通过。
 - [ ] 真实 Telegram 群组、成员变更和重启 offset 验收。
 - [ ] 反垃圾、欢迎语、自动封禁等群管功能仍待开发。
 
