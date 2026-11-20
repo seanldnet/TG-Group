@@ -51,6 +51,8 @@ else
   log "检测到已有 .env：保留全部凭据、镜像版本和管理员配置，不覆盖"
 fi
 
+docker compose --env-file "$TG_GROUP_DIR/.env" -f "$TG_GROUP_DIR/compose.yaml" config -q
+
 log "拉取镜像并启动/升级服务"
 docker compose --env-file "$TG_GROUP_DIR/.env" -f "$TG_GROUP_DIR/compose.yaml" pull
 docker compose --env-file "$TG_GROUP_DIR/.env" -f "$TG_GROUP_DIR/compose.yaml" up -d
