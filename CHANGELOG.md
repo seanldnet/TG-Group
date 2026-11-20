@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.9] - 2026-11-21
+
+### Telegram Bot 长轮询与群组/成员同步（PR #7，CI 待确认）
+
+- 新增 Bot runtime manager，服务启动后每 10 秒对账 active Bot worker，并随服务停止取消 worker。
+- 使用 Telegram `getUpdates` 长轮询接收 message、my_chat_member、chat_member 更新。
+- 新增持久化 update offset；群组和成员使用 upsert 幂等同步。
+- Telegram 返回无效 Token 时将 Bot 标记为 error 并停止对应 worker；临时故障退避重试。
+- 新注册 Bot 在 Token 验证成功后进入 active，由 runtime 自动接管。
+- [ ] Go test/vet/build CI 通过。
+- [ ] 真实 Telegram 群组、成员变更和重启 offset 验收。
+- [ ] 反垃圾、欢迎语、自动封禁等群管功能仍待开发。
+
 ## [0.1.8] - 2026-11-21
 
 ### Telegram Bot 管理 API（PR #6，CI 待复验）
