@@ -67,7 +67,7 @@ func TestVerifyCapTokenRejectsFailedResponse(t *testing.T) {
 		_, _ = w.Write([]byte(`{"success":false}`))
 	}))
 	defer server.Close()
-	if err := verifyCapToken(t.Context(), server.Client(), server.URL, "secret", "token"); err == nil {
+	if err := verifyCapToken(context.Background(), server.Client(), server.URL, "secret", "token"); err == nil {
 		t.Fatal("expected unsuccessful Cap response to be rejected")
 	}
 }
