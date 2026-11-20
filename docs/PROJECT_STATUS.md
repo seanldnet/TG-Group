@@ -1,6 +1,6 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.3
+- 文档版本：0.1.4
 - 更新日期：2026-11-21
 - 仓库：seanldnet/TG-Group
 - 主分支：main
@@ -18,6 +18,38 @@
 - 每个 Bot 可独立关联群组，并配置验证、反垃圾、欢迎语、处罚和自动化规则。
 - 支付网关和平台安全配置由唯一平台所有者统一管理；订单保留 Bot 归属，便于按 Bot 查询。
 - 后续业务模型以 Bot、Group、TelegramUser、Order、PlatformSetting 等为核心；不得引入 Tenant、Merchant、Agent 等多租户/代理销售核心模型。
+
+## 最终交付与部署基线（强制）
+
+用户明确要求最终提供 Docker 一键傻瓜式部署和 Garble 混淆 Go 二进制；该要求属于正式交付验收条件，不是可选优化。
+
+### Docker 一键部署
+
+- GitHub Actions 在云端构建、测试并推送预构建镜像至 GHCR。
+- 正式发布必须提供版本标签、`latest` 标签及不可变镜像 digest。
+- 服务器只需 Docker Engine 与 Docker Compose 插件；Compose 正式文件只允许引用预构建 `image:`，**严禁 `build:`**。
+- 服务器只执行拉取镜像、启动/更新容器的命令；禁止服务器下载源码、安装 Go/Node/pnpm 或执行任何编译构建。
+- 数据库迁移和必要初始化必须随镜像启动流程自动执行且幂等；持久化数据使用 Docker volumes。
+- 提供可直接使用的 Compose 文件、完整 `.env.example` 和一键安装/升级命令。
+
+### Go 二进制（Garble）
+
+- 正式 Release 必须附带 Garble 混淆构建的 Go 二进制，按支持的 OS/ARCH 分别发布。
+- CI 必须真实执行固定版本 Garble 构建，记录 Go/Garble 版本、构建参数、Git commit 和目标平台。
+- 每个二进制附 SHA-256 校验和并执行构建后 smoke test。
+- 普通 `go build` 产物仅可用于开发/调试，不得作为正式 Release 二进制或冒充 Garble 版本。
+- Garble 是混淆而非加密，不得宣传为绝对防逆向。
+
+### 每次正式发布的验收门槛
+
+- [ ] GHCR 镜像和不可变 digest 可核验。
+- [ ] 正式 Compose 文件只有 `image:`，无 `build:`，干净服务器无需编译即可部署。
+- [ ] 自动数据库迁移/初始化、持久化、健康检查及升级流程验证通过。
+- [ ] Garble 构建步骤及工具链版本有 CI 证据。
+- [ ] Garble 二进制按平台发布，SHA-256 和 smoke test 通过。
+- [ ] Release 同时提供 Compose、环境变量模板、一键部署/升级脚本及版本说明。
+
+详细规范见 `docs/DEPLOYMENT.md`。未完成上述验收，不得宣称最终部署交付完成。
 
 ## 仓库审查结论
 
