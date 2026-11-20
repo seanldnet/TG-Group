@@ -110,7 +110,6 @@ func (h CapVerifier) updateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	current, err := h.load(r.Context())
 	if err != nil { apiError(w, http.StatusInternalServerError, "could not load captcha settings"); return }
-	identityChanged := current.Domain != input.Domain || current.SiteKey != input.SiteKey
 	if input.Secret != "" {
 		current.SecretEncrypted, err = h.encryptSecret(input.Secret)
 		if err != nil { apiError(w, http.StatusServiceUnavailable, "Cap 密钥加密配置不可用"); return }
@@ -118,9 +117,6 @@ func (h CapVerifier) updateSettings(w http.ResponseWriter, r *http.Request) {
 		current.SecretSiteKey = input.SiteKey
 	}
 	if input.Enabled {
-		if identityChanged && input.Secret == "" {
-			apiError(w, http.StatusBadRequest, "更换 Cap 域名或 Site Key 后必须重新填写 Secret"); return
-		}
 		if _, err := capSiteVerifyURL(input.Domain, input.SiteKey); err != nil {
 			apiError(w, http.StatusBadRequest, "Cap 域名或 Site Key 格式不正确"); return
 		}
