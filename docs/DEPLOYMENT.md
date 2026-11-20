@@ -35,6 +35,10 @@ openssl rand -hex 32
 
 将输出写入 `BOT_TOKEN_ENCRYPTION_KEY`。同一套数据库在升级、迁移或恢复备份时必须保留原密钥；丢失密钥将导致已保存的 Bot Token 无法解密。不要把密钥提交到 Git 或公开日志。
 
+### Telegram Bot 运行要求
+
+Bot 使用 Telegram `getUpdates` 长轮询接收群组事件。不要为同一个 Bot 同时配置 Telegram webhook；需要先移除旧 webhook，避免 Telegram 返回 polling conflict。将 Bot 添加到目标群组；需要同步成员变更时，应赋予 Bot 所需的群组管理员权限，并在 BotFather/Telegram 设置中允许接收相应更新。
+
 ### 镜像与服务器要求
 
 - GitHub Actions 在云端完成构建、测试并发布镜像到 GHCR。
