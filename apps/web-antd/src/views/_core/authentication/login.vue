@@ -50,7 +50,7 @@ const formSchema = computed((): VbenFormSchema[] => [
 const captchaEndpoint = computed(() => {
   const config = captchaConfig.value;
   if (!config) return '';
-  return `${config.domain.replace(/\\/+$/, '')}/${encodeURIComponent(config.siteKey)}/`;
+  return \`\${config.domain.replace(/\/+$/, '')}/\${encodeURIComponent(config.siteKey)}/\`;
 });
 
 onMounted(async () => {
