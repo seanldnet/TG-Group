@@ -1,6 +1,6 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.10
+- 文档版本：0.1.11
 - 更新日期：2026-11-21
 - 仓库：seanldnet/TG-Group
 - 前端阶段分支：feat/phase-1-vben-v5（PR #1，Draft）
@@ -8,7 +8,7 @@
 - Owner 认证分支：feat/auth-session-api（PR #3，Draft，基于 PR #2）
 - Bot 管理 API 分支：feat/bot-management-api（PR #6，Draft，基于 PR #3）
 - Bot 运行时分支：feat/bot-runtime-worker-v2（PR #7，Draft，基于 PR #6）
-- Docker 镜像交付分支：feat/docker-release-pipeline（PR #10，Draft，基于 PR #7）
+- Docker 镜像交付分支：feat/docker-release-pipeline-v2（PR #10，Draft，基于 PR #7）
 - V5 认证接入分支：feat/vben-auth-integration-v2（PR #5，Draft，基于 PR #3）
 - V5 Bot 页面分支：feat/vben-bot-management（PR #8，Draft，基于 PR #5；V5 CI 全绿）
 - 当前状态：PR #2、PR #3 的 Go test/vet/build CI 已通过；PR #5 V5 spacing、TypeScript 与生产构建 CI 已通过；PR #6 Go test/vet/build CI 已全部通过；PR #7 Bot 长轮询/群组成员同步 Go test/vet/build CI 已全部通过；PR #10 云端镜像/静态前端集成已提交，CI 验证中
@@ -92,3 +92,11 @@
 - [ ] Garble 多平台构建、校验和与 smoke test 通过。
 
 详细部署要求见 `docs/DEPLOYMENT.md`。文档规格和已提交的基础代码不代表正式部署交付已经完成；不得提前宣称完成。
+
+## 近期进展（0.1.11）
+
+- PR #10 Docker multi-arch build-only CI（linux/amd64、linux/arm64）已通过；PR 构建不推送镜像，GHCR 正式发布仍待合并后执行。
+- PR #11（feat/docker-one-click-install，基于 PR #10）新增 APP_IMAGE 可配置 Compose、Docker 一键安装/升级脚本和 digest 固定回滚说明。
+- 安装脚本首次生成随机 PostgreSQL/Redis 密码与 Bot Token 加密密钥；检测到已有 .env 时不覆盖任何配置。
+- PR #11 的 shell 静态检查、Compose contract CI、实际安装/升级和回滚验收尚未完成。
+- 宝塔网页安装向导与 Garble 多平台 Release 仍待独立开发；Dashboard、订单、支付真实 API 和群管规则也仍待开发。
