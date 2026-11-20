@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mkdir -p src/components/PageContainer src/views/tg-saas
+mkdir -p src/components/PageContainer src/views/tg-saas/dashboard src/views/tg-saas/orders src/views/tg-saas/settings src/views/tg-saas/agents src/views/tg-saas/payments
 
 cat > src/components/PageContainer/index.vue <<'EOF'
 <template>
