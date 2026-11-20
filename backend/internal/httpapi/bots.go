@@ -19,6 +19,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+var ErrInvalidTelegramToken = errors.New("invalid Telegram Bot Token")
+
 type BotHandler struct {
 	DB                  *pgxpool.Pool
 	EncryptionKey       string
@@ -105,7 +107,11 @@ func (h BotHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	username, err := h.verifyTelegramToken(r.Context(), input.Token)
 	if err != nil {
-		apiError(w, http.StatusBadRequest, "Telegram rejected this Bot Token")
+		if errors.Is(err, ErrInvalidTelegramToken) {
+			apiError(w, http.StatusBadRequest, "Telegram rejected this Bot Token")
+		} else {
+			apiError(w, http.StatusBadGateway, "could not verify Bot Token with Telegram")
+		}
 		return
 	}
 	encrypted, err := encryptSecret(key, input.Token)
@@ -180,11 +186,17 @@ func (h BotHandler) verifyTelegramToken(ctx context.Context, token string) (stri
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil { return "", err }
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return "", ErrInvalidTelegramToken
+	}
 	if resp.StatusCode != http.StatusOK { return "", fmt.Errorf("Telegram returned HTTP %d", resp.StatusCode) }
 	var result telegramGetMeResponse
 	if err := json.Unmarshal(body, &result); err != nil { return "", err }
-	if !result.OK || result.Result.ID == 0 || result.Result.Username == "" {
-		return "", errors.New("Telegram token verification failed")
+	if !result.OK {
+		return "", ErrInvalidTelegramToken
+	}
+	if result.Result.ID == 0 || result.Result.Username == "" {
+		return "", errors.New("Telegram returned an incomplete Bot profile")
 	}
 	return result.Result.Username, nil
 }
