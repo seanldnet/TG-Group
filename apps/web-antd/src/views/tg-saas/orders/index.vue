@@ -35,7 +35,7 @@ const columns = [
         show-icon
       />
       <Card title="全部订单">
-        <div class="mb-4 flex flex-wrap items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3">
           <span class="text-sm">所属机器人</span>
           <Select v-model:value="selectedBot" :options="botOptions" class="min-w-52" />
         </div>
