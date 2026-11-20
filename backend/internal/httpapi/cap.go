@@ -108,13 +108,13 @@ func (h CapVerifier) updateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	current, err := h.load(r.Context())
 	if err != nil { apiError(w, http.StatusInternalServerError, "could not load captcha settings"); return }
+	if input.Secret != "" {
+		current.SecretEncrypted, err = h.encryptSecret(input.Secret)
+		if err != nil { apiError(w, http.StatusServiceUnavailable, "Cap 密钥加密配置不可用"); return }
+	}
 	if input.Enabled {
 		if _, err := capSiteVerifyURL(input.Domain, input.SiteKey); err != nil {
 			apiError(w, http.StatusBadRequest, "Cap 域名或 Site Key 格式不正确"); return
-		}
-		if input.Secret != "" {
-			current.SecretEncrypted, err = h.encryptSecret(input.Secret)
-			if err != nil { apiError(w, http.StatusServiceUnavailable, "Cap 密钥加密配置不可用"); return }
 		}
 		if current.SecretEncrypted == "" {
 			apiError(w, http.StatusBadRequest, "启用 Cap 前必须填写 Secret"); return
@@ -147,13 +147,16 @@ func (h CapVerifier) Verify(ctx context.Context, token string) error {
 	if err != nil { return fmt.Errorf("decrypt Cap secret: %w", err) }
 	endpoint, err := capSiteVerifyURL(settings.Domain, settings.SiteKey)
 	if err != nil { return err }
+	return verifyCapToken(ctx, h.Client, endpoint, secret, token)
+}
+
+func verifyCapToken(ctx context.Context, client *http.Client, endpoint, secret, token string) error {
 	payload, _ := json.Marshal(capVerifyRequest{Secret: secret, Response: token})
 	requestCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(requestCtx, http.MethodPost, endpoint, bytes.NewReader(payload))
 	if err != nil { return err }
 	req.Header.Set("Content-Type", "application/json")
-	client := h.Client
 	if client == nil { client = &http.Client{Timeout: 5*time.Second} }
 	resp, err := client.Do(req)
 	if err != nil { return fmt.Errorf("Cap verification request failed: %w", err) }
