@@ -42,6 +42,7 @@ jobs:
           rsync -a --delete --exclude='.git' /tmp/vben-admin-v5/ ./
           cp -a /tmp/tg-project/README.md ./README.md
           cp -a /tmp/tg-project/CHANGELOG.md ./CHANGELOG.md
+          rm -rf docs scripts .github/workflows
           cp -a /tmp/tg-project/docs ./docs
           cp -a /tmp/tg-project/scripts ./scripts
           mkdir -p .github
