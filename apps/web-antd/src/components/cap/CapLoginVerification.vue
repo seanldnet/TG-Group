@@ -16,11 +16,42 @@ const token = ref('');
 let widgetElement: HTMLElement | null = null;
 let disposed = false;
 
-const widgetModuleURL =
+const widgetScriptURL =
   'https://cdn.jsdelivr.net/npm/@cap.js/widget@0.1.63';
+const floatingScriptURL =
+  'https://cdn.jsdelivr.net/npm/@cap.js/widget@0.1.63/cap-floating.min.js';
 
-async function loadModule(url: string) {
-  return import(/* @vite-ignore */ url);
+declare global {
+  interface Window {
+    Cap?: new (config: { apiEndpoint: string }) => {
+      solve: () => Promise<{ token?: string }>;
+    };
+  }
+}
+
+let widgetScriptPromise: Promise<void> | undefined;
+let floatingScriptPromise: Promise<void> | undefined;
+
+function appendScript(url: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = url;
+    script.async = true;
+    script.dataset.capScript = url;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Cap 脚本加载失败'));
+    document.head.append(script);
+  });
+}
+
+function loadWidgetScript() {
+  widgetScriptPromise ??= appendScript(widgetScriptURL);
+  return widgetScriptPromise;
+}
+
+function loadFloatingScript() {
+  floatingScriptPromise ??= appendScript(floatingScriptURL);
+  return floatingScriptPromise;
 }
 
 function handleSolve(event: Event) {
@@ -41,10 +72,8 @@ function handleError(event: Event) {
 
 onMounted(async () => {
   try {
-    const capModule = await loadModule(widgetModuleURL);
-    if (disposed) return;
-
-    if (props.mode === 'invisible') return;
+    await loadWidgetScript();
+    if (disposed || props.mode === 'invisible') return;
 
     widgetElement = document.createElement('cap-widget');
     widgetElement.id = 'tg-group-cap-login-widget';
@@ -60,14 +89,7 @@ onMounted(async () => {
     widgetElement.addEventListener('error', handleError);
     widgetHost.value?.append(widgetElement);
 
-    if (props.mode === 'floating') {
-      await loadModule(
-        'https://cdn.jsdelivr.net/npm/@cap.js/widget@0.1.63/floating.js',
-      );
-    }
-    // Keep the constructor available for the invisible solve path.
-    (window as Window & { __tgGroupCap?: unknown }).__tgGroupCap =
-      capModule.default;
+    if (props.mode === 'floating') await loadFloatingScript();
   } catch {
     emit('error', 'Cap 验证组件加载失败，请检查服务器是否可以访问 jsDelivr');
   }
@@ -76,9 +98,9 @@ onMounted(async () => {
 async function getToken(): Promise<string> {
   if (props.mode === 'invisible') {
     try {
-      const capModule = await loadModule(widgetModuleURL);
-      const Cap = capModule.default;
-      const solver = new Cap({ apiEndpoint: props.endpoint });
+      await loadWidgetScript();
+      if (!window.Cap) throw new Error('Cap 验证组件尚未初始化');
+      const solver = new window.Cap({ apiEndpoint: props.endpoint });
       const result = await solver.solve();
       const solvedToken = String(result?.token ?? '');
       if (!solvedToken) throw new Error('Cap 未返回验证令牌');
