@@ -39,6 +39,16 @@ openssl rand -hex 32
 
 Bot 使用 Telegram `getUpdates` 长轮询接收群组事件。不要为同一个 Bot 同时配置 Telegram webhook；需要先移除旧 webhook，避免 Telegram 返回 polling conflict。将 Bot 添加到目标群组；需要同步成员变更时，应赋予 Bot 所需的群组管理员权限，并在 BotFather/Telegram 设置中允许接收相应更新。
 
+### 镜像构建流水线
+
+仓库根目录的 `Dockerfile` 是正式镜像构建入口：GitHub Actions 在云端先构建 Vben V5 前端静态资源，再编译 Go 服务并把前端资源复制进最终镜像。应用通过同一端口提供管理后台静态页面、`/api/*` API 和健康检查。
+
+- Pull Request：执行多架构镜像构建验证，不推送镜像。
+- 推送到 `main`：发布 GHCR `latest`、分支标签和 SHA 标签。
+- 推送 `v*` 标签：发布对应版本标签和 SHA 标签。
+- 正式发布记录 `linux/amd64`、`linux/arm64` 镜像 digest；生产验收以 digest 为准。
+- Compose 只引用 GHCR 镜像，不引用 Dockerfile，也不包含 `build:`。
+
 ### 镜像与服务器要求
 
 - GitHub Actions 在云端完成构建、测试并发布镜像到 GHCR。
