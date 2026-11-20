@@ -1,12 +1,14 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.7
+- 文档版本：0.1.8
 - 更新日期：2026-11-21
 - 仓库：seanldnet/TG-Group
 - 前端阶段分支：feat/phase-1-vben-v5（PR #1，Draft）
 - 后端基础分支：feat/backend-foundation（PR #2，Draft，基于 PR #1）
 - Owner 认证分支：feat/auth-session-api（PR #3，Draft，基于 PR #2）
-- 当前状态：PR #2 的 Go test/vet/build CI 已通过；PR #3 Owner 认证 API 已提交，CI 验证中
+- Bot 管理 API 分支：feat/bot-management-api（PR #6，Draft，基于 PR #3）
+- V5 认证接入分支：feat/vben-auth-integration-v2（PR #5，Draft，基于 PR #3）
+- 当前状态：PR #2、PR #3 的 Go test/vet/build CI 已通过；PR #5 V5 TypeScript/构建验证中；PR #6 Bot API CI 修复后待复验
 
 ## 产品架构基线
 
@@ -34,7 +36,8 @@
 - 新增 image-only Compose：应用、PostgreSQL、Redis，含健康检查和持久化 volume；Compose 不含 `build:`。
 - PR #2 的 Go CI（test、vet、build）已通过 GitHub Actions。
 - 默认管理员记录已初始化；Owner 登录/session API 已在 PR #3 实现，包含 12 小时会话、退出撤销、密码修改后撤销全部会话，以及 Redis 登录尝试限流；PR #3 CI/审查待确认。
-- V5 登录页面和 API 客户端尚未接入真实后端，因此完整 UI 登录尚不可用。
+- PR #5 已提交 V5 Owner 登录、用户信息、退出登录和修改密码 API 接入；TypeScript/生产构建 CI 待最终通过，尚未完成浏览器端真实登录验收。
+- PR #6 新增 Owner 认证保护的 Bot 列表/创建/重命名/删除 API；创建前通过 Telegram getMe 验证 Token，Token 使用 AES-256-GCM 加密存储，API 仅返回掩码；新 Bot 状态为 inactive，Bot polling/update worker 尚未实现。
 - GHCR 镜像发布、Docker 首次安装/升级验收尚未完成；当前 Compose 引用的是待发布镜像。
 
 ## 最终交付与部署基线（强制）
@@ -48,7 +51,7 @@
 - 服务器只需 Docker Engine 与 Compose 插件；不得下载源码或安装编译工具链。
 - 全新数据库首次启动自动迁移并初始化默认管理员：用户名 `admin`，密码 `123456`。
 - 默认管理员只在无管理员记录时创建；升级、重启不得覆盖已有管理员密码。
-- Owner 登录/session API 已在 PR #3 提交；仍需完成 V5 前端接入、GHCR 构建发布、完整安装/升级/回滚流程并验收。
+- Owner 登录/session API 已在 PR #3 提交，PR #5 正在接通 V5 前端；Bot 管理 API 在 PR #6。仍需完成 Bot worker、GHCR 构建发布、完整安装/升级/回滚流程并验收。
 
 ### B. 宝塔面板 + Garble Go 二进制（网页安装向导）
 
@@ -68,7 +71,8 @@
 
 - [ ] V5 五页视觉复核与阶段一验收。
 - [ ] 后端 Go test、vet、build CI 全绿。
-- [ ] 登录/session API 与前端认证接通。
+- [ ] V5 登录/session API 浏览器端真实验收。
+- [ ] Bot polling/update worker 与群管规则执行。
 - [ ] Docker 首次部署自动启动应用、PostgreSQL、Redis。
 - [ ] Docker 首次登录 `admin / 123456` 成功；升级/重启不重置密码。
 - [ ] Docker Compose 无 `build:`，镜像 digest 可核验。
