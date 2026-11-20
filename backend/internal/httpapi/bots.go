@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -17,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -96,7 +94,7 @@ func (h BotHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	input.Name = strings.TrimSpace(input.Name)
 	input.Token = strings.TrimSpace(input.Token)
-	if input.Name == "" || len(input.Name) > 120 || len(input.Token) < 20 || len(input.Token) > 256 {
+	if input.Name == "" || len(input.Name) > 120 || len(input.Token) < 20 || len(input.Token) > 256 || strings.ContainsAny(input.Token, "/?#%\\") {
 		apiError(w, http.StatusBadRequest, "a bot name and valid Telegram token are required")
 		return
 	}
@@ -237,6 +235,3 @@ func maskToken(token string) string {
 	return "••••" + token[len(token)-4:]
 }
 
-// Keep pgx imported here to make not-found behavior explicit for future bot reads.
-var _ = pgx.ErrNoRows
-var _ = bytes.MinRead
