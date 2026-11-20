@@ -17,7 +17,7 @@ func SeedOwner(ctx context.Context, pool *pgxpool.Pool, username, password strin
 		INSERT INTO platform_users (username, password_hash, role)
 		SELECT $1, $2, 'owner'
 		WHERE NOT EXISTS (SELECT 1 FROM platform_users WHERE role = 'owner')
-		ON CONFLICT (username) DO NOTHING
+		ON CONFLICT DO NOTHING
 	`, username, string(hash))
 	if err != nil { return fmt.Errorf("seed initial platform owner: %w", err) }
 	return nil
