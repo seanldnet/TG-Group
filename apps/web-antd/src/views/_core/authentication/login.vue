@@ -104,7 +104,7 @@ async function handleLogin(params: Record<string, unknown>) {
         ref="captchaWidget"
         :endpoint="captchaEndpoint"
         :mode="captchaConfig.mode"
-        class="mb-4"
+        class="w-full"
         @error="message.error($event)"
       />
     </template>
