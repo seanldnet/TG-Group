@@ -1,100 +1,56 @@
-name: Phase 1 - Vben Admin V5 bootstrap
+name: Phase 1 - Vben Admin V5 validation
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apps/web-antd/**'
+      - 'tg-group/scripts/**'
+      - '.github/workflows/phase1-vben-v5-bootstrap.yml'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
   push:
     branches:
       - feat/phase-1-vben-v5
-    paths-ignore:
-      - README.md
-      - CHANGELOG.md
-      - docs/**
+    paths:
+      - 'apps/web-antd/**'
+      - 'tg-group/scripts/**'
+      - '.github/workflows/phase1-vben-v5-bootstrap.yml'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
-  group: phase-1-vben-v5
-  cancel-in-progress: false
+  group: phase-1-vben-v5-validation-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  bootstrap-and-verify:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout V5 phase branch
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref_name }}
-          fetch-depth: 0
-
-      - name: Preserve TG Group project documents and scripts
-        run: |
-          mkdir -p /tmp/tg-project/.github
-          cp -a README.md CHANGELOG.md /tmp/tg-project/
-          mkdir -p /tmp/tg-project/docs /tmp/tg-project/tg-group/scripts
-          cp -a docs/PROJECT_STATUS.md docs/PHASE1_BOOTSTRAP.md /tmp/tg-project/docs/
-          cp -a tg-group/scripts/. /tmp/tg-project/tg-group/scripts/
-          cp -a .github/workflows/phase1-vben-v5-bootstrap.yml /tmp/tg-project/phase1-vben-v5-bootstrap.yml
-
-      - name: Import official Vue Vben Admin V5
-        env:
-          VBEN_V5_SHA: e726bc92780c1023c2393042871470d413ad79dc
-        run: |
-          git init /tmp/vben-admin-v5
-          git -C /tmp/vben-admin-v5 remote add origin https://github.com/vbenjs/vue-vben-admin.git
-          git -C /tmp/vben-admin-v5 fetch --depth 1 origin "$VBEN_V5_SHA"
-          git -C /tmp/vben-admin-v5 checkout --detach FETCH_HEAD
-          test "$(git -C /tmp/vben-admin-v5 rev-parse HEAD)" = "$VBEN_V5_SHA"
-          rsync -a --delete --exclude='.git' /tmp/vben-admin-v5/ ./
-          cp -a /tmp/tg-project/README.md ./README.md
-          cp -a /tmp/tg-project/CHANGELOG.md ./CHANGELOG.md
-          mkdir -p docs tg-group/scripts .github/workflows
-          cp -a /tmp/tg-project/docs/. ./docs/
-          cp -a /tmp/tg-project/tg-group/scripts/. ./tg-group/scripts/
-          rm -rf .github/workflows
-          mkdir -p .github/workflows
-          cp -a /tmp/tg-project/phase1-vben-v5-bootstrap.yml .github/workflows/phase1-vben-v5-bootstrap.yml
-          rm -f .github/workflows/phase1-vben-bootstrap.yml
-          chmod +x tg-group/scripts/phase1-v5-ui.sh tg-group/scripts/check-phase1-v5-spacing.sh
-
-      - name: Generate five V5-native administration pages
-        run: |
-          bash tg-group/scripts/phase1-v5-ui.sh
-          bash tg-group/scripts/check-phase1-v5-spacing.sh
-
-      - name: Commit and push V5 source
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "V5 import is already up to date; no new commit is required."
-          else
-            git commit -m "feat(admin): import Vben Admin V5 and add SaaS pages [skip ci]"
-          fi
-          git push origin HEAD:${{ github.ref_name }}
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22.18.0
-
       - name: Set up pnpm
         run: |
           corepack enable
           corepack prepare pnpm@11.16.0 --activate
           pnpm --version
-
       - name: Install V5 workspace dependencies
         run: pnpm install --frozen-lockfile
-
+      - name: Check V5 spacing and single-owner architecture
+        run: bash tg-group/scripts/check-phase1-v5-spacing.sh
       - name: TypeScript validation
         run: pnpm --filter @vben/web-antd run typecheck
-
       - name: Production build
         run: pnpm --filter @vben/web-antd run build
-
       - name: Upload V5 production build
         if: success()
         uses: actions/upload-artifact@v4
