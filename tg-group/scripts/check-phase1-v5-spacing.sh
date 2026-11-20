@@ -23,8 +23,8 @@ if grep -REn 'BasicTable|BasicForm|BasicModal|BasicDrawer|PageWrapper|@/componen
   exit 1
 fi
 
-if grep -REni '代理管理|代理资格|上下级代理|商户套餐|名下商户|Tenant|Merchant|Agent' apps/web-antd/src/views/tg-saas; then
-  echo "Legacy merchant/reseller concept found in active V5 pages"
+if grep -REni '代理管理|代理资格|上下级代理|商户套餐|名下商户|租户隔离|Tenant|Agent' apps/web-antd/src/views/tg-saas; then
+  echo "Legacy tenant/reseller concept found in active V5 pages"
   exit 1
 fi
 
