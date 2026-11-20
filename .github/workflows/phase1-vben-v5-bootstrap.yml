@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - feat/auth-session-api
     paths:
       - 'apps/web-antd/**'
       - 'tg-group/scripts/**'
