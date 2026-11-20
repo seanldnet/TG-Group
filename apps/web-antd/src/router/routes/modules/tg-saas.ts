@@ -7,14 +7,20 @@ const routes: RouteRecordRaw[] = [
     meta: {
       icon: 'lucide:bot',
       order: 1,
-      title: 'TG SaaS',
+      title: 'TG Group',
     },
     children: [
       {
         name: 'TgSaasDashboard',
         path: 'dashboard',
         component: () => import('#/views/tg-saas/dashboard/index.vue'),
-        meta: { title: '仪表盘', icon: 'lucide:layout-dashboard' },
+        meta: { title: '运营总览', icon: 'lucide:layout-dashboard' },
+      },
+      {
+        name: 'TgSaasBots',
+        path: 'bots',
+        component: () => import('#/views/tg-saas/bots/index.vue'),
+        meta: { title: '机器人管理', icon: 'lucide:bot' },
       },
       {
         name: 'TgSaasOrders',
@@ -27,12 +33,6 @@ const routes: RouteRecordRaw[] = [
         path: 'settings',
         component: () => import('#/views/tg-saas/settings/index.vue'),
         meta: { title: '平台设置', icon: 'lucide:settings' },
-      },
-      {
-        name: 'TgSaasAgents',
-        path: 'agents',
-        component: () => import('#/views/tg-saas/agents/index.vue'),
-        meta: { title: '代理管理', icon: 'lucide:users' },
       },
       {
         name: 'TgSaasPayments',
