@@ -1,12 +1,11 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.5
+- 文档版本：0.1.6
 - 更新日期：2026-11-21
 - 仓库：seanldnet/TG-Group
-- 阶段开发分支：feat/phase-1-vben-v5
-- 阶段一 PR：#1（Draft）
-- 当前阶段：阶段一（Vben Admin V5 单用户多机器人管理 UI）
-- 阶段状态：UI 骨架和架构调整已提交；架构调整后的 CI 与视觉验收仍待完成
+- 前端阶段分支：feat/phase-1-vben-v5（PR #1，Draft）
+- 后端基础分支：feat/backend-foundation（PR #2，Draft，基于 PR #1）
+- 当前状态：V5 前端 CI 已通过；后端基础设施已提交，Go CI 与集成验收待完成
 
 ## 产品架构基线
 
@@ -14,6 +13,27 @@
 - 不提供多商户注册、多租户隔离、商户套餐或代理销售体系。
 - Telegram 群成员仍是正常业务管理对象。
 - 每个 Bot 可独立关联群组并配置群管规则；平台支付和安全配置统一管理。
+
+## 当前已提交实现
+
+### 前端（PR #1）
+
+- 官方 Vue Vben Admin V5，固定上游 commit：`e726bc92780c1023c2393042871470d413ad79dc`。
+- UI 变体：`apps/web-antd`；不使用 V2 API 或兼容层。
+- 五个 UI 页面：运营总览、机器人管理、订单（按 Bot 筛选）、平台设置、统一支付配置。
+- V5 专项 CI 在提交 `0fc7335` 的运行 `44830241707` 结果为 success。
+- 页面仍是演示 UI，尚未连接真实 API。
+
+### 后端基础（PR #2）
+
+- 新增 Go HTTP 服务入口、配置加载、PostgreSQL 连接池、嵌入式 SQL migration 和迁移记录表。
+- 初始 schema 包含唯一平台 Owner、Bot、群组、群成员、订单（保留 Bot 归属）及平台设置；不包含 Tenant/Agent/代理销售表。
+- 全新数据库仅在不存在 Owner 时创建 bcrypt 管理员记录，默认用户名/密码为 `admin / 123456`；启动逻辑不更新已有账号密码。
+- 新增 Redis 连接、存活/就绪探针及优雅关闭。
+- 新增 image-only Compose：应用、PostgreSQL、Redis，含健康检查和持久化 volume；Compose 不含 `build:`。
+- Go CI 已配置 test、vet、build；PR #2 的 CI 尚待 GitHub Actions 实际运行确认。
+- 当前尚未提供登录/session API，因此默认管理员记录已初始化不等于登录功能已经可用。
+- GHCR 镜像发布、Docker 首次安装/升级验收尚未完成；当前 Compose 引用的是待发布镜像。
 
 ## 最终交付与部署基线（强制）
 
@@ -23,43 +43,35 @@
 
 - Compose 必须同时编排 TG Group 应用、PostgreSQL 和 Redis；数据库及 Redis 使用持久化 volumes。
 - GHCR 提供云端预构建应用镜像；Compose 正式文件只允许 `image:`，禁止 `build:`。
-- 服务器只需 Docker Engine 与 Compose 插件，执行镜像 pull 和 compose up；不得下载源码或安装编译工具链。
-- 全新数据库首次启动自动迁移并初始化默认管理员：用户名 `admin`，密码 `123456`，部署后打开后台即可登录。
-- 默认管理员只在无管理员记录的全新数据库中创建；升级、重启、重复初始化不得覆盖已经修改的管理员密码。
-- 提供健康检查、自动迁移、持久化、升级/回滚说明及一键命令。
+- 服务器只需 Docker Engine 与 Compose 插件；不得下载源码或安装编译工具链。
+- 全新数据库首次启动自动迁移并初始化默认管理员：用户名 `admin`，密码 `123456`。
+- 默认管理员只在无管理员记录时创建；升级、重启不得覆盖已有管理员密码。
+- 仍需实现登录/session API、GHCR 构建发布、完整安装/升级/回滚流程并验收。
 
 ### B. 宝塔面板 + Garble Go 二进制（网页安装向导）
 
-- Release 提供对应 Linux OS/ARCH 的 Garble 混淆 Go 二进制；用户通过宝塔文件管理上传并启动，不在服务器编译。
-- 启动后通过浏览器访问内置网页安装向导。
-- 向导要求填写 PostgreSQL 主机、端口、数据库名、用户名、密码及必要连接参数，并验证连接。
-- 用户在向导中自行设置管理员用户名和密码；向导自动执行数据库迁移、创建管理员和初始化基础配置。
-- 安装成功后锁定安装入口，重复访问不得覆盖管理员密码或重置数据库。
-- 若应用运行依赖 Redis，宝塔模式需允许填写 Redis 连接信息或按文档配置已有 Redis。
+- Release 提供对应 Linux OS/ARCH 的 Garble 混淆 Go 二进制；服务器不编译。
+- 启动后通过浏览器访问安装向导。
+- 向导填写 PostgreSQL 主机、端口、数据库名、用户名、密码及必要连接参数，并验证连接。
+- 用户自行设置管理员用户名和密码；向导执行迁移、初始化基础配置并锁定重复安装入口。
+- 若应用依赖 Redis，需允许配置已有 Redis 连接信息。
 
 ### Garble 构建约束
 
 - 正式 Go 二进制必须由固定版本 Garble 构建；普通 `go build` 产物不能作为正式 Release。
-- CI 记录 Go/Garble 版本、参数、commit、目标 OS/ARCH，发布 SHA-256，并运行安装向导 smoke test。
+- CI 记录 Go/Garble 版本、参数、commit、目标 OS/ARCH，发布 SHA-256 并运行 smoke test。
 - Garble 是混淆，不是加密，不得宣传为绝对防逆向。
 
-### 发布验收门槛
+## 发布验收门槛
 
+- [ ] V5 五页视觉复核与阶段一验收。
+- [ ] 后端 Go test、vet、build CI 全绿。
+- [ ] 登录/session API 与前端认证接通。
 - [ ] Docker 首次部署自动启动应用、PostgreSQL、Redis。
 - [ ] Docker 首次登录 `admin / 123456` 成功；升级/重启不重置密码。
 - [ ] Docker Compose 无 `build:`，镜像 digest 可核验。
-- [ ] PostgreSQL/Redis 数据持久化，健康检查、迁移和升级验证通过。
-- [ ] 宝塔上传 Garble 二进制后可打开网页安装向导。
-- [ ] 安装向导成功配置数据库、创建用户指定的管理员并锁定安装入口。
-- [ ] Garble 多平台构建、SHA-256 和 smoke test 通过。
-- [ ] 两种部署方式均提供清晰的安装、升级和回滚文档。
+- [ ] PostgreSQL/Redis 数据持久化、健康检查、迁移和升级验证通过。
+- [ ] 宝塔安装向导成功配置数据库、创建用户指定管理员并锁定安装入口。
+- [ ] Garble 多平台构建、校验和与 smoke test 通过。
 
-详细规范见 `docs/DEPLOYMENT.md`。文档已记录要求不代表部署实现已经完成；不得提前宣称正式交付。
-
-## 当前阶段与技术基线
-
-- 官方 Vue Vben Admin V5，固定上游 commit：`e726bc92780c1023c2393042871470d413ad79dc`。
-- UI 变体：`apps/web-antd`；不使用 V2 API 或兼容层。
-- 五个 UI 页面：运营总览、机器人管理、订单（按 Bot 筛选）、平台设置、统一支付配置。
-- 当前页面仍是 UI 骨架；真实 Bot API、业务数据库、支付、安装向导、Docker 发布和 Garble 构建尚未完成。
-- PR #1 保持 Draft；架构调整后的 TypeScript/生产构建和视觉验收待完成。
+详细部署要求见 `docs/DEPLOYMENT.md`。文档规格和已提交的基础代码不代表正式部署交付已经完成；不得提前宣称完成。
