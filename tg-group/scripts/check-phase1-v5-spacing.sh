@@ -3,9 +3,9 @@ set -euo pipefail
 
 files=(
   apps/web-antd/src/views/tg-saas/dashboard/index.vue
+  apps/web-antd/src/views/tg-saas/bots/index.vue
   apps/web-antd/src/views/tg-saas/orders/index.vue
   apps/web-antd/src/views/tg-saas/settings/index.vue
-  apps/web-antd/src/views/tg-saas/agents/index.vue
   apps/web-antd/src/views/tg-saas/payments/index.vue
 )
 
@@ -23,4 +23,9 @@ if grep -REn 'BasicTable|BasicForm|BasicModal|BasicDrawer|PageWrapper|@/componen
   exit 1
 fi
 
-echo "V5 page spacing and no-V2 compatibility checks passed."
+if grep -REni '代理管理|代理资格|上下级代理|商户套餐|名下商户|Tenant|Merchant|Agent' apps/web-antd/src/views/tg-saas; then
+  echo "Legacy merchant/reseller concept found in active V5 pages"
+  exit 1
+fi
+
+echo "V5 page spacing, no-V2, and single-owner multi-bot checks passed."
