@@ -1,0 +1,2 @@
+ALTER TABLE telegram_bots
+ADD COLUMN IF NOT EXISTS last_update_id BIGINT NOT NULL DEFAULT 0;

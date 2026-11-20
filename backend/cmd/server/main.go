@@ -42,6 +42,10 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 	defer redisClient.Close()
+	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	go (&httpapi.BotRuntime{DB: db, EncryptionKey: cfg.BotTokenEncryptionKey, Logger: logger}).Run(signalCtx)
+
 	mux := http.NewServeMux()
 	httpapi.HealthHandler{DB: db, Redis: redisClient}.Register(mux)
 	httpapi.AuthHandler{DB: db, Redis: redisClient}.Register(mux)
@@ -52,8 +56,6 @@ func run(logger *slog.Logger) error {
 		logger.Info("HTTP server listening", "address", cfg.HTTPAddr)
 		serverErrors <- server.ListenAndServe()
 	}()
-	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 	select {
 	case err := <-serverErrors:
 		if !errors.Is(err, http.ErrServerClosed) { return err }

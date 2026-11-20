@@ -123,7 +123,7 @@ func (h BotHandler) create(w http.ResponseWriter, r *http.Request) {
 	var createdAt time.Time
 	err = h.DB.QueryRow(r.Context(), `
 		INSERT INTO telegram_bots (name, username, token_encrypted, status)
-		VALUES ($1, $2, $3, 'inactive')
+		VALUES ($1, $2, $3, 'active')
 		RETURNING id, created_at
 	`, input.Name, username, encrypted).Scan(&id, &createdAt)
 	if err != nil {
@@ -132,7 +132,7 @@ func (h BotHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	apiOK(w, http.StatusCreated, map[string]any{
 		"id": id, "name": input.Name, "username": username,
-		"status": "inactive", "groupCount": 0,
+		"status": "active", "groupCount": 0,
 		"tokenMasked": maskToken(input.Token), "createdAt": createdAt,
 	})
 }
