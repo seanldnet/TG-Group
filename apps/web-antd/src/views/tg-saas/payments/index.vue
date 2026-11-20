@@ -9,12 +9,12 @@ const nativeUsdt = reactive({ enabled: false, network: 'TRON', walletAddress: ''
 </script>
 
 <template>
-  <Page title="支付网关配置" description="GMPay、EDUSDT 与内置 USDT 收款">
+  <Page title="支付网关配置" description="平台统一配置 GMPay、EDUSDT 与内置 USDT 收款">
     <section class="flex flex-col gap-4">
       <Alert
-        message="金额精度规则"
-        description="业务数据库中的套餐、代理折扣、订单和佣金金额均为整数 USDT 面值。仅在链上支付边界转换为最小单位整数：1 USDT = 1,000,000。"
-        type="warning"
+        message="平台统一收款配置"
+        description="所有机器人共用平台级支付网关配置。业务金额使用整数 USDT 面值；仅在链上支付边界转换为最小单位整数：1 USDT = 1,000,000。"
+        type="info"
         show-icon
       />
       <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -54,7 +54,7 @@ const nativeUsdt = reactive({ enabled: false, network: 'TRON', walletAddress: ''
         </Card>
         <Card title="统一金额模型">
           <div class="flex flex-col gap-3">
-            <Alert message="数据库面值：整数 USDT" description="例如套餐价格 99 表示 99 USDT，不保存小数金额。" type="info" />
+            <Alert message="数据库面值：整数 USDT" description="例如金额 99 表示 99 USDT，不保存小数金额。" type="info" />
             <Alert message="链上单位：最小单位整数" description="网关适配层按 1 USDT = 1,000,000 最小单位换算；禁止把链上最小单位直接写入业务金额字段。" type="info" />
           </div>
         </Card>
