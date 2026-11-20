@@ -21,7 +21,7 @@ const captchaConfig = ref<{
   siteKey: string;
 } | null>(null);
 const captchaWidget = ref<{ getToken: () => Promise<string> } | null>(null);
-const captchaToken = ref('');
+const captchaRenderKey = ref(0);
 const captchaConfigLoaded = ref(false);
 
 const formSchema = computed((): VbenFormSchema[] => [
@@ -79,10 +79,15 @@ async function handleLogin(params: Record<string, unknown>) {
       return;
     }
   }
-  await authStore.authLogin({
-    ...params,
-    captchaToken: token,
-  });
+  try {
+    await authStore.authLogin({
+      ...params,
+      captchaToken: token,
+    });
+  } finally {
+    // Cap tokens are single-use; require a fresh challenge after every login attempt.
+    captchaRenderKey.value += 1;
+  }
 }
 </script>
 
@@ -95,12 +100,11 @@ async function handleLogin(params: Record<string, unknown>) {
     <template #captcha>
       <CapLoginVerification
         v-if="captchaConfig?.enabled"
-        :key="`${captchaConfig.mode}-${captchaEndpoint}`"
+        :key="`${captchaConfig.mode}-${captchaEndpoint}-${captchaRenderKey}`"
         ref="captchaWidget"
         :endpoint="captchaEndpoint"
         :mode="captchaConfig.mode"
         class="mb-4"
-        @solved="captchaToken = $event"
         @error="message.error($event)"
       />
     </template>
