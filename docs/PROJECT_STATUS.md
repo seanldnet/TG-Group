@@ -8,7 +8,7 @@
 - Owner 认证分支：feat/auth-session-api（PR #3，Draft，基于 PR #2）
 - Bot 管理 API 分支：feat/bot-management-api（PR #6，Draft，基于 PR #3）
 - V5 认证接入分支：feat/vben-auth-integration-v2（PR #5，Draft，基于 PR #3）
-- 当前状态：PR #2、PR #3 的 Go test/vet/build CI 已通过；PR #5 V5 TypeScript/构建验证中；PR #6 Bot API CI 修复后待复验
+- 当前状态：PR #2、PR #3 的 Go test/vet/build CI 已通过；PR #5 V5 spacing、TypeScript 与生产构建 CI 已通过；PR #6 Go test/vet 已通过，build 正在运行
 
 ## 产品架构基线
 
@@ -36,7 +36,7 @@
 - 新增 image-only Compose：应用、PostgreSQL、Redis，含健康检查和持久化 volume；Compose 不含 `build:`。
 - PR #2 的 Go CI（test、vet、build）已通过 GitHub Actions。
 - 默认管理员记录已初始化；Owner 登录/session API 已在 PR #3 实现，包含 12 小时会话、退出撤销、密码修改后撤销全部会话，以及 Redis 登录尝试限流；PR #3 CI/审查待确认。
-- PR #5 已提交 V5 Owner 登录、用户信息、退出登录和修改密码 API 接入；TypeScript/生产构建 CI 待最终通过，尚未完成浏览器端真实登录验收。
+- PR #5 已提交 V5 Owner 登录、用户信息、退出登录和修改密码 API 接入；V5 spacing、TypeScript 与生产构建 CI 已通过；仍未完成浏览器端真实登录验收。
 - PR #6 新增 Owner 认证保护的 Bot 列表/创建/重命名/删除 API；创建前通过 Telegram getMe 验证 Token，Token 使用 AES-256-GCM 加密存储，API 仅返回掩码；新 Bot 状态为 inactive，Bot polling/update worker 尚未实现。
 - GHCR 镜像发布、Docker 首次安装/升级验收尚未完成；当前 Compose 引用的是待发布镜像。
 
