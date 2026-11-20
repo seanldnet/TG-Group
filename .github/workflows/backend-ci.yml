@@ -7,6 +7,8 @@ on:
       - feat/phase-1-vben-v5
       - feat/backend-foundation
       - feat/auth-session-api
+      - feat/vben-auth-integration-v2
+      - feat/cap-login-verification
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
@@ -15,6 +17,7 @@ on:
     branches:
       - feat/backend-foundation
       - feat/auth-session-api
+      - feat/cap-login-verification
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'

@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - feat/auth-session-api
+      - feat/vben-auth-integration-v2
+      - feat/cap-login-verification
     paths:
       - 'apps/web-antd/**'
       - 'tg-group/scripts/**'
