@@ -139,7 +139,7 @@ function savePreview() {
                 :placeholder="captcha.secretConfigured ? '已配置，留空表示不修改' : '请输入 Cap Secret'"
                 autocomplete="new-password"
               />
-              <div v-if="captcha.secretConfigured" class="text-muted-foreground mt-1 text-xs">
+              <div v-if="captcha.secretConfigured" class="text-muted-foreground text-xs">
                 Secret 已加密保存，不会回显；留空保存时将保留原密钥
               </div>
             </Form.Item>
