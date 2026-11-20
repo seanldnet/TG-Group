@@ -1,100 +1,65 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.4
+- 文档版本：0.1.5
 - 更新日期：2026-11-21
 - 仓库：seanldnet/TG-Group
-- 主分支：main
 - 阶段开发分支：feat/phase-1-vben-v5
 - 阶段一 PR：#1（Draft）
-- 当前阶段：阶段一（官方 Vben Admin V5 初始化与单用户多机器人管理 UI）
-- 阶段状态：V5 页面骨架与基础 CI 已通过；架构调整后的页面及筛选功能等待新一轮 CI 和视觉验收
+- 当前阶段：阶段一（Vben Admin V5 单用户多机器人管理 UI）
+- 阶段状态：UI 骨架和架构调整已提交；架构调整后的 CI 与视觉验收仍待完成
 
 ## 产品架构基线
 
-- 产品采用单用户、多机器人模式：一个平台所有者使用一个管理后台统一管理多个 Telegram Bot。
-- 不提供多商户注册、商户独立后台、租户隔离或商户套餐。
-- 不提供代理销售体系：不设计代理等级、上下级代理、代理充值、代理折扣或代理佣金。
-- Telegram 群成员仍是业务管理对象，保留群成员身份、积分、等级、处罚和活动数据；群成员不是商户或代理。
-- 每个 Bot 可独立关联群组，并配置验证、反垃圾、欢迎语、处罚和自动化规则。
-- 支付网关和平台安全配置由唯一平台所有者统一管理；订单保留 Bot 归属，便于按 Bot 查询。
-- 后续业务模型以 Bot、Group、TelegramUser、Order、PlatformSetting 等为核心；不得引入 Tenant、Merchant、Agent 等多租户/代理销售核心模型。
+- 单一平台所有者统一管理多个 Telegram Bot。
+- 不提供多商户注册、多租户隔离、商户套餐或代理销售体系。
+- Telegram 群成员仍是正常业务管理对象。
+- 每个 Bot 可独立关联群组并配置群管规则；平台支付和安全配置统一管理。
 
 ## 最终交付与部署基线（强制）
 
-用户明确要求最终提供 Docker 一键傻瓜式部署和 Garble 混淆 Go 二进制；该要求属于正式交付验收条件，不是可选优化。
+用户明确要求两种互相独立的免编译部署方式，均为正式交付验收条件。
 
-### Docker 一键部署
+### A. Docker Compose 一键部署（内置数据库）
 
-- GitHub Actions 在云端构建、测试并推送预构建镜像至 GHCR。
-- 正式发布必须提供版本标签、`latest` 标签及不可变镜像 digest。
-- 服务器只需 Docker Engine 与 Docker Compose 插件；Compose 正式文件只允许引用预构建 `image:`，**严禁 `build:`**。
-- 服务器只执行拉取镜像、启动/更新容器的命令；禁止服务器下载源码、安装 Go/Node/pnpm 或执行任何编译构建。
-- 数据库迁移和必要初始化必须随镜像启动流程自动执行且幂等；持久化数据使用 Docker volumes。
-- 提供可直接使用的 Compose 文件、完整 `.env.example` 和一键安装/升级命令。
+- Compose 必须同时编排 TG Group 应用、PostgreSQL 和 Redis；数据库及 Redis 使用持久化 volumes。
+- GHCR 提供云端预构建应用镜像；Compose 正式文件只允许 `image:`，禁止 `build:`。
+- 服务器只需 Docker Engine 与 Compose 插件，执行镜像 pull 和 compose up；不得下载源码或安装编译工具链。
+- 全新数据库首次启动自动迁移并初始化默认管理员：用户名 `admin`，密码 `123456`，部署后打开后台即可登录。
+- 默认管理员只在无管理员记录的全新数据库中创建；升级、重启、重复初始化不得覆盖已经修改的管理员密码。
+- 提供健康检查、自动迁移、持久化、升级/回滚说明及一键命令。
 
-### Go 二进制（Garble）
+### B. 宝塔面板 + Garble Go 二进制（网页安装向导）
 
-- 正式 Release 必须附带 Garble 混淆构建的 Go 二进制，按支持的 OS/ARCH 分别发布。
-- CI 必须真实执行固定版本 Garble 构建，记录 Go/Garble 版本、构建参数、Git commit 和目标平台。
-- 每个二进制附 SHA-256 校验和并执行构建后 smoke test。
-- 普通 `go build` 产物仅可用于开发/调试，不得作为正式 Release 二进制或冒充 Garble 版本。
-- Garble 是混淆而非加密，不得宣传为绝对防逆向。
+- Release 提供对应 Linux OS/ARCH 的 Garble 混淆 Go 二进制；用户通过宝塔文件管理上传并启动，不在服务器编译。
+- 启动后通过浏览器访问内置网页安装向导。
+- 向导要求填写 PostgreSQL 主机、端口、数据库名、用户名、密码及必要连接参数，并验证连接。
+- 用户在向导中自行设置管理员用户名和密码；向导自动执行数据库迁移、创建管理员和初始化基础配置。
+- 安装成功后锁定安装入口，重复访问不得覆盖管理员密码或重置数据库。
+- 若应用运行依赖 Redis，宝塔模式需允许填写 Redis 连接信息或按文档配置已有 Redis。
 
-### 每次正式发布的验收门槛
+### Garble 构建约束
 
-- [ ] GHCR 镜像和不可变 digest 可核验。
-- [ ] 正式 Compose 文件只有 `image:`，无 `build:`，干净服务器无需编译即可部署。
-- [ ] 自动数据库迁移/初始化、持久化、健康检查及升级流程验证通过。
-- [ ] Garble 构建步骤及工具链版本有 CI 证据。
-- [ ] Garble 二进制按平台发布，SHA-256 和 smoke test 通过。
-- [ ] Release 同时提供 Compose、环境变量模板、一键部署/升级脚本及版本说明。
+- 正式 Go 二进制必须由固定版本 Garble 构建；普通 `go build` 产物不能作为正式 Release。
+- CI 记录 Go/Garble 版本、参数、commit、目标 OS/ARCH，发布 SHA-256，并运行安装向导 smoke test。
+- Garble 是混淆，不是加密，不得宣传为绝对防逆向。
 
-详细规范见 `docs/DEPLOYMENT.md`。未完成上述验收，不得宣称最终部署交付完成。
+### 发布验收门槛
 
-## 仓库审查结论
+- [ ] Docker 首次部署自动启动应用、PostgreSQL、Redis。
+- [ ] Docker 首次登录 `admin / 123456` 成功；升级/重启不重置密码。
+- [ ] Docker Compose 无 `build:`，镜像 digest 可核验。
+- [ ] PostgreSQL/Redis 数据持久化，健康检查、迁移和升级验证通过。
+- [ ] 宝塔上传 Garble 二进制后可打开网页安装向导。
+- [ ] 安装向导成功配置数据库、创建用户指定的管理员并锁定安装入口。
+- [ ] Garble 多平台构建、SHA-256 和 smoke test 通过。
+- [ ] 两种部署方式均提供清晰的安装、升级和回滚文档。
 
-- 仓库初始时仅包含项目文档、脚本和初始化工作流，没有可继承的业务源码、后端、数据库模型、支付服务或 Bot worker。
-- 旧 V2 初始化工作流的页面生成步骤失败；未创建 PR、未通过构建。该尝试未合并并已从 V5 分支清理。
-- 用户明确要求只采用官方 Vben Admin V5，不使用 V2，也不做 V2 组件/API 兼容。
-- 阶段一开发均在独立分支进行；没有直接向 main 推送阶段一业务代码。
+详细规范见 `docs/DEPLOYMENT.md`。文档已记录要求不代表部署实现已经完成；不得提前宣称正式交付。
 
-## 技术基线
+## 当前阶段与技术基线
 
-- 管理端：Vue 3 + TypeScript + Vite
-- 管理模板：官方 Vue Vben Admin V5，固定上游 commit：`e726bc92780c1023c2393042871470d413ad79dc`
-- UI 变体：`apps/web-antd`（Ant Design Vue）
-- V5 页面容器：`@vben/common-ui` 导出的 `Page`
-- 页面表格/表单：V5 Ant Design 应用实际集成的 Ant Design Vue 组件；不引用 V2 的 `BasicTable`、`BasicForm`、`PageWrapper`、`BasicModal`、`BasicDrawer`
-- 页面间距：所有目标业务页面使用 `flex flex-col gap-4` 或 `grid gap-4`；禁止手写 top/bottom margin
-- 金额：业务金额使用整数 USDT 面值；链上边界使用最小单位整数，1 USDT = 1,000,000
-- V5 上游 monorepo 的 `scripts`、`docs` 目录保留；TG Group 自定义脚本放在 `tg-group/scripts`
-
-## 阶段一交付与验证
-
-- [x] 官方 Vben Admin V5 源码初始化完成
-- [x] 单用户多机器人产品架构已写入项目基线
-- [x] 运营总览替换商户/代理指标
-- [x] 新增机器人管理页面，移除代理管理路由
-- [x] 订单页面加入按 Bot 筛选的前端演示
-- [x] 支付配置明确为平台统一配置
-- [x] no-V2 组件引用检查（原阶段通过；本轮改动后待重跑）
-- [x] V5 页面源码间距检查（原阶段通过；本轮改动后待重跑）
-- [ ] 架构调整后 TypeScript 检查与生产构建
-- [ ] 五个业务页面视觉验收
-- [ ] 视觉验收通过后将 PR 从 Draft 转为 Ready
-
-### 最近一次已知 CI 证据（架构调整前）
-
-- Workflow：Phase 1 - Vben Admin V5 bootstrap
-- Run：44798804471
-- 结论：success
-- 分支提交：`26ae60404ebdf535d81cbc791eda0adc87e1c825`
-- 构建产物：`tg-group-admin-v5-phase1-dist`
-- Artifact SHA-256：`23de6cc520637242891feb146ce00b732582e850b5cc2aa14c6060c1d38b9fb3`
-
-## 风险与说明
-
-- 当前五个业务页面仍为 UI 骨架；列表、统计和订单数据均为演示数据。
-- 添加 Bot、Token 验证、Bot 启停、群组关联、支付配置保存尚未接入后端 API，不得宣称已可真实运营。
-- 当前阶段不创建业务数据库表、不接入真实支付、不实现业务 API。
-- 不得恢复商户/代理页面、租户上下文或 V2 兼容层。
+- 官方 Vue Vben Admin V5，固定上游 commit：`e726bc92780c1023c2393042871470d413ad79dc`。
+- UI 变体：`apps/web-antd`；不使用 V2 API 或兼容层。
+- 五个 UI 页面：运营总览、机器人管理、订单（按 Bot 筛选）、平台设置、统一支付配置。
+- 当前页面仍是 UI 骨架；真实 Bot API、业务数据库、支付、安装向导、Docker 发布和 Garble 构建尚未完成。
+- PR #1 保持 Draft；架构调整后的 TypeScript/生产构建和视觉验收待完成。
