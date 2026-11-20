@@ -14,6 +14,7 @@ on:
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
       - 'compose.yaml'
+      - 'scripts/deploy/**'
       - '.github/workflows/docker-publish.yml'
   push:
     branches:
@@ -45,6 +46,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Validate Docker installer shell syntax
+        run: bash -n scripts/deploy/install-docker.sh
 
       - name: Verify image-only Compose contract
         run: |
