@@ -21,7 +21,7 @@ jobs:
       - name: Checkout phase branch
         uses: actions/checkout@v4
         with:
-          ref: ${ github.ref_name }
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
 
       - name: Preserve project-specific files
@@ -53,15 +53,15 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "feat(admin): bootstrap Vben Admin and Phase 1 UI [skip ci]"
-          git push origin HEAD:${ github.ref_name }
+          git push origin HEAD:${{ github.ref_name }}
 
       - name: Create Phase 1 pull request
         env:
-          GH_TOKEN: ${ secrets.GITHUB_TOKEN }
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh pr create \
             --base main \
-            --head "${ github.ref_name }" \
+            --head "${{ github.ref_name }}" \
             --title "feat(admin): initialize Vben Admin and five SaaS pages" \
             --body "## Phase 1 scope
           - Import Vue Vben Admin v2.11.5 from pinned upstream commit
@@ -72,7 +72,7 @@ jobs:
           UI remains a skeleton with demo data; no business API, database, or payment processing is claimed as complete.
           
           Phase 1 cannot be accepted until TypeScript, production build, and the five-page visual spacing review pass." \
-            || gh pr view "${ github.ref_name }" --json url
+            || gh pr view "${{ github.ref_name }}" --json url
 
       - name: Install dependencies
         run: |
