@@ -1,6 +1,6 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.7
+- 文档版本：0.1.8
 - 更新日期：2026-11-21
 - 仓库：seanldnet/TG-Group
 - 前端阶段分支：feat/phase-1-vben-v5（PR #1，Draft）
@@ -77,3 +77,13 @@
 - [ ] Garble 多平台构建、校验和与 smoke test 通过。
 
 详细部署要求见 `docs/DEPLOYMENT.md`。文档规格和已提交的基础代码不代表正式部署交付已经完成；不得提前宣称完成。
+
+
+## Cap 新版人机验证（PR #12，开发中）
+
+- 对接新版自建 Cap：Widget 与 WASM 从固定版本 jsDelivr 加载，后端只向 Cap 的 `/{site-key}/siteverify` 发送验证请求，不依赖旧版 Widget files。
+- 登录验证提供复选框、浮动、隐形三种可配置模式；Owner 登录时后端强制验证 token，验证失败/超时/Cap 服务不可用均拒绝登录。
+- 平台设置仅需 Cap 服务域名、Site Key、Secret，另可启停验证并选择显示模式；Secret 使用 AES-256-GCM 加密入库，读取配置时不返回明文。
+- 加密密钥优先读取 `CAP_SECRET_ENCRYPTION_KEY`，未设置时复用 `BOT_TOKEN_ENCRYPTION_KEY`；必须保持该密钥稳定并纳入安全备份。
+- 登录页验证组件适配 Vben V5，复选框与浮动触发入口均限制在账号/密码输入框宽度内；隐形模式在提交时执行。
+- CI、TypeScript、生产构建和实际 Cap 自建实例联调待完成。
