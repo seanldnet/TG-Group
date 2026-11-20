@@ -25,6 +25,16 @@ Docker 方式必须做到“拉取镜像、启动容器、打开后台即可使�
 
 安全要求：默认凭据是首次安装引导凭据。部署完成后应尽快修改密码；生产环境必须通过反向代理启用 HTTPS，并限制管理后台访问范围。不得把默认密码写入日志或公开运行状态接口。
 
+### Bot Token 加密密钥
+
+添加 Telegram Bot 时，服务端会先调用 Telegram `getMe` 验证 Token，再使用 AES-256-GCM 加密后写入 PostgreSQL。必须在 `.env` 中设置独立的 32 字节十六进制密钥：
+
+```bash
+openssl rand -hex 32
+```
+
+将输出写入 `BOT_TOKEN_ENCRYPTION_KEY`。同一套数据库在升级、迁移或恢复备份时必须保留原密钥；丢失密钥将导致已保存的 Bot Token 无法解密。不要把密钥提交到 Git 或公开日志。
+
 ### 镜像与服务器要求
 
 - GitHub Actions 在云端完成构建、测试并发布镜像到 GHCR。

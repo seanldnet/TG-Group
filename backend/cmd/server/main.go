@@ -45,6 +45,7 @@ func run(logger *slog.Logger) error {
 	mux := http.NewServeMux()
 	httpapi.HealthHandler{DB: db, Redis: redisClient}.Register(mux)
 	httpapi.AuthHandler{DB: db, Redis: redisClient}.Register(mux)
+	httpapi.BotHandler{DB: db, EncryptionKey: cfg.BotTokenEncryptionKey}.Register(mux, httpapi.AuthHandler{DB: db, Redis: redisClient})
 	server := &http.Server{Addr: cfg.HTTPAddr, Handler: mux, ReadHeaderTimeout: 5*time.Second, IdleTimeout: 60*time.Second}
 	serverErrors := make(chan error, 1)
 	go func() {
