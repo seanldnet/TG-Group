@@ -37,12 +37,14 @@
 - 新增 Redis 连接、存活/就绪探针及优雅关闭。
 - 新增 image-only Compose：应用、PostgreSQL、Redis，含健康检查和持久化 volume；Compose 不含 `build:`。
 - PR #2 的 Go CI（test、vet、build）已通过 GitHub Actions。
-- 默认管理员记录已初始化；Owner 登录/session API 已在 PR #3 实现，包含 12 小时会话、退出撤销、密码修改后撤销全部会话，以及 Redis 登录尝试限流；PR #3 CI/审查待确认。
+- 默认管理员记录已初始化；Owner 登录/session API 已在 PR #3 实现，包含 12 小时会话、退出撤销、密码修改后撤销全部会话，以及 Redis 登录尝试限流；PR #3 Go CI 已通过。
 - PR #5 已提交 V5 Owner 登录、用户信息、退出登录和修改密码 API 接入；V5 spacing、TypeScript 与生产构建 CI 已通过；仍未完成浏览器端真实登录验收。
 - PR #6 新增 Owner 认证保护的 Bot 列表/创建/重命名/删除 API；创建前通过 Telegram getMe 验证 Token，Token 使用 AES-256-GCM 加密存储，API 仅返回掩码；Go CI 全绿。
-- PR #7 新增 Telegram getUpdates 长轮询 worker，自动同步群组和观察到的成员，持久化 update offset，Token 被 Telegram 拒绝时标记 Bot error；CI 待确认。
+- PR #7 新增 Telegram getUpdates 长轮询 worker，自动同步群组和观察到的成员，持久化 update offset，Token 被 Telegram 拒绝时标记 Bot error；Go test/vet/build CI 全绿。
+- PR #9 新增根目录多阶段 Dockerfile，云端构建 V5 静态资源与 Go 服务；同一端口提供前端、`/api/*` 和健康检查。
+- PR #9 新增 GHCR 多架构构建/发布工作流：PR 只构建不推送，main/tag 发布 latest、版本/SHA 标签并记录 digest；CI 验证中，尚未实际发布镜像。
 - 当前仅完成群组/成员同步，不包含反垃圾、欢迎语、自动封禁等群管规则执行。
-- GHCR 镜像发布、Docker 首次安装/升级验收尚未完成；当前 Compose 引用的是待发布镜像。
+- GHCR 发布工作流已在 PR #9 提交；实际 GHCR 镜像发布、Docker 首次安装/升级和 digest 验收尚未完成，Compose 仍引用待发布镜像。
 
 ## 最终交付与部署基线（强制）
 
@@ -55,7 +57,7 @@
 - 服务器只需 Docker Engine 与 Compose 插件；不得下载源码或安装编译工具链。
 - 全新数据库首次启动自动迁移并初始化默认管理员：用户名 `admin`，密码 `123456`。
 - 默认管理员只在无管理员记录时创建；升级、重启不得覆盖已有管理员密码。
-- Owner 登录/session API 已在 PR #3 提交，PR #5 正在接通 V5 前端；Bot 管理 API 在 PR #6。仍需完成 Bot worker、GHCR 构建发布、完整安装/升级/回滚流程并验收。
+- Owner 登录/session API 已在 PR #3 提交；PR #5 V5 登录/退出/改密接入 CI 全绿，浏览器验收待做；Bot 管理 API 在 PR #6、长轮询运行时在 PR #7。Docker 多阶段镜像与 GHCR 发布工作流在 PR #9，仍需实际镜像发布、首次安装/升级/回滚验收。
 
 ### B. 宝塔面板 + Garble Go 二进制（网页安装向导）
 
@@ -81,6 +83,7 @@
 - [ ] Docker 首次部署自动启动应用、PostgreSQL、Redis。
 - [ ] Docker 首次登录 `admin / 123456` 成功；升级/重启不重置密码。
 - [ ] Docker Compose 无 `build:`，镜像 digest 可核验。
+- [ ] PR #9 多架构镜像 CI 通过并实际发布 GHCR latest/version/SHA 标签。
 - [ ] PostgreSQL/Redis 数据持久化、健康检查、迁移和升级验证通过。
 - [ ] 宝塔安装向导成功配置数据库、创建用户指定管理员并锁定安装入口。
 - [ ] Garble 多平台构建、校验和与 smoke test 通过。
