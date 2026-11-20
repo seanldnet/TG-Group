@@ -1,6 +1,6 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.9
+- 文档版本：0.1.10
 - 更新日期：2026-11-21
 - 仓库：seanldnet/TG-Group
 - 前端阶段分支：feat/phase-1-vben-v5（PR #1，Draft）
@@ -8,8 +8,9 @@
 - Owner 认证分支：feat/auth-session-api（PR #3，Draft，基于 PR #2）
 - Bot 管理 API 分支：feat/bot-management-api（PR #6，Draft，基于 PR #3）
 - Bot 运行时分支：feat/bot-runtime-worker-v2（PR #7，Draft，基于 PR #6）
+- Docker 镜像交付分支：feat/docker-release-pipeline（PR #9，Draft，基于 PR #7）
 - V5 认证接入分支：feat/vben-auth-integration-v2（PR #5，Draft，基于 PR #3）
-- 当前状态：PR #2、PR #3 的 Go test/vet/build CI 已通过；PR #5 V5 spacing、TypeScript 与生产构建 CI 已通过；PR #6 Go test/vet/build CI 已全部通过；PR #7 Bot 长轮询/群组成员同步 Go test/vet/build CI 已全部通过
+- 当前状态：PR #2、PR #3 的 Go test/vet/build CI 已通过；PR #5 V5 spacing、TypeScript 与生产构建 CI 已通过；PR #6 Go test/vet/build CI 已全部通过；PR #7 Bot 长轮询/群组成员同步 Go test/vet/build CI 已全部通过；PR #9 云端镜像/静态前端集成已提交，CI 验证中
 
 ## 产品架构基线
 
