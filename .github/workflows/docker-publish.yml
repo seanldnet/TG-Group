@@ -1,0 +1,104 @@
+name: Build and publish TG Group container
+
+on:
+  pull_request:
+    branches:
+      - main
+      - feat/bot-runtime-worker-v2
+    paths:
+      - 'Dockerfile'
+      - 'backend/**'
+      - 'apps/web-antd/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'compose.yaml'
+      - '.github/workflows/docker-publish.yml'
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+    paths:
+      - 'Dockerfile'
+      - 'backend/**'
+      - 'apps/web-antd/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'compose.yaml'
+      - '.github/workflows/docker-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-publish-\${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify image-only Compose contract
+        run: |
+          if grep -En '^[[:space:]]*build[[:space:]]*:' compose.yaml; then
+            echo "compose.yaml must use prebuilt image references only"
+            exit 1
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: \${{ github.actor }}
+          password: \${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/seanldnet/tg-group
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+
+      - name: Build (and publish on main/tag)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: \${{ github.event_name != 'pull_request' }}
+          tags: \${{ steps.meta.outputs.tags }}
+          labels: \${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Write image digest summary
+        if: github.event_name != 'pull_request'
+        run: |
+          {
+            echo "### TG Group image published"
+            echo ""
+            echo "- Tags: \`$DOCKER_METADATA_OUTPUT_TAGS\`"
+            echo "- Digest: \`\${{ steps.build.outputs.digest }}\`"
+            echo "- Commit: \`\${{ github.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          DOCKER_METADATA_OUTPUT_TAGS: \${{ steps.meta.outputs.tags }}
