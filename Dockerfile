@@ -1,5 +1,6 @@
 FROM --platform=$BUILDPLATFORM node:22.18-bookworm-slim AS web-build
 WORKDIR /src
+ENV CI=true
 RUN corepack enable && corepack prepare pnpm@11.16.0 --activate
 COPY . .
 RUN pnpm install --frozen-lockfile
