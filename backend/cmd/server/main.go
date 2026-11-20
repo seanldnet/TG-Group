@@ -46,10 +46,16 @@ func run(logger *slog.Logger) error {
 	defer stop()
 	go (&httpapi.BotRuntime{DB: db, EncryptionKey: cfg.BotTokenEncryptionKey, Logger: logger}).Run(signalCtx)
 
+	apiMux := http.NewServeMux()
+	httpapi.HealthHandler{DB: db, Redis: redisClient}.Register(apiMux)
+	authHandler := httpapi.AuthHandler{DB: db, Redis: redisClient}
+	authHandler.Register(apiMux)
+	httpapi.BotHandler{DB: db, EncryptionKey: cfg.BotTokenEncryptionKey}.Register(apiMux, authHandler)
+
 	mux := http.NewServeMux()
-	httpapi.HealthHandler{DB: db, Redis: redisClient}.Register(mux)
-	httpapi.AuthHandler{DB: db, Redis: redisClient}.Register(mux)
-	httpapi.BotHandler{DB: db, EncryptionKey: cfg.BotTokenEncryptionKey}.Register(mux, httpapi.AuthHandler{DB: db, Redis: redisClient})
+	mux.Handle("/api/", http.StripPrefix("/api", apiMux))
+	mux.Handle("/health/", apiMux)
+	mux.Handle("/", http.FileServer(http.Dir(cfg.WebDir)))
 	server := &http.Server{Addr: cfg.HTTPAddr, Handler: mux, ReadHeaderTimeout: 5*time.Second, IdleTimeout: 60*time.Second}
 	serverErrors := make(chan error, 1)
 	go func() {
