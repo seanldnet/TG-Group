@@ -52,6 +52,8 @@ jobs:
           mkdir -p docs tg-group/scripts .github/workflows
           cp -a /tmp/tg-project/docs/. ./docs/
           cp -a /tmp/tg-project/tg-group/scripts/. ./tg-group/scripts/
+          rm -rf .github/workflows
+          mkdir -p .github/workflows
           cp -a /tmp/tg-project/phase1-vben-v5-bootstrap.yml .github/workflows/phase1-vben-v5-bootstrap.yml
           rm -f .github/workflows/phase1-vben-bootstrap.yml
           chmod +x tg-group/scripts/phase1-v5-ui.sh tg-group/scripts/check-phase1-v5-spacing.sh
