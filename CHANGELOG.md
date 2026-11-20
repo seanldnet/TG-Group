@@ -1,8 +1,22 @@
 # Changelog
 
+## [0.1.10] - 2026-11-21
+
+### Docker 云端镜像构建与 V5 静态资源集成（PR #10，CI 待确认）
+
+- 新增根目录多阶段 Dockerfile：Node/pnpm 云端构建 Vben V5 前端，Go 构建后端，最终运行镜像内置静态前端。
+- Go 服务新增 `WEB_DIR` 静态目录配置；同一端口提供前端页面、`/api/*` API 和健康检查。
+- V5 开发代理和生产 API 地址统一为 `/api`，关闭 Nitro mock。
+- 移除 backend-only Dockerfile，统一使用根目录 Dockerfile 构建正式镜像。
+- 新增 GHCR 多架构发布流水线：PR 只构建不推送；main/tag 发布版本标签、latest 与 SHA 标签，并输出 digest。
+- Compose 仍只引用预构建镜像，不包含 `build:`。
+- [ ] Docker multi-arch build CI 通过。
+- [ ] 全新 Compose 部署、登录、静态资源/API 路由验收。
+- [ ] GHCR 正式镜像发布与 digest 生产验收。
+
 ## [0.1.9] - 2026-11-21
 
-### Telegram Bot 长轮询与群组/成员同步（PR #7，CI 待确认）
+### Telegram Bot 长轮询与群组/成员同步（PR #7，Go CI 全绿）
 
 - 新增 Bot runtime manager，服务启动后每 10 秒对账 active Bot worker，并随服务停止取消 worker。
 - 使用 Telegram `getUpdates` 长轮询接收 message、my_chat_member、chat_member 更新。
@@ -15,15 +29,15 @@
 
 ## [0.1.8] - 2026-11-21
 
-### Telegram Bot 管理 API（PR #6，CI 待复验）
+### Telegram Bot 管理 API（PR #6，Go CI 全绿）
 
 - 新增 Owner 鉴权保护的 Bot 列表、创建、重命名、删除 API。
 - 创建 Bot 前调用 Telegram `getMe` 验证 Token；区分 Token 无效与 Telegram 网络/服务异常。
 - Bot Token 使用 AES-256-GCM 加密后保存，接口仅返回 Token 掩码；新增 `BOT_TOKEN_ENCRYPTION_KEY` 配置及密钥持久化说明。
 - 新增 Bot Telegram username 唯一索引、Bot 列表群组计数及加密相关测试。
 - 新注册 Bot 保持 inactive；Telegram polling/update worker 仍待开发。
-- [x] Go test/vet 已通过；build 正在运行。
-- [ ] V5 Bot 管理页面接入真实 API。
+- [x] Go test/vet/build CI 全部通过。
+- [x] V5 Bot 管理页面代码与 V5 CI 完成；真实端到端验收待 PR #6/#7 合并。
 
 ### Owner 认证与 V5 接入
 
@@ -33,14 +47,15 @@
 
 ## [0.1.7] - 2026-11-21
 
-### Owner 登录与会话 API（PR #3，CI/审查待确认）
+### Owner 登录与会话 API（PR #3，Go CI 已通过，代码审查待完成）
 
 - 新增持久化随机 Bearer 会话，数据库仅保存 SHA-256 token hash，默认 12 小时过期。
 - 新增 Owner 登录、当前用户信息、权限码、退出登录和修改密码 API。
 - 修改密码验证当前 bcrypt 密码，更新后撤销该 Owner 的全部会话。
 - 新增 Redis 登录尝试限流：每个来源 IP 15 分钟最多 5 次尝试。
 - 新增会话表 migration 和认证基础单元测试。
-- [ ] PR #3 Go CI、数据库集成验证和安全审查通过。
+- [x] PR #3 Go test/vet/build CI 通过。
+- [ ] 数据库集成验证和安全审查通过。
 - [ ] V5 登录页、用户信息、退出登录与修改密码接通真实 API。
 
 ## [0.1.6] - 2026-11-21

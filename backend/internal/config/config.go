@@ -10,6 +10,7 @@ import (
 
 type Config struct {
 	HTTPAddr string
+	WebDir string
 	DatabaseURL string
 	RedisAddr string
 	RedisPassword string
@@ -23,6 +24,7 @@ type Config struct {
 func Load() (Config, error) {
 	cfg := Config{
 		HTTPAddr: env("HTTP_ADDR", ":8080"),
+		WebDir: env("WEB_DIR", "/app/web"),
 		DatabaseURL: strings.TrimSpace(os.Getenv("DATABASE_URL")),
 		RedisAddr: env("REDIS_ADDR", "127.0.0.1:6379"),
 		RedisPassword: os.Getenv("REDIS_PASSWORD"),
