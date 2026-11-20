@@ -1,14 +1,15 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.8
+- 文档版本：0.1.9
 - 更新日期：2026-11-21
 - 仓库：seanldnet/TG-Group
 - 前端阶段分支：feat/phase-1-vben-v5（PR #1，Draft）
 - 后端基础分支：feat/backend-foundation（PR #2，Draft，基于 PR #1）
 - Owner 认证分支：feat/auth-session-api（PR #3，Draft，基于 PR #2）
 - Bot 管理 API 分支：feat/bot-management-api（PR #6，Draft，基于 PR #3）
+- Bot 运行时分支：feat/bot-runtime-worker-v2（PR #7，Draft，基于 PR #6）
 - V5 认证接入分支：feat/vben-auth-integration-v2（PR #5，Draft，基于 PR #3）
-- 当前状态：PR #2、PR #3 的 Go test/vet/build CI 已通过；PR #5 V5 spacing、TypeScript 与生产构建 CI 已通过；PR #6 Go test/vet/build CI 已全部通过
+- 当前状态：PR #2、PR #3 的 Go test/vet/build CI 已通过；PR #5 V5 spacing、TypeScript 与生产构建 CI 已通过；PR #6 Go test/vet/build CI 已全部通过；PR #7 Bot 长轮询/群组成员同步已提交，CI 验证中
 
 ## 产品架构基线
 
@@ -37,7 +38,9 @@
 - PR #2 的 Go CI（test、vet、build）已通过 GitHub Actions。
 - 默认管理员记录已初始化；Owner 登录/session API 已在 PR #3 实现，包含 12 小时会话、退出撤销、密码修改后撤销全部会话，以及 Redis 登录尝试限流；PR #3 CI/审查待确认。
 - PR #5 已提交 V5 Owner 登录、用户信息、退出登录和修改密码 API 接入；V5 spacing、TypeScript 与生产构建 CI 已通过；仍未完成浏览器端真实登录验收。
-- PR #6 新增 Owner 认证保护的 Bot 列表/创建/重命名/删除 API；创建前通过 Telegram getMe 验证 Token，Token 使用 AES-256-GCM 加密存储，API 仅返回掩码；新 Bot 状态为 inactive，Bot polling/update worker 尚未实现。
+- PR #6 新增 Owner 认证保护的 Bot 列表/创建/重命名/删除 API；创建前通过 Telegram getMe 验证 Token，Token 使用 AES-256-GCM 加密存储，API 仅返回掩码；Go CI 全绿。
+- PR #7 新增 Telegram getUpdates 长轮询 worker，自动同步群组和观察到的成员，持久化 update offset，Token 被 Telegram 拒绝时标记 Bot error；CI 待确认。
+- 当前仅完成群组/成员同步，不包含反垃圾、欢迎语、自动封禁等群管规则执行。
 - GHCR 镜像发布、Docker 首次安装/升级验收尚未完成；当前 Compose 引用的是待发布镜像。
 
 ## 最终交付与部署基线（强制）
@@ -72,7 +75,8 @@
 - [ ] V5 五页视觉复核与阶段一验收。
 - [ ] 后端 Go test、vet、build CI 全绿。
 - [ ] V5 登录/session API 浏览器端真实验收。
-- [ ] Bot polling/update worker 与群管规则执行。
+- [ ] PR #7 Bot polling/update worker CI 与真实 Telegram 群组验收。
+- [ ] 反垃圾、欢迎语、自动封禁等群管规则执行。
 - [ ] Docker 首次部署自动启动应用、PostgreSQL、Redis。
 - [ ] Docker 首次登录 `admin / 123456` 成功；升级/重启不重置密码。
 - [ ] Docker Compose 无 `build:`，镜像 digest 可核验。
