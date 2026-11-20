@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"net/http"
@@ -56,7 +57,7 @@ func TestVerifyCapTokenPostsJSONAndAcceptsSuccess(t *testing.T) {
 		_, _ = w.Write([]byte(`{"success":true}`))
 	}))
 	defer server.Close()
-	if err := verifyCapToken(t.Context(), server.Client(), server.URL, "cap-secret", "one-time-token"); err != nil {
+	if err := verifyCapToken(context.Background(), server.Client(), server.URL, "cap-secret", "one-time-token"); err != nil {
 		t.Fatalf("verifyCapToken() error = %v", err)
 	}
 }
