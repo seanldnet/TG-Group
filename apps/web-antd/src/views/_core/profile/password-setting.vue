@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { VbenFormSchema } from '#/adapter/form';
+import type { Recordable } from '@vben/types';
 
 import { computed } from 'vue';
 
@@ -58,10 +59,7 @@ const formSchema = computed((): VbenFormSchema[] => [
   },
 ]);
 
-async function handleSubmit(values: {
-  oldPassword: string;
-  newPassword: string;
-}) {
+async function handleSubmit(values: Recordable<any>) {
   await changePasswordApi({
     currentPassword: values.oldPassword,
     newPassword: values.newPassword,
