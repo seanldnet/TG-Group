@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -69,7 +70,7 @@ func (h CapVerifier) load(ctx context.Context) (capSettings, error) {
 	var raw []byte
 	err := h.DB.QueryRow(ctx, "SELECT value FROM platform_settings WHERE key = 'cap_verification'").Scan(&raw)
 	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "no rows") { return capSettings{Mode:"checkbox"}, nil }
+		if errors.Is(err, pgx.ErrNoRows) { return capSettings{Mode:"checkbox"}, nil }
 		return capSettings{}, err
 	}
 	var settings capSettings
