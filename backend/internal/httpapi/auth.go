@@ -3,8 +3,8 @@ package httpapi
 import (
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/hex"
+		"encoding/hex"
+	"context"
 	"encoding/json"
 	"errors"
 	"net"
@@ -222,16 +222,23 @@ func sessionFromRequest(r *http.Request) *authenticatedSession {
 	return session
 }
 
-func withSession(parent interface{ Done() <-chan struct{} }, session *authenticatedSession) interface{} {
-	return nil
+func withSession(parent context.Context, session *authenticatedSession) context.Context {
+	return context.WithValue(parent, sessionContextKey{}, session)
 }
 
-func (h AuthHandler) allowLogin(ctx interface{ Done() <-chan struct{} }, ip string) (bool, error) {
-	return true, nil
+func (h AuthHandler) allowLogin(ctx context.Context, ip string) (bool, error) {
+	key := "auth:login-attempts:" + hashToken(ip)
+	count, err := h.Redis.Incr(ctx, key).Result()
+	if err != nil { return false, err }
+	if count == 1 {
+		if err := h.Redis.Expire(ctx, key, loginWindow).Err(); err != nil { return false, err }
+	}
+	return count <= loginLimit, nil
 }
 
-func (h AuthHandler) clearLoginFailures(ctx interface{ Done() <-chan struct{} }, ip string) {}
-
+func (h AuthHandler) clearLoginFailures(ctx context.Context, ip string) {
+	_ = h.Redis.Del(ctx, "auth:login-attempts:"+hashToken(ip)).Err()
+}
 func remoteIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err == nil { return host }
