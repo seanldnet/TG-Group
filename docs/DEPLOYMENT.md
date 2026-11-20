@@ -120,3 +120,6 @@ Garble 混淆不等于加密，也不能保证源码不可逆向；不得对外�
 - Go 后端仅向 Cap `siteverify` 发送 JSON：`{"secret":"...","response":"..."}`，并且只有返回 `success: true` 才允许登录。网络错误、非 2xx、无效响应和失败结果均按验证失败处理。
 - Secret 使用 AES-256-GCM 加密存储。设置 `CAP_SECRET_ENCRYPTION_KEY`（64 位 hex）或复用已有 `BOT_TOKEN_ENCRYPTION_KEY`；密钥丢失将无法解密已保存的 Cap Secret，必须随数据库备份一起安全保存。
 - 支持 `checkbox`、`floating`、`invisible` 三种模式。Cap token 是一次性令牌，每次登录尝试后都重新加载验证控件/挑战。
+
+- 若 Cap 自建实例设置了 `CORS_ORIGIN` 白名单，必须加入 TG Group 登录页面的来源域名；默认允许跨域。浏览器会直接向 Cap 域名请求 challenge/redeem，Go 后端只负责 `siteverify`。
+- 若部署配置了严格 CSP，至少允许 jsDelivr 的脚本与连接、Cap 服务域名的连接，并按 Cap 官方要求允许 `worker-src blob:` 和 WebAssembly 所需的 `wasm-unsafe-eval`；不要为此开启宽泛的 `unsafe-eval`。
