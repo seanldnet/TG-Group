@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -40,7 +41,7 @@ func TestVerifyTelegramToken(t *testing.T) {
 	defer server.Close()
 
 	handler := BotHandler{TelegramAPIBaseURL: server.URL, HTTPClient: server.Client()}
-	username, err := handler.verifyTelegramToken(t.Context(), "123456:valid_token")
+	username, err := handler.verifyTelegramToken(context.Background(), "123456:valid_token")
 	if err != nil { t.Fatalf("verifyTelegramToken() error = %v", err) }
 	if username != "sample_bot" { t.Fatalf("username = %q, want sample_bot", username) }
 }
