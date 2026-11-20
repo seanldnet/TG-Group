@@ -7,9 +7,8 @@ RUN pnpm --filter @vben/web-antd run build
 
 FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS api-build
 WORKDIR /src/backend
-COPY backend/go.mod ./
-RUN go mod download
 COPY backend/ ./
+RUN go mod tidy
 ARG TARGETOS
 ARG TARGETARCH
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -trimpath -ldflags="-s -w" -o /out/tg-group ./cmd/server
