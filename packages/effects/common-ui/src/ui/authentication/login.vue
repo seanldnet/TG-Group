@@ -108,8 +108,10 @@ defineExpose({
       </Title>
     </slot>
 
-    <Form />
-    <slot name="captcha" />
+    <div class="flex flex-col gap-4">
+      <Form />
+      <slot name="captcha" />
+    </div>
 
     <div
       v-if="showRememberMe || showForgetPassword"
