@@ -52,7 +52,7 @@ func TestVerifyTelegramTokenRejectsInvalidToken(t *testing.T) {
 	}))
 	defer server.Close()
 	handler := BotHandler{TelegramAPIBaseURL: server.URL, HTTPClient: server.Client()}
-	if _, err := handler.verifyTelegramToken(t.Context(), "123456:invalid_token"); err == nil {
+	if _, err := handler.verifyTelegramToken(context.Background(), "123456:invalid_token"); err == nil {
 		t.Fatal("expected invalid Telegram token error")
 	}
 }
