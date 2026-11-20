@@ -17,6 +17,7 @@ on:
     branches:
       - feat/backend-foundation
       - feat/auth-session-api
+      - feat/cap-login-verification
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
