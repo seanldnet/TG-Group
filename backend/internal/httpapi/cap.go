@@ -33,6 +33,8 @@ type capSettings struct {
 	Domain string `json:"domain"`
 	SiteKey string `json:"siteKey"`
 	SecretEncrypted string `json:"secretEncrypted"`
+	SecretDomain string `json:"secretDomain"`
+	SecretSiteKey string `json:"secretSiteKey"`
 }
 
 type capPublicSettings struct {
@@ -112,6 +114,8 @@ func (h CapVerifier) updateSettings(w http.ResponseWriter, r *http.Request) {
 	if input.Secret != "" {
 		current.SecretEncrypted, err = h.encryptSecret(input.Secret)
 		if err != nil { apiError(w, http.StatusServiceUnavailable, "Cap 密钥加密配置不可用"); return }
+		current.SecretDomain = input.Domain
+		current.SecretSiteKey = input.SiteKey
 	}
 	if input.Enabled {
 		if identityChanged && input.Secret == "" {
@@ -122,6 +126,9 @@ func (h CapVerifier) updateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		if current.SecretEncrypted == "" {
 			apiError(w, http.StatusBadRequest, "启用 Cap 前必须填写 Secret"); return
+		}
+		if current.SecretDomain != input.Domain || current.SecretSiteKey != input.SiteKey {
+			apiError(w, http.StatusBadRequest, "当前 Cap 域名或 Site Key 对应的 Secret 未配置，请重新填写 Secret"); return
 		}
 	}
 	current.Enabled = input.Enabled
