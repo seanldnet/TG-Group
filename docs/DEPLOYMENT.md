@@ -111,3 +111,12 @@ Garble 混淆不等于加密，也不能保证源码不可逆向；不得对外�
 - 禁止将普通 Go 编译产物标记为 Garble 混淆版本。
 - 禁止宝塔二进制模式跳过网页安装向导或使用固定管理员默认密码。
 - 禁止在没有真实 CI、镜像 digest、安装向导及目标平台验证证据时宣称交付完成。
+
+
+## Cap 新版登录人机验证
+
+- 使用新版 Cap Widget；浏览器从 jsDelivr 加载固定版本的 `@cap.js/widget` 和浮动模式脚本，WASM 资源由 Widget 自行加载。无需开启旧版 `Widget files`。
+- 平台设置仅配置 Cap 服务域名、Site Key、Secret；前端 widget endpoint 为 `{domain}/{site-key}/`，后端校验地址为 `{domain}/{site-key}/siteverify`。
+- Go 后端仅向 Cap `siteverify` 发送 JSON：`{"secret":"...","response":"..."}`，并且只有返回 `success: true` 才允许登录。网络错误、非 2xx、无效响应和失败结果均按验证失败处理。
+- Secret 使用 AES-256-GCM 加密存储。设置 `CAP_SECRET_ENCRYPTION_KEY`（64 位 hex）或复用已有 `BOT_TOKEN_ENCRYPTION_KEY`；密钥丢失将无法解密已保存的 Cap Secret，必须随数据库备份一起安全保存。
+- 支持 `checkbox`、`floating`、`invisible` 三种模式。Cap token 是一次性令牌，每次登录尝试后都重新加载验证控件/挑战。
