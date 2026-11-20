@@ -24,7 +24,7 @@ export function createBotApi(data: CreateBotParams) {
 }
 
 export function renameBotApi(id: number, name: string) {
-  return requestClient.patch<{ id: number; name: string }>(`/bots/${id}`, { name });
+  return requestClient.request<{ id: number; name: string }>(`/bots/${id}`, { method: 'PATCH', data: { name } });
 }
 
 export function deleteBotApi(id: number) {
