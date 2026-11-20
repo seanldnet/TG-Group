@@ -16,8 +16,8 @@ export default defineConfig(async () => {
           '/api': {
             changeOrigin: true,
             rewrite: (path) => path.replace(/^\/api/, ''),
-            // mock代理目标地址
-            target: 'http://localhost:5320/api',
+            // Route API calls to the Go service; /api is stripped to match backend routes.
+            target: 'http://localhost:8080',
             ws: true,
           },
         },
