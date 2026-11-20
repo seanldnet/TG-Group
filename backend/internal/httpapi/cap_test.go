@@ -3,6 +3,9 @@ package httpapi
 import (
 	"strings"
 	"testing"
+	"net/http"
+	"net/http/httptest"
+	"encoding/json"
 )
 
 func TestCapSiteVerifyURL(t *testing.T) {
@@ -38,5 +41,32 @@ func TestCapSecretEncryptionRejectsInvalidKey(t *testing.T) {
 	verifier := CapVerifier{EncryptionKey: "invalid"}
 	if _, err := verifier.encryptSecret("secret"); err == nil {
 		t.Fatal("expected invalid encryption key error")
+	}
+}
+
+func TestVerifyCapTokenPostsJSONAndAcceptsSuccess(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost { t.Fatalf("method = %s, want POST", r.Method) }
+		if got := r.Header.Get("Content-Type"); got != "application/json" { t.Fatalf("Content-Type = %q", got) }
+		var payload capVerifyRequest
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil { t.Fatal(err) }
+		if payload.Secret != "cap-secret" || payload.Response != "one-time-token" {
+			t.Fatalf("unexpected verification payload: %#v", payload)
+		}
+		_, _ = w.Write([]byte(`{"success":true}`))
+	}))
+	defer server.Close()
+	if err := verifyCapToken(t.Context(), server.Client(), server.URL, "cap-secret", "one-time-token"); err != nil {
+		t.Fatalf("verifyCapToken() error = %v", err)
+	}
+}
+
+func TestVerifyCapTokenRejectsFailedResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"success":false}`))
+	}))
+	defer server.Close()
+	if err := verifyCapToken(t.Context(), server.Client(), server.URL, "secret", "token"); err == nil {
+		t.Fatal("expected unsuccessful Cap response to be rejected")
 	}
 }
