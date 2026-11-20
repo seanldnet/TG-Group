@@ -106,7 +106,7 @@ function savePreview() {
         <div class="flex flex-col gap-4">
           <div class="flex items-center justify-between">
             <div>
-              **启用登录人机验证**
+              <span class="font-medium">启用登录人机验证</span>
               <div class="text-muted-foreground text-xs">
                 开启后，Owner 登录必须通过 Cap 服务端校验
               </div>
