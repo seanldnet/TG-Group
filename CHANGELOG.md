@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.10] - 2026-11-21
+
+### Docker 云端镜像构建与 V5 静态资源集成（PR #9，CI 待确认）
+
+- 新增根目录多阶段 Dockerfile：Node/pnpm 云端构建 Vben V5 前端，Go 构建后端，最终运行镜像内置静态前端。
+- Go 服务新增 `WEB_DIR` 静态目录配置；同一端口提供前端页面、`/api/*` API 和健康检查。
+- V5 开发代理和生产 API 地址统一为 `/api`，关闭 Nitro mock。
+- 移除 backend-only Dockerfile，统一使用根目录 Dockerfile 构建正式镜像。
+- 新增 GHCR 多架构发布流水线：PR 只构建不推送；main/tag 发布版本标签、latest 与 SHA 标签，并输出 digest。
+- Compose 仍只引用预构建镜像，不包含 `build:`。
+- [ ] Docker multi-arch build CI 通过。
+- [ ] 全新 Compose 部署、登录、静态资源/API 路由验收。
+- [ ] GHCR 正式镜像发布与 digest 生产验收。
+
 ## [0.1.9] - 2026-11-21
 
 ### Telegram Bot 长轮询与群组/成员同步（PR #7，CI 待确认）
