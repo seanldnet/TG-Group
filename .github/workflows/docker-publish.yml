@@ -35,7 +35,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: docker-publish-\${{ github.ref }}
+  group: docker-publish-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -63,8 +63,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: \${{ github.actor }}
-          password: \${{ secrets.GITHUB_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate image metadata
         id: meta
@@ -84,9 +84,9 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
-          push: \${{ github.event_name != 'pull_request' }}
-          tags: \${{ steps.meta.outputs.tags }}
-          labels: \${{ steps.meta.outputs.labels }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -97,8 +97,8 @@ jobs:
             echo "### TG Group image published"
             echo ""
             echo "- Tags: \`$DOCKER_METADATA_OUTPUT_TAGS\`"
-            echo "- Digest: \`\${{ steps.build.outputs.digest }}\`"
-            echo "- Commit: \`\${{ github.sha }}\`"
+            echo "- Digest: \`${{ steps.build.outputs.digest }}\`"
+            echo "- Commit: \`${{ github.sha }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
         env:
-          DOCKER_METADATA_OUTPUT_TAGS: \${{ steps.meta.outputs.tags }}
+          DOCKER_METADATA_OUTPUT_TAGS: ${{ steps.meta.outputs.tags }}
