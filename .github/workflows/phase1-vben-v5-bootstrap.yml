@@ -1,0 +1,112 @@
+name: Phase 1 - Vben Admin V5 bootstrap
+
+on:
+  push:
+    branches:
+      - feat/phase-1-vben-v5
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: phase-1-vben-v5
+  cancel-in-progress: false
+
+jobs:
+  bootstrap-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout V5 phase branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${ github.ref_name }
+          fetch-depth: 0
+
+      - name: Preserve TG Group project documents and scripts
+        run: |
+          mkdir -p /tmp/tg-project/.github
+          cp -a README.md CHANGELOG.md docs scripts /tmp/tg-project/
+          cp -a .github/workflows /tmp/tg-project/.github/
+
+      - name: Import official Vue Vben Admin V5
+        env:
+          VBEN_V5_SHA: e726bc92780c1023c2393042871470d413ad79dc
+        run: |
+          git clone --depth 1 --branch main https://github.com/vbenjs/vue-vben-admin.git /tmp/vben-admin-v5
+          test "$(git -C /tmp/vben-admin-v5 rev-parse HEAD)" = "$VBEN_V5_SHA"
+          rsync -a --delete --exclude='.git' /tmp/vben-admin-v5/ ./
+          cp -a /tmp/tg-project/README.md ./README.md
+          cp -a /tmp/tg-project/CHANGELOG.md ./CHANGELOG.md
+          cp -a /tmp/tg-project/docs ./docs
+          cp -a /tmp/tg-project/scripts ./scripts
+          mkdir -p .github
+          cp -a /tmp/tg-project/.github/workflows .github/workflows
+          rm -f .github/workflows/phase1-vben-bootstrap.yml
+          chmod +x scripts/phase1-v5-ui.sh scripts/check-phase1-v5-spacing.sh
+
+      - name: Generate five V5-native administration pages
+        run: |
+          bash scripts/phase1-v5-ui.sh
+          bash scripts/check-phase1-v5-spacing.sh
+
+      - name: Commit and push V5 source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(admin): import Vben Admin V5 and add SaaS pages [skip ci]"
+          git push origin HEAD:${ github.ref_name }
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.18.0
+
+      - name: Set up pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+          pnpm --version
+
+      - name: Install V5 workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript validation
+        run: pnpm --filter @vben/web-antd run typecheck
+
+      - name: Production build
+        run: pnpm --filter @vben/web-antd run build
+
+      - name: Create Phase 1 pull request
+        env:
+          GH_TOKEN: ${ secrets.GITHUB_TOKEN }
+        run: |
+          existing="$(gh pr list --head "${ github.ref_name }" --base main --json number --jq 'length')"
+          if [ "$existing" = "0" ]; then
+            gh pr create \
+              --base main \
+              --head "${ github.ref_name }" \
+              --title "feat(admin): import Vben Admin V5 and build five SaaS pages" \
+              --body "## Phase 1 - Vben Admin V5 only
+          - Import official Vue Vben Admin V5 at pinned commit e726bc92780c1023c2393042871470d413ad79dc
+          - Remove the previous V2 bootstrap workflow and V2-specific scaffolding
+          - Add dashboard, orders, settings, agents, and payment gateway pages under apps/web-antd
+          - Use V5 Page component and Ant Design Vue 4 components; no V2 BasicTable/BasicForm/PageWrapper compatibility layer
+          - Enforce gap-4 page layouts and a source-level no-manual-margin check
+          
+          The pages are UI scaffolding with clearly marked demo data. No backend, tenant model, real payment or Bot action is claimed complete.
+          
+          Acceptance gate: spacing check, V5 TypeScript check, V5 production build, then five-page visual review."
+          else
+            echo "A Phase 1 pull request already exists."
+          fi
+
+      - name: Upload V5 production build
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tg-group-admin-v5-phase1-dist
+          path: apps/web-antd/dist/
+          if-no-files-found: error
