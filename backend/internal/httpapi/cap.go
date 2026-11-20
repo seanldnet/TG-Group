@@ -157,7 +157,14 @@ func verifyCapToken(ctx context.Context, client *http.Client, endpoint, secret, 
 	req, err := http.NewRequestWithContext(requestCtx, http.MethodPost, endpoint, bytes.NewReader(payload))
 	if err != nil { return err }
 	req.Header.Set("Content-Type", "application/json")
-	if client == nil { client = &http.Client{Timeout: 5*time.Second} }
+	if client == nil {
+		client = &http.Client{
+			Timeout: 5 * time.Second,
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+	}
 	resp, err := client.Do(req)
 	if err != nil { return fmt.Errorf("Cap verification request failed: %w", err) }
 	defer resp.Body.Close()
