@@ -9,13 +9,13 @@
 - Bot Token 使用 AES-256-GCM 加密后保存，接口仅返回 Token 掩码；新增 `BOT_TOKEN_ENCRYPTION_KEY` 配置及密钥持久化说明。
 - 新增 Bot Telegram username 唯一索引、Bot 列表群组计数及加密相关测试。
 - 新注册 Bot 保持 inactive；Telegram polling/update worker 仍待开发。
-- [ ] Go test/vet/build CI 通过。
+- [x] Go test/vet 已通过；build 正在运行。
 - [ ] V5 Bot 管理页面接入真实 API。
 
 ### Owner 认证与 V5 接入
 
 - PR #3 Owner 登录、持久化 Bearer 会话、退出撤销、密码修改和 Redis 登录限流的 Go CI 已通过。
-- PR #5 已提交 V5 登录页、用户信息、退出登录、密码修改真实 API 接入；TypeScript 与生产构建验证待通过。
+- PR #5 已提交 V5 登录页、用户信息、退出登录、密码修改真实 API 接入；V5 spacing、TypeScript 与生产构建 CI 已通过。
 - [ ] 浏览器端完整登录、退出和密码修改验收。
 
 ## [0.1.7] - 2026-11-21
