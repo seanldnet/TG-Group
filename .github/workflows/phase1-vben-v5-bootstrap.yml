@@ -34,7 +34,10 @@ jobs:
         env:
           VBEN_V5_SHA: e726bc92780c1023c2393042871470d413ad79dc
         run: |
-          git clone --depth 1 --branch main https://github.com/vbenjs/vue-vben-admin.git /tmp/vben-admin-v5
+          git init /tmp/vben-admin-v5
+          git -C /tmp/vben-admin-v5 remote add origin https://github.com/vbenjs/vue-vben-admin.git
+          git -C /tmp/vben-admin-v5 fetch --depth 1 origin "$VBEN_V5_SHA"
+          git -C /tmp/vben-admin-v5 checkout --detach FETCH_HEAD
           test "$(git -C /tmp/vben-admin-v5 rev-parse HEAD)" = "$VBEN_V5_SHA"
           rsync -a --delete --exclude='.git' /tmp/vben-admin-v5/ ./
           cp -a /tmp/tg-project/README.md ./README.md
@@ -44,6 +47,7 @@ jobs:
           mkdir -p .github
           cp -a /tmp/tg-project/.github/workflows .github/workflows
           rm -f .github/workflows/phase1-vben-bootstrap.yml
+          rm -f scripts/phase1-ui.sh scripts/check-ui-spacing.sh
           chmod +x scripts/phase1-v5-ui.sh scripts/check-phase1-v5-spacing.sh
 
       - name: Generate five V5-native administration pages
