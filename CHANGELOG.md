@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.6] - 2026-11-21
+
+### 后端基础设施第一批实现（PR #2，待 CI/审查）
+
+- 新增 Go HTTP 服务入口、环境配置、优雅关闭。
+- 新增 PostgreSQL 连接池、嵌入式 SQL migration 和迁移 ledger。
+- 新增单平台 Owner、多 Bot、群组、群成员、订单和平台设置初始 schema；不引入商户/租户/代理模型。
+- 新增首次 Owner bcrypt 初始化逻辑：仅在不存在 Owner 时创建默认 `admin / 123456`，不覆盖已存在账号密码。
+- 新增 Redis 连接和健康探针。
+- 新增包含应用、PostgreSQL、Redis 的 image-only Compose，带持久化 volumes 和健康检查。
+- 新增 Go test/vet/build CI 工作流。
+- [ ] Go CI 实际运行通过并完成数据库集成验收。
+- [ ] 登录/session API 与 V5 前端接通。
+- [ ] GHCR 云端镜像发布和 Docker 首装/升级验收。
+- [ ] 宝塔安装向导、Garble 多平台 Release 与 SHA-256 验收。
+
+本阶段不代表登录、Docker 镜像发布、宝塔安装器或 Garble Release 已交付。
+
 ## [0.1.5] - 2026-11-21
 
 ### 明确双部署模式及首次安装体验
@@ -13,8 +31,6 @@
 - [ ] Docker Compose 全新部署、升级及默认登录验收。
 - [ ] 宝塔上传二进制、网页安装向导及数据库迁移验收。
 - [ ] Garble 多平台构建、校验和与 smoke test。
-
-详细要求见 `docs/DEPLOYMENT.md`。本次提交只固化规格，不代表部署实现已经完成。
 
 ## [0.1.4] - 2026-11-21
 
