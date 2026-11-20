@@ -22,6 +22,7 @@ const captchaConfig = ref<{
 } | null>(null);
 const captchaWidget = ref<{ getToken: () => Promise<string> } | null>(null);
 const captchaToken = ref('');
+const captchaConfigLoaded = ref(false);
 
 const formSchema = computed((): VbenFormSchema[] => [
   {
@@ -58,10 +59,16 @@ onMounted(async () => {
     captchaConfig.value = config;
   } catch {
     message.error('无法读取人机验证配置，请稍后重试');
+  } finally {
+    captchaConfigLoaded.value = true;
   }
 });
 
 async function handleLogin(params: Record<string, unknown>) {
+  if (!captchaConfigLoaded.value || !captchaConfig.value) {
+    message.error('人机验证配置尚未加载，请稍后重试');
+    return;
+  }
   let token = '';
   if (captchaConfig.value?.enabled) {
     try {
