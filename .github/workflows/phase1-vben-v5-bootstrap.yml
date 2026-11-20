@@ -16,6 +16,7 @@ on:
   push:
     branches:
       - feat/phase-1-vben-v5
+      - feat/cap-login-verification
     paths:
       - 'apps/web-antd/**'
       - 'tg-group/scripts/**'
