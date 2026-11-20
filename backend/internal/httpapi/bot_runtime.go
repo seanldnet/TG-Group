@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -85,8 +84,15 @@ func (r *BotRuntime) Run(ctx context.Context) {
 	r.syncRunners(ctx)
 	ticker := time.NewTicker(r.SyncInterval)
 	defer ticker.Stop()
-	<-ctx.Done()
-	for _, runner := range r.runners { runner.cancel() }
+	for {
+		select {
+		case <-ticker.C:
+			r.syncRunners(ctx)
+		case <-ctx.Done():
+			for _, runner := range r.runners { runner.cancel() }
+			return
+		}
+	}
 }
 
 func (r *BotRuntime) syncRunners(ctx context.Context) {
@@ -112,7 +118,6 @@ func (r *BotRuntime) syncRunners(ctx context.Context) {
 			r.Logger.Error("scan active Telegram Bot failed", "error", err)
 			return
 		}
-		desired[id] = struct{}{}
 		if keyErr != nil {
 			r.markBotError(ctx, id)
 			continue
@@ -123,6 +128,7 @@ func (r *BotRuntime) syncRunners(ctx context.Context) {
 			r.markBotError(ctx, id)
 			continue
 		}
+		desired[id] = struct{}{}
 		bots = append(bots, activeBot{id: id, token: token, offset: offset})
 	}
 	if err := rows.Err(); err != nil {
@@ -155,18 +161,22 @@ func (r *BotRuntime) runBot(ctx context.Context, botID int64, token string, offs
 			if !sleepContext(ctx, 3*time.Second) { return }
 			continue
 		}
+		processFailed := false
 		for _, update := range updates {
 			if err := r.processUpdate(ctx, botID, update); err != nil {
 				r.Logger.Error("process Telegram update failed", "bot_id", botID, "update_id", update.UpdateID, "error", err)
+				processFailed = true
 				break
 			}
-			offset = update.UpdateID + 1
-			if _, err := r.DB.Exec(ctx, "UPDATE telegram_bots SET last_update_id = GREATEST(last_update_id, $1) WHERE id = $2", offset, botID); err != nil {
+			nextOffset := update.UpdateID + 1
+			if _, err := r.DB.Exec(ctx, "UPDATE telegram_bots SET last_update_id = GREATEST(last_update_id, $1) WHERE id = $2", nextOffset, botID); err != nil {
 				r.Logger.Error("persist Telegram polling offset failed", "bot_id", botID, "error", err)
-				offset = update.UpdateID
+				processFailed = true
 				break
 			}
+			offset = nextOffset
 		}
+		if processFailed && !sleepContext(ctx, 2*time.Second) { return }
 	}
 }
 
@@ -258,4 +268,3 @@ func sleepContext(ctx context.Context, delay time.Duration) bool {
 	}
 }
 
-var _ sync.Locker
