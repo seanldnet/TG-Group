@@ -180,7 +180,7 @@ onMounted(() => {
               {{ statusLabel(record.status) }}
             </Tag>
             <Space v-else-if="column.key === 'actions'">
-              <Button type="link" size="small" @click="openRename(record)">
+              <Button type="link" size="small" @click="openRename(record as BotRecord)">
                 重命名
               </Button>
               <Popconfirm
@@ -188,7 +188,7 @@ onMounted(() => {
                 description="该 Bot 关联的群组与成员记录也会按数据库级联规则删除。"
                 ok-text="删除"
                 cancel-text="取消"
-                @confirm="removeBot(record)"
+                @confirm="removeBot(record as BotRecord)"
               >
                 <Button danger type="link" size="small">删除</Button>
               </Popconfirm>
@@ -230,7 +230,7 @@ onMounted(() => {
       @ok="submitRename"
     >
       <div class="py-2">
-        <Input v-model:value="renameForm.name" maxlength="120" placeholder="机器人名称" />
+        <Input v-model:value="renameForm.name"  :maxlength="120" placeholder="机器人名称" />
       </div>
     </Modal>
   </Page>
