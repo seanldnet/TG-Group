@@ -23,6 +23,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '机器人管理', icon: 'lucide:bot' },
       },
       {
+        name: 'TgSaasGroups',
+        path: 'groups',
+        component: () => import('#/views/tg-saas/groups/index.vue'),
+        meta: { title: '群组管理', icon: 'lucide:users' },
+      },
+      {
         name: 'TgSaasOrders',
         path: 'orders',
         component: () => import('#/views/tg-saas/orders/index.vue'),
