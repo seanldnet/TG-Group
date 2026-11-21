@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.24] - 2026-11-22
+
+### 群管规则管理员豁免
+
+- 群管策略执行前通过 Telegram `getChatMember` 查询消息发送者身份；`creator` 与 `administrator` 不受自动删除规则影响。
+- 若 Telegram 无法确认发送者身份，则 fail-open 保留消息并记录警告，避免因权限/API 故障误删管理员消息。
+- 新增 getChatMember 成功响应与 API 错误单元测试；Go/Vben CI 待本次提交后执行。
+- 规则目前仍只检查普通文本，不覆盖媒体 caption 和 message entities；真实 Telegram 群验收仍待执行。
+
+
 ## [0.1.23] - 2026-11-22
 
 ### PR #22 Vben V5 TypeScript 修复与 CI 状态
