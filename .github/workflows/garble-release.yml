@@ -1,4 +1,5 @@
 name: Garble binary release
+run-name: Garble + V5 bundle / ${{ github.ref_name }}
 
 on:
   pull_request:
