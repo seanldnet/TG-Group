@@ -25,7 +25,7 @@ output="dist/tg-group-${GOOS}-${GOARCH}"
 )
 
 chmod 0755 "$output"
-garble version > dist/GARBLE-VERSION.txt
+garble version > "dist/GARBLE-VERSION-$GOOS-$GOARCH.txt"
 {
   printf 'version=%s\n' "$VERSION"
   printf 'commit=%s\n' "$COMMIT"
@@ -36,8 +36,8 @@ garble version > dist/GARBLE-VERSION.txt
   printf 'goarch=%s\n' "$GOARCH"
   printf 'garble_flags=-literals -tiny\n'
   printf 'build_flags=-trimpath -ldflags=-s-w\n'
-} > dist/BUILD-METADATA.txt
+} > "dist/BUILD-METADATA-$GOOS-$GOARCH.txt"
 (
   cd dist
-  sha256sum "$(basename "$output")" > SHA256SUMS
+  sha256sum "$(basename "$output")" > "$(basename "$output").sha256"
 )
