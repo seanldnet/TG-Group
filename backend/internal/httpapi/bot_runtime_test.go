@@ -33,3 +33,35 @@ func TestBotRuntimeGetUpdatesUnauthorized(t *testing.T) {
 	apiErr, ok := err.(*telegramAPIError)
 	if !ok || apiErr.Code != http.StatusUnauthorized { t.Fatalf("expected unauthorized Telegram API error, got %v", err) }
 }
+
+func TestBotRuntimeGetChatMemberStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/bot123456:valid_token/getChatMember" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("chat_id") != "-1001" || r.URL.Query().Get("user_id") != "99" {
+			t.Fatalf("unexpected query: %s", r.URL.RawQuery)
+		}
+		_, _ = w.Write([]byte(`{"ok":true,"result":{"status":"administrator"}}`))
+	}))
+	defer server.Close()
+
+	runtime := BotRuntime{TelegramAPIBaseURL: server.URL, HTTPClient: server.Client()}
+	status, err := runtime.telegramChatMemberStatus(context.Background(), "123456:valid_token", -1001, 99)
+	if err != nil { t.Fatalf("telegramChatMemberStatus() error = %v", err) }
+	if status != "administrator" { t.Fatalf("status = %q, want administrator", status) }
+}
+
+func TestBotRuntimeGetChatMemberStatusRejectsAPIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"ok":false,"description":"not enough rights"}`))
+	}))
+	defer server.Close()
+
+	runtime := BotRuntime{TelegramAPIBaseURL: server.URL, HTTPClient: server.Client()}
+	_, err := runtime.telegramChatMemberStatus(context.Background(), "123456:valid_token", -1001, 99)
+	if err == nil || !strings.Contains(err.Error(), "not enough rights") {
+		t.Fatalf("expected Telegram API error, got %v", err)
+	}
+}
