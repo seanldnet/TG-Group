@@ -54,7 +54,7 @@ onMounted(async () => {
   try {
     const result = await getGroupsApi({ page: 1, pageSize: 100 });
     groups.value = result.items;
-    if (groups.value.length) selectedGroupId.value = groups.value[0].id;
+    if (groups.value[0]) selectedGroupId.value = groups.value[0].id;
   } catch {
     error.value = '群组列表加载失败，请先确认机器人已同步群组。';
   }
