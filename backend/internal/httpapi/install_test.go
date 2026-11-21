@@ -104,7 +104,7 @@ func TestInstallCompleteIntegration(t *testing.T) {
 		OwnerPassword: "Strong-Owner-Password-2026",
 	}
 	configPath := filepath.Join(t.TempDir(), "config.json")
-	handler := &InstallHandler{ConfigFile: configPath}
+	handler := &InstallHandler{ConfigFile: configPath, Token: "integration-token"}
 	body, err := json.Marshal(input)
 	if err != nil {
 		t.Fatal(err)
