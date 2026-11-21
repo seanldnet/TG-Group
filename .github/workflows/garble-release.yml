@@ -5,8 +5,15 @@ on:
     branches:
       - main
       - feat/docker-one-click-install
+      - feat/baota-web-installer
     paths:
       - 'backend/**'
+      - 'apps/web-antd/**'
+      - 'packages/**'
+      - 'internal/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
       - 'scripts/release/**'
       - '.github/workflows/garble-release.yml'
   push:
