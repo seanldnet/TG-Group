@@ -58,7 +58,7 @@ jobs:
           GOARCH: ${{ matrix.arch }}
           VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0-ci' }}
           COMMIT: ${{ github.sha }}
-          BUILD_TIME: ${{ github.run_id }}
+          BUILD_TIME: ${{ github.run_started_at }}
         run: bash scripts/release/build-garble.sh
 
       - name: Enable QEMU for target-architecture smoke test
@@ -94,7 +94,7 @@ jobs:
       - name: Generate aggregate checksums and metadata
         working-directory: release-assets
         run: |
-          sha256sum tg-group-* > SHA256SUMS
+          sha256sum tg-group-linux-amd64 tg-group-linux-arm64 > SHA256SUMS
           {
             echo "TG Group Garble release"
             echo "Version: ${GITHUB_REF_NAME}"
