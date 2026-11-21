@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.20] - 2026-11-22
+
+### 订单管理 CI 修复
+
+- 后端 Go test/vet/build 与 PostgreSQL 17、Redis 7 服务 CI 通过。
+- Vben V5 间距与单 Owner 检查通过；首次 TypeScript 检查发现订单状态表格插槽的 any 类型索引问题，已修复并等待重跑。
+- 生产构建、artifact 上传和浏览器验收尚未确认。
+
 ## [0.1.19] - 2026-11-21
 
 ### 订单管理真实数据接入
