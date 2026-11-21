@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.17] - 2026-11-21
+
+### 运营总览真实数据接入（PR #19 开发中）
+
+- 新增 Owner 会话保护的 `GET /dashboard/summary`，汇总真实 Bot、群组、群成员和最近订单数据。
+- Dashboard 移除硬编码演示指标与虚构订单，接入真实 API，并提供加载、错误和空状态。
+- 订单金额展示数据库 `amount_minor` 原始最小单位，避免在未明确单位换算前错误显示 USDT 金额。
+- [ ] Go/PostgreSQL/Redis 集成 CI、Vben V5 spacing/TypeScript/production build 和浏览器验收待运行。
+
 ## [0.1.16] - 2026-11-21
 
 ### PR #17 集成分支 CI 状态校准
