@@ -8,6 +8,7 @@ on:
       - feat/bot-runtime-worker-v2
       - feat/baota-release-bundle-v2
       - feat/v5-cap-integration
+      - feat/dashboard-live-summary
     paths:
       - 'apps/web-antd/**'
       - 'packages/effects/common-ui/**'
@@ -19,6 +20,7 @@ on:
     branches:
       - feat/phase-1-vben-v5
       - feat/v5-cap-integration
+      - feat/order-management-live-data
     paths:
       - 'apps/web-antd/**'
       - 'packages/effects/common-ui/**'
