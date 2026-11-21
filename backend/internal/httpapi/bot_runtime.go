@@ -237,7 +237,7 @@ func (r *BotRuntime) processUpdate(ctx context.Context, botID int64, token strin
 		for _, member := range update.Message.NewChatMembers {
 			if err := r.upsertMember(ctx, groupID, member, "member"); err != nil { return err }
 		}
-		if err := r.enforceGroupRules(ctx, token, groupID, chat.ID, *update.Message); err != nil {
+		if err := r.enforceGroupRules(ctx, token, groupID, chat.ID, update.Message.From, *update.Message); err != nil {
 			r.Logger.Warn("group moderation action failed", "bot_id", botID, "group_id", groupID, "error", err)
 		}
 	}
@@ -256,7 +256,7 @@ type storedGroupRules struct {
 	BlockedKeywords []string
 }
 
-func (r *BotRuntime) enforceGroupRules(ctx context.Context, token string, groupID, chatID int64, message telegramMessage) error {
+func (r *BotRuntime) enforceGroupRules(ctx context.Context, token string, groupID, chatID int64, sender *telegramUser, message telegramMessage) error {
 	if message.MessageID <= 0 || strings.TrimSpace(message.Text) == "" { return nil }
 	var rules storedGroupRules
 	err := r.DB.QueryRow(ctx, `
@@ -281,6 +281,31 @@ func (r *BotRuntime) enforceGroupRules(ctx context.Context, token string, groupI
 	}
 	if !matched { return nil }
 	return r.deleteTelegramMessage(ctx, token, chatID, message.MessageID)
+}
+
+func (r *BotRuntime) telegramChatMemberStatus(ctx context.Context, token string, chatID, userID int64) (string, error) {
+	base := strings.TrimRight(r.TelegramAPIBaseURL, "/")
+	if base == "" { base = "https://api.telegram.org" }
+	query := url.Values{}
+	query.Set("chat_id", strconv.FormatInt(chatID, 10))
+	query.Set("user_id", strconv.FormatInt(userID, 10))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/bot"+token+"/getChatMember?"+query.Encode(), nil)
+	if err != nil { return "", err }
+	resp, err := r.HTTPClient.Do(req)
+	if err != nil { return "", err }
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil { return "", err }
+	var result struct {
+		OK bool `json:"ok"`
+		Description string `json:"description"`
+		Result struct { Status string `json:"status"` } `json:"result"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil { return "", err }
+	if resp.StatusCode != http.StatusOK || !result.OK {
+		return "", fmt.Errorf("Telegram getChatMember failed (HTTP %d): %s", resp.StatusCode, result.Description)
+	}
+	return result.Result.Status, nil
 }
 
 func (r *BotRuntime) deleteTelegramMessage(ctx context.Context, token string, chatID, messageID int64) error {
