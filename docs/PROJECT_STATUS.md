@@ -1,6 +1,6 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.14
+- 文档版本：0.1.15
 - 更新日期：2026-11-21
 - 仓库：seanldnet/TG-Group
 - 前端阶段分支：feat/phase-1-vben-v5（PR #1，Draft）
@@ -135,3 +135,18 @@
 - [x] Garble + V5 静态资源构建、linux/amd64/arm64 混淆构建、QEMU smoke test 和 PR artifacts 全部通过（Actions run 44843856015；在 rebase 前的等价 staging branch 上运行，PR #16 保留相同 workflow 实现）。
 - [ ] 宝塔真实服务器上传、解包、服务启动、安装向导、登录和升级验收。
 - [ ] 最终发布必须在集成 V5 登录/Cap 的完整分支重新构建；本分支前端资源只代表当前基线，不代表 PR #12 Cap 已集成。
+
+
+## Vben V5 Owner 登录与新版 Cap 验证集成（PR #17，CI 待运行）
+
+- 将 PR #5 的真实 Owner 登录、退出、修改密码流程与 PR #12 的新版 Cap 实现集成到 Docker/宝塔交付链。
+- 登录页读取公开 Cap 配置；启用时提供 checkbox、floating、invisible 三种模式，提交时携带一次性 captchaToken；每次登录尝试后重新挂载控件。
+- Cap Widget 固定从 jsDelivr 加载 `@cap.js/widget@0.1.63`；不使用旧版 Widget files，不引入 V2 兼容层。
+- 平台设置支持 Cap 服务域名、Site Key、Secret、启停和模式选择；已删除设置页中用户不需要的两组说明提示框。
+- Go 登录接口在校验账号密码前调用 Cap `siteverify`；超时、非 2xx、无效 JSON、success=false 均拒绝登录。
+- Cap Secret 使用 AES-256-GCM 加密存储；密钥优先 `CAP_SECRET_ENCRYPTION_KEY`，默认回退到安装向导生成并持久化的 `BOT_TOKEN_ENCRYPTION_KEY`。
+- 新增 Cap URL 校验、Secret 加解密、siteverify 请求/响应单元测试；PR #17 CI 待运行。
+- [ ] Go test/vet/build、安全检查通过。
+- [ ] Vben V5 spacing、TypeScript、production build 通过。
+- [ ] 浏览器配置用户自建新版 Cap 后完成 checkbox/floating/invisible 三模式真实 E2E。
+- [ ] 最终 Docker 和 Garble Release 必须从包含 Cap 的集成分支重新构建；PR #12 原分支仍独立 Draft，不会自动进入已发布镜像。
