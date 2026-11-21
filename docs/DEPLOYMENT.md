@@ -248,3 +248,15 @@ sudo docker compose --env-file .env -f compose.yaml ps
 - 当前 PR 的 V5 静态资源来自其所在分支；PR #12 Cap 登录验证分支尚未集成。正式 Release 必须从完成 V5 登录、Cap 和安装向导集成的最终分支重新构建。
 - systemd 服务模板将 HTTP 绑定到 loopback，并使用专用无登录用户；反向代理必须保留原始 Host，以通过安装接口的 Origin 校验。
 - 宝塔真实服务器的安装、重启、HTTPS 反代和升级验收仍需执行。
+
+
+## Cap 新版登录人机验证
+
+- 使用新版 Cap Widget；浏览器从 jsDelivr 加载固定版本 `@cap.js/widget@0.1.63` 与 floating 模式脚本，WASM 资源由 Widget 自行加载。不需要开启旧版 `Widget files`。
+- 平台设置配置 Cap 服务域名、Site Key、Secret、启用开关和显示模式；支持 `checkbox`、`floating`、`invisible`。
+- 登录页 Widget endpoint 为 `{domain}/{site-key}/`；Go 后端验证地址为 `{domain}/{site-key}/siteverify`。
+- Go 后端以 JSON `{"secret":"...","response":"..."}` 调用 `siteverify`，只有 HTTP 2xx 且 JSON `success: true` 才允许继续登录；验证错误、超时、无效响应或失败结果均拒绝登录。
+- Secret 使用 AES-256-GCM 加密存储，优先使用 `CAP_SECRET_ENCRYPTION_KEY`（64 hex chars），未配置时复用安装向导生成的 `BOT_TOKEN_ENCRYPTION_KEY`。必须随配置文件和数据库备份一起安全保存。
+- Cap token 是一次性令牌，每次登录尝试后都会重新挂载挑战控件；前端不会复用上次 token。
+- 若自建 Cap 启用了 `CORS_ORIGIN` 白名单，需加入 TG Group 登录页的来源域名；浏览器会直接请求 Cap 服务 challenge/redeem，Go 后端只负责 `siteverify`。
+- 严格 CSP 至少允许 jsDelivr 脚本/连接、Cap 服务域名连接、`worker-src blob:` 和 Cap 所需 `wasm-unsafe-eval`；不要开启宽泛 `unsafe-eval`。
