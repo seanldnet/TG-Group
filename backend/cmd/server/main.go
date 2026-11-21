@@ -170,7 +170,7 @@ func loadOrCreateInstallToken(path string) (string, error) {
 		}
 		return "", err
 	}
-	if _, err := file.WriteString(token + "\\n"); err != nil {
+	if _, err := file.WriteString(token + "\n"); err != nil {
 		_ = file.Close()
 		_ = os.Remove(path)
 		return "", err
