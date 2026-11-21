@@ -30,6 +30,7 @@ type persistedConfig struct {
 	RedisAddr string `json:"redisAddr"`
 	RedisPassword string `json:"redisPassword"`
 	RedisDB int `json:"redisDB"`
+	BotTokenEncryptionKey string `json:"botTokenEncryptionKey"`
 }
 
 func Load() (Config, error) {
@@ -58,7 +59,7 @@ func Load() (Config, error) {
 		RedisPassword: envOr(os.Getenv("REDIS_PASSWORD"), saved.RedisPassword),
 		AdminUsername: env("INITIAL_ADMIN_USERNAME", "admin"),
 		AdminPassword: env("INITIAL_ADMIN_PASSWORD", "123456"),
-		BotTokenEncryptionKey: strings.TrimSpace(os.Getenv("BOT_TOKEN_ENCRYPTION_KEY")),
+		BotTokenEncryptionKey: env("BOT_TOKEN_ENCRYPTION_KEY", strings.TrimSpace(saved.BotTokenEncryptionKey)),
 		ShutdownTimeout: 10 * time.Second,
 		ConfigFile: configFile,
 	}
