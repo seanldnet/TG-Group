@@ -67,7 +67,7 @@ onMounted(async () => {
       <Alert v-if="error" :message="error" type="error" show-icon />
       <Alert
         message="规则说明"
-        description="当前版本提供群组级策略保存接口。规则执行器仍需通过 CI 和 Telegram 实际群组验证后才可启用；未启用的策略不会自动删除消息。"
+        description="当前版本提供群组级策略保存接口。已保存的规则会由 Bot 轮询器检查普通文本消息；命中链接或关键词时尝试删除消息。Bot 需要具备删除消息权限。"
         type="info"
         show-icon
       />
@@ -83,13 +83,13 @@ onMounted(async () => {
               placeholder="选择需要配置规则的群组"
             />
           </div>
-          <Checkbox v-model:checked="blockLinks">拦截普通消息中的链接（策略保存后暂不自动执行）</Checkbox>
+          <Checkbox v-model:checked="blockLinks">拦截普通文本消息中的链接</Checkbox>
           <div class="flex flex-col gap-2">
             <span class="font-medium">屏蔽关键词</span>
             <Input.TextArea
               v-model:value="keywordsText"
               :rows="8"
-              placeholder="每行一个关键词，命中后作为待执行的拦截策略"
+              placeholder="每行一个关键词，消息包含关键词时尝试删除"
             />
             <span class="text-xs text-muted-foreground">最多 100 个关键词，每个最多 64 个字符。</span>
           </div>
