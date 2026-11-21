@@ -1,6 +1,6 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.16
+- 文档版本：0.1.18
 - 更新日期：2026-11-21
 - 仓库：seanldnet/TG-Group
 - 前端阶段分支：feat/phase-1-vben-v5（PR #1，Draft）
@@ -165,3 +165,13 @@
 - [ ] 浏览器端 Owner 登录、登出、改密完整验收。
 - [ ] 用户自建 Cap 实例三种模式逐项 E2E 验收。
 - [ ] Docker 正式 GHCR 发布、生产 digest 验收及宝塔真实服务器验收。
+
+
+## 运营总览真实数据接入（PR #19，CI 全绿）
+
+- 新增 Owner 会话保护的 `GET /dashboard/summary`，从 PostgreSQL 汇总 Bot 总数、运行中 Bot、群组数、群成员记录数及最近 10 笔订单。
+- Dashboard 前端移除演示指标和虚构订单，改为调用真实 API；增加加载、错误和空数据状态。
+- 订单金额明确显示数据库原始 `amount_minor` 最小单位值，不擅自假设展示精度；订单类型因当前 schema 未提供而不再展示虚构字段。
+- [x] Go test/vet/build 与 PostgreSQL 17/Redis 7 集成 CI 通过（Actions run 44882643375）。
+- [x] Vben V5 spacing、TypeScript、生产构建和 artifact 上传通过（Actions run 44882643424）。
+- [ ] 浏览器端 Owner 登录后 Dashboard 数据验收。
