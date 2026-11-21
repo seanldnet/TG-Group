@@ -3,8 +3,8 @@ package httpapi
 import (
 	"context"
 	"crypto/rand"
-	"encoding/hex"
 	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,8 +18,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/seanldnet/tg-group/backend/internal/store"
