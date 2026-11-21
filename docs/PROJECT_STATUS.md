@@ -1,6 +1,6 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.15
+- 文档版本：0.1.16
 - 更新日期：2026-11-21
 - 仓库：seanldnet/TG-Group
 - 前端阶段分支：feat/phase-1-vben-v5（PR #1，Draft）
@@ -137,7 +137,7 @@
 - [ ] 最终发布必须在集成 V5 登录/Cap 的完整分支重新构建；本分支前端资源只代表当前基线，不代表 PR #12 Cap 已集成。
 
 
-## Vben V5 Owner 登录与新版 Cap 验证集成（PR #17，CI 待运行）
+## Vben V5 Owner 登录与新版 Cap 验证集成（PR #17，CI 全绿）
 
 - 将 PR #5 的真实 Owner 登录、退出、修改密码流程与 PR #12 的新版 Cap 实现集成到 Docker/宝塔交付链。
 - 登录页读取公开 Cap 配置；启用时提供 checkbox、floating、invisible 三种模式，提交时携带一次性 captchaToken；每次登录尝试后重新挂载控件。
@@ -151,4 +151,17 @@
 - [ ] 浏览器配置用户自建新版 Cap 后完成 checkbox/floating/invisible 三模式真实 E2E。
 - [x] PR #17 的 Vben V5 静态资源包已成功构建并上传（Garble run 44845396665 的 web-assets job）。
 - [x] Garble linux/amd64、linux/arm64 混淆构建、QEMU 版本 smoke test、前端静态资源打包和 PR artifacts 全部通过（Actions run 44845607727）；正式 Tag Release 未执行。
-- [ ] Docker 多架构 build-only 仍在运行，未推送 GHCR。
+- [x] Docker 多架构 build-only 验证通过（Actions run 44845979949）；PR 构建未登录 GHCR、未推送镜像。
+
+
+## PR #17 集成分支最新验证校准（0.1.16）
+
+- PR #17 head：`a0bf48f894117cbc3031d4ec0e7414dddf61c29a`；PR 仍为 Draft，base 为 `feat/baota-release-bundle-v2`，未合并到 main。
+- [x] Go test、vet、build 与 PostgreSQL 17 / Redis 7 服务容器集成验证通过（Actions run 44845979907）。
+- [x] Vben V5 自动间距/单 Owner 架构检查、TypeScript、生产构建及 artifact 上传通过（Actions run 44845979927）。
+- [x] Docker image-only Compose contract 与 linux/amd64、linux/arm64 多架构 build-only 通过（Actions run 44845979949）；PR 不发布 GHCR 镜像。
+- [x] V5 静态资源构建、Garble linux/amd64 与 linux/arm64 混淆构建、QEMU smoke test、PR artifacts 通过（Actions run 44845980018）；正式 Tag Release 未执行。
+- 用户已确认 Cap 人机验证当前使用正常；但尚无分别覆盖 checkbox、floating、invisible 三模式的可复核浏览器 E2E 记录，因此不将三模式完整验收标记为通过。
+- [ ] 浏览器端 Owner 登录、登出、改密完整验收。
+- [ ] 用户自建 Cap 实例三种模式逐项 E2E 验收。
+- [ ] Docker 正式 GHCR 发布、生产 digest 验收及宝塔真实服务器验收。
