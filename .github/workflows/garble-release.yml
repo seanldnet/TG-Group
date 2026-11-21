@@ -52,13 +52,15 @@ jobs:
           go test ./...
           go vet ./...
 
+      - name: Set UTC build timestamp
+        run: echo "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
       - name: Build obfuscated release binary
         env:
           GOOS: linux
           GOARCH: ${{ matrix.arch }}
           VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0-ci' }}
           COMMIT: ${{ github.sha }}
-          BUILD_TIME: ${{ github.run_started_at }}
         run: bash scripts/release/build-garble.sh
 
       - name: Enable QEMU for target-architecture smoke test
