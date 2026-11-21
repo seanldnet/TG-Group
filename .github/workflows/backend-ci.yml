@@ -10,6 +10,8 @@ on:
       - feat/bot-management-api
       - feat/bot-runtime-worker-v2
       - feat/docker-one-click-install
+      - feat/garble-release-pipeline
+      - feat/baota-web-installer
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
