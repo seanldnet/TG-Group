@@ -67,7 +67,7 @@ jobs:
       - name: Smoke test binary in target architecture
         run: |
           docker run --rm --platform linux/${{ matrix.arch }} \
-            -v "$PWD/dist:/dist:ro" alpine:3.21 /dist/tg-group --version
+            -v "$PWD/dist:/dist:ro" alpine:3.21 /dist/tg-group-linux-${{ matrix.arch }} --version
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
