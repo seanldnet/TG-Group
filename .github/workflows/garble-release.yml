@@ -68,9 +68,15 @@ jobs:
         uses: docker/setup-qemu-action@v3
 
       - name: Smoke test binary in target architecture
+        env:
+          EXPECTED_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.0.0-ci' }}
+          EXPECTED_COMMIT: ${{ github.sha }}
         run: |
-          docker run --rm --platform linux/${{ matrix.arch }} \
-            -v "$PWD/dist:/dist:ro" alpine:3.21 /dist/tg-group-linux-${{ matrix.arch }} --version
+          output="$(docker run --rm --platform linux/${{ matrix.arch }} \
+            -v "$PWD/dist:/dist:ro" alpine:3.21 /dist/tg-group-linux-${{ matrix.arch }} --version)"
+          printf '%s\\n' "$output"
+          grep -F "TG Group $EXPECTED_VERSION" <<< "$output"
+          grep -F "$EXPECTED_COMMIT" <<< "$output"
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
