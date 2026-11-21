@@ -138,6 +138,17 @@ func TestInstallCompleteIntegration(t *testing.T) {
 	if info.Mode().Perm() != 0600 {
 		t.Fatalf("install config mode = %o, want 600", info.Mode().Perm())
 	}
+	var persisted persistedInstallConfig
+	configBytes, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(configBytes, &persisted); err != nil {
+		t.Fatal(err)
+	}
+	if len(persisted.BotTokenEncryptionKey) != 64 {
+		t.Fatalf("generated Bot token encryption key length = %d, want 64 hex characters", len(persisted.BotTokenEncryptionKey))
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
