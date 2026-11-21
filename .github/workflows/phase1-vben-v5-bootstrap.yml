@@ -20,6 +20,7 @@ on:
       - feat/v5-cap-integration
     paths:
       - 'apps/web-antd/**'
+      - 'packages/effects/common-ui/**'
       - 'tg-group/scripts/**'
       - '.github/workflows/phase1-vben-v5-bootstrap.yml'
       - 'pnpm-lock.yaml'
