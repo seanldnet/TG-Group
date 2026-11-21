@@ -127,54 +127,54 @@ onMounted(async () => {
       <Card title="订单列表">
         <div class="flex flex-col gap-4">
           <div class="flex flex-wrap items-center gap-3">
-          <Select
-            v-model:value="selectedBot"
-            :options="botOptions"
-            class="min-w-52"
-            placeholder="所属机器人"
-          />
-          <Select
-            v-model:value="selectedStatus"
-            :options="statusOptions"
-            class="min-w-36"
-            placeholder="订单状态"
-          />
-          <Input
-            v-model:value="keyword"
-            allow-clear
-            class="w-64"
-            placeholder="搜索订单号或 Telegram 用户 ID"
-            @press-enter="searchOrders"
-          />
-          <Button type="primary" @click="searchOrders">查询</Button>
-          <Button @click="resetFilters">重置</Button>
+            <Select
+              v-model:value="selectedBot"
+              :options="botOptions"
+              class="min-w-52"
+              placeholder="所属机器人"
+            />
+            <Select
+              v-model:value="selectedStatus"
+              :options="statusOptions"
+              class="min-w-36"
+              placeholder="订单状态"
+            />
+            <Input
+              v-model:value="keyword"
+              allow-clear
+              class="w-64"
+              placeholder="搜索订单号或 Telegram 用户 ID"
+              @press-enter="searchOrders"
+            />
+            <Button type="primary" @click="searchOrders">查询</Button>
+            <Button @click="resetFilters">重置</Button>
           </div>
           <Table
-          :columns="columns"
-          :data-source="orders.items"
-          :loading="loading"
-          :pagination="{
-            current: orders.page,
-            pageSize: orders.pageSize,
-            total: orders.total,
-            showSizeChanger: true,
-          }"
-          :scroll="{ x: 1100 }"
-          row-key="orderNo"
-          size="middle"
-          @change="handleTableChange"
-        >
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'createdAt'">
-              {{ formatDate(record.createdAt) }}
+            :columns="columns"
+            :data-source="orders.items"
+            :loading="loading"
+            :pagination="{
+              current: orders.page,
+              pageSize: orders.pageSize,
+              total: orders.total,
+              showSizeChanger: true,
+            }"
+            :scroll="{ x: 1100 }"
+            row-key="orderNo"
+            size="middle"
+            @change="handleTableChange"
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'createdAt'">
+                {{ formatDate(record.createdAt) }}
+              </template>
+              <template v-else-if="column.key === 'amountMinor'">
+                {{ record.amountMinor.toLocaleString() }}
+              </template>
+              <Tag v-else-if="column.key === 'status'" :color="statusColors[record.status]">
+                {{ statusLabels[record.status] }}
+              </Tag>
             </template>
-            <template v-else-if="column.key === 'amountMinor'">
-              {{ record.amountMinor.toLocaleString() }}
-            </template>
-            <Tag v-else-if="column.key === 'status'" :color="statusColors[record.status]">
-              {{ statusLabels[record.status] }}
-            </Tag>
-          </template>
           </Table>
         </div>
       </Card>
