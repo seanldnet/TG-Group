@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.16] - 2026-11-21
+
+### PR #17 集成分支 CI 状态校准
+
+- 修正 PR #17 状态文档：Go/PostgreSQL/Redis、Vben V5、Docker 多架构 build-only、Garble 双架构构建及 QEMU smoke test 均已通过。
+- 明确 PR #17 仍为 Draft，未合并 main；PR 构建不推送 GHCR，正式 Tag Release 和生产 digest 验收仍待执行。
+- 记录用户已确认 Cap 当前可用，但不将未分别验证的 checkbox、floating、invisible 三模式 E2E 标记为全部通过。
+- [x] Backend CI（Actions run 44845979907）。
+- [x] Vben V5 validation（Actions run 44845979927）。
+- [x] Docker multi-arch build-only（Actions run 44845979949）。
+- [x] Garble + V5 assets + QEMU smoke tests（Actions run 44845980018）。
+
 ## [0.1.15] - 2026-11-21
 
 ### Vben V5 Owner 登录与新版 Cap 验证集成（PR #17，CI 待运行）
