@@ -1,6 +1,6 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.18
+- 文档版本：0.1.21
 - 更新日期：2026-11-21
 - 仓库：seanldnet/TG-Group
 - 前端阶段分支：feat/phase-1-vben-v5（PR #1，Draft）
@@ -175,3 +175,17 @@
 - [x] Go test/vet/build 与 PostgreSQL 17/Redis 7 集成 CI 通过（Actions run 44882643375）。
 - [x] Vben V5 spacing、TypeScript、生产构建和 artifact 上传通过（Actions run 44882643424）。
 - [ ] 浏览器端 Owner 登录后 Dashboard 数据验收。
+
+
+## 订单管理真实数据接入（PR #20，后端与前端 CI 全绿；浏览器验收待做）
+
+- 新增 Owner 会话保护的 `GET /orders`，支持按 Bot ID、订单状态、订单号/Telegram 用户 ID 查询。
+- 后端分页参数限制为 page >= 1、pageSize 1–100，默认每页 20 条；返回 items、total、page、pageSize。
+- 订单列表从 PostgreSQL `orders` 表读取并关联 Bot 名称；不增加 schema 中不存在的订单类型字段。
+- V5 订单页面移除硬编码演示订单和假 Bot 筛选项，改为从真实 Bot API 加载筛选项并请求真实订单数据。
+- 页面支持分页、Bot 筛选、状态筛选、订单号/Telegram 用户 ID 搜索、加载/错误/空数据状态。
+- 金额按数据库 `amount_minor` 原始最小单位展示，不擅自换算 USDT 小数；不提供未实现的支付、退款或订单状态变更按钮。
+- [x] Go test/vet/build 与 PostgreSQL 17/Redis 7 CI 通过（Actions run 44890789818）。
+- [x] Vben V5 间距与单 Owner 架构检查通过（Actions run 44890789799）。
+- [x] 首次 Vben TypeScript 检查发现订单状态表格插槽类型收窄问题；已修复并提交 `3d763eb`。后续完整复验通过：V5 spacing/架构检查、TypeScript、production build、artifact 上传（Actions run 44940473464，artifact `tg-group-admin-v5-phase1-dist`，SHA-256 `a23792a11955e2a5b0e42b7cc9cdf1341b524c3b0140155a34daedff8058f461`）。
+- [ ] Owner 登录后订单列表、Bot 筛选、状态筛选、搜索及分页浏览器验收。CI 通过不等于浏览器 E2E 已通过。

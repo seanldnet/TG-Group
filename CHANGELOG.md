@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.21] - 2026-11-22
+
+### 订单管理 CI 修复
+
+- 后端 Go test/vet/build 与 PostgreSQL 17、Redis 7 服务 CI 通过。
+- 修复订单状态表格插槽的 `any` 类型索引问题。
+- 后端 Go test/vet/build 与 PostgreSQL 17、Redis 7 服务 CI 通过（run 44940473483）。
+- Vben V5 spacing/架构检查、TypeScript、production build 与 artifact 上传全部通过（run 44940473464）。
+- CI artifact：`tg-group-admin-v5-phase1-dist`，SHA-256：`a23792a11955e2a5b0e42b7cc9cdf1341b524c3b0140155a34daedff8058f461`。
+- Owner 登录后的订单页面浏览器验收仍待执行；PR #20 仍为 Draft，未合并 main。
+
+## [0.1.19] - 2026-11-21
+
+### 订单管理真实数据接入
+
+- 新增 Owner 会话保护的订单列表 API，支持 Bot、状态、订单号/Telegram 用户 ID 筛选与服务端分页。
+- V5 订单页移除演示数据，接入真实 Bot 列表与 PostgreSQL 订单查询。
+- 金额保留数据库最小单位展示，不虚构订单类型或金额换算。
+- Go/V5 CI 与浏览器验收待执行，不提前标记通过。
+
+
 ## [0.1.18] - 2026-11-21
 
 ### 运营总览真实数据接入（PR #19 开发中）
