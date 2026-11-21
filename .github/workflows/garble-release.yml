@@ -168,5 +168,11 @@ jobs:
             release-assets/tg-group-linux-amd64
             release-assets/tg-group-linux-arm64
             release-assets/tg-group-web-assets.tar.gz
+            release-assets/tg-group-linux-amd64.sha256
+            release-assets/tg-group-linux-arm64.sha256
+            release-assets/GARBLE-VERSION-linux-amd64.txt
+            release-assets/GARBLE-VERSION-linux-arm64.txt
+            release-assets/BUILD-METADATA-linux-amd64.txt
+            release-assets/BUILD-METADATA-linux-arm64.txt
             release-assets/SHA256SUMS
             release-assets/BUILD-METADATA.txt
