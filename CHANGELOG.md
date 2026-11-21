@@ -11,8 +11,9 @@
 - 安装配置原子写入默认 `/var/lib/tg-group/config.json`，权限 0600；安装锁创建后拒绝再次访问安装入口。
 - 首次启动生成 256-bit 随机安装令牌并以 0600 权限保存，安装 API 必须通过 `X-Install-Token` 校验；令牌在宝塔服务日志中仅作为首次引导凭据提供。
 - 安装成功后需要通过宝塔面板重启服务，加载配置进入正常管理模式。
-- [ ] Go test/vet/build CI 通过。
-- [ ] PostgreSQL/Redis 真实集成、安装重试、安装锁与重启登录验收通过。
+- [x] Go test/vet/build CI 通过；PostgreSQL 17 + Redis 7 安装集成测试通过（Actions run 44843294641）。
+- [x] PostgreSQL 17/Redis 7 服务容器集成测试通过，覆盖首次安装、Owner bcrypt、配置文件/密钥持久化、安装锁及拒绝覆盖现有 Owner。
+- [ ] 宝塔真实服务器守护进程重启、反向代理与浏览器登录验收。
 
 ## [0.1.12] - 2026-11-21
 
