@@ -1,13 +1,15 @@
 # Changelog
 
-## [0.1.17] - 2026-11-21
+## [0.1.18] - 2026-11-21
 
 ### 运营总览真实数据接入（PR #19 开发中）
 
 - 新增 Owner 会话保护的 `GET /dashboard/summary`，汇总真实 Bot、群组、群成员和最近订单数据。
 - Dashboard 移除硬编码演示指标与虚构订单，接入真实 API，并提供加载、错误和空状态。
 - 订单金额展示数据库 `amount_minor` 原始最小单位，避免在未明确单位换算前错误显示 USDT 金额。
-- [ ] Go/PostgreSQL/Redis 集成 CI、Vben V5 spacing/TypeScript/production build 和浏览器验收待运行。
+- [x] Go test/vet/build 与 PostgreSQL 17/Redis 7 服务容器 CI 通过（Actions run 44882643375）。
+- [x] Vben V5 spacing、TypeScript、production build 和 artifact 上传通过（Actions run 44882643424）。
+- [ ] Owner 登录后的浏览器端真实数据验收待完成。
 
 ## [0.1.16] - 2026-11-21
 
