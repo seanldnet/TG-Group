@@ -29,6 +29,8 @@ on:
       - feat/baota-web-installer
       - feat/v5-cap-integration
       - feat/order-management-live-data
+      - feat/group-management-live-data
+      - feat/group-moderation-rules
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'

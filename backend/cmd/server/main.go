@@ -118,6 +118,7 @@ func runApplication(signalCtx context.Context, logger *slog.Logger, cfg config.C
 	httpapi.DashboardHandler{DB: db}.Register(apiMux, authHandler)
 	httpapi.OrderHandler{DB: db}.Register(apiMux, authHandler)
 	httpapi.GroupHandler{DB: db}.Register(apiMux, authHandler)
+	httpapi.GroupRulesHandler{DB: db}.Register(apiMux, authHandler)
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/", http.StripPrefix("/api", apiMux))

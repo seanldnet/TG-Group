@@ -23,6 +23,8 @@ on:
       - feat/phase-1-vben-v5
       - feat/v5-cap-integration
       - feat/order-management-live-data
+      - feat/group-management-live-data
+      - feat/group-moderation-rules
     paths:
       - 'apps/web-antd/**'
       - 'packages/effects/common-ui/**'

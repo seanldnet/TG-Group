@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.1.24] - 2026-11-22
+
+### 群管规则管理员豁免
+
+- 群管策略执行前通过 Telegram `getChatMember` 查询消息发送者身份；`creator` 与 `administrator` 不受自动删除规则影响。
+- 若 Telegram 无法确认发送者身份，则 fail-open 保留消息并记录警告，避免因权限/API 故障误删管理员消息。
+- 新增 getChatMember 成功响应与 API 错误单元测试；Go/Vben CI 待本次提交后执行。
+- 规则目前仍只检查普通文本，不覆盖媒体 caption 和 message entities；真实 Telegram 群验收仍待执行。
+
+
+## [0.1.23] - 2026-11-22
+
+### PR #22 Vben V5 TypeScript 修复与 CI 状态
+
+- 修复群管规则页在群组列表为空时访问 `groups[0].id` 导致的 TS2532；改为先检查首个群组对象。
+- Go test/vet/build 与 PostgreSQL 17、Redis 7 服务容器 CI 通过（run 44941649944）。
+- Vben V5 spacing/架构检查通过；首次 TypeScript 检查失败，修复已提交，修复后 TypeScript、生产构建和 artifact 上传待复验（run 44941649890）。
+- PR #22 仍为 Draft；Telegram 实群验收未执行，不标记为通过。
+
+## [0.1.22] - 2026-11-22
+
+### 群管规则配置与执行（PR #22）
+
+- 新增群组级链接拦截、关键词规则持久化及 Owner 保护的读取/保存 API。
+- Bot 运行时对普通文本消息执行策略匹配，命中后调用 Telegram `deleteMessage`。
+- 规则默认关闭；当前不覆盖媒体 caption、message entities，也没有管理员豁免。
+- 本次状态由 0.1.23 记录最新 CI 结果和 TypeScript 修复。
+
+
 ## [0.1.21] - 2026-11-22
 
 ### 订单管理 CI 修复
