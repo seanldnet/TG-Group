@@ -21,6 +21,7 @@ on:
       - feat/backend-foundation
       - feat/auth-session-api
       - feat/garble-release-pipeline
+      - feat/baota-web-installer
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
