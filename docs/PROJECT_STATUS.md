@@ -118,8 +118,8 @@
 - 新增中文安装页面，支持 PostgreSQL 主机/端口/数据库/用户名/密码/SSL mode，Redis 地址/密码/DB，以及用户自设 Owner 用户名/密码。
 - 安装前可单独测试 PostgreSQL 与 Redis；提交安装时再次验证连接、执行嵌入式数据库迁移并初始化 Owner。
 - Owner 密码长度要求 12–72 bytes，数据库只存 bcrypt hash；Owner 密码不写入配置文件。若数据库已有 Owner，必须提交匹配的用户名和密码，避免安装过程覆盖现有账号。
-- 安装配置原子写入 `APP_CONFIG_FILE`（默认 `/var/lib/tg-group/config.json`），文件权限 0600；安装锁存在后安装页/API fail closed。
+- 安装配置原子写入 `APP_CONFIG_FILE`（默认 `/var/lib/tg-group/config.json`），文件权限 0600；安装锁存在后安装页/API fail closed。首次启动还会生成独立 256-bit 安装令牌（同目录 `.install-token`，权限 0600），令牌通过宝塔服务日志提示，并通过 `X-Install-Token` 保护安装 API。
 - 安装成功后需在宝塔面板重启服务，应用读取配置文件进入正常运行模式；Docker Compose 的 `DATABASE_URL` 环境变量启动路径保持不变。
-- [ ] PR #14 Go test/vet/build CI 全绿。
+- [ ] PR #14 Go test/vet/build CI 全绿（含 PostgreSQL 17 + Redis 7 服务容器的安装集成测试）。
 - [ ] 使用真实 PostgreSQL/Redis 完成首次安装、错误凭据、迁移重试、安装锁、重启登录和密码不覆盖集成验收。
 - [ ] 最终 Garble Release 需在集成 V5/Cap 和安装向导的完整分支重新构建。
