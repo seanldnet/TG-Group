@@ -38,14 +38,57 @@ func main() {
 
 func run(logger *slog.Logger) error {
 	cfg, err := config.Load()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
+	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if cfg.NeedsSetup {
+		return runInstaller(signalCtx, logger, cfg)
+	}
+	return runApplication(signalCtx, logger, cfg)
+}
+
+func runInstaller(ctx context.Context, logger *slog.Logger, cfg config.Config) error {
+	mux := http.NewServeMux()
+	(&httpapi.InstallHandler{ConfigFile: cfg.ConfigFile}).Register(mux)
+	server := &http.Server{
+		Addr: cfg.HTTPAddr, Handler: mux,
+		ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second,
+	}
+	serverErrors := make(chan error, 1)
+	go func() {
+		logger.Info("first-run installation wizard listening", "address", cfg.HTTPAddr)
+		serverErrors <- server.ListenAndServe()
+	}()
+	select {
+	case err := <-serverErrors:
+		if !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+		return nil
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+		defer cancel()
+		return server.Shutdown(shutdownCtx)
+	}
+}
+
+func runApplication(signalCtx context.Context, logger *slog.Logger, cfg config.Config) error {
 	startupCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	db, err := store.OpenPostgres(startupCtx, cfg.DatabaseURL)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer db.Close()
-	if err := store.Migrate(startupCtx, db); err != nil { return err }
-	if err := store.SeedOwner(startupCtx, db, cfg.AdminUsername, cfg.AdminPassword); err != nil { return err }
+	if err := store.Migrate(startupCtx, db); err != nil {
+		return err
+	}
+	if err := store.SeedOwner(startupCtx, db, cfg.AdminUsername, cfg.AdminPassword); err != nil {
+		return err
+	}
 
 	redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr, Password: cfg.RedisPassword, DB: cfg.RedisDB})
 	if err := redisClient.Ping(startupCtx).Err(); err != nil {
@@ -53,8 +96,6 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 	defer redisClient.Close()
-	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 	go (&httpapi.BotRuntime{DB: db, EncryptionKey: cfg.BotTokenEncryptionKey, Logger: logger}).Run(signalCtx)
 
 	apiMux := http.NewServeMux()
@@ -67,7 +108,7 @@ func run(logger *slog.Logger) error {
 	mux.Handle("/api/", http.StripPrefix("/api", apiMux))
 	mux.Handle("/health/", apiMux)
 	mux.Handle("/", http.FileServer(http.Dir(cfg.WebDir)))
-	server := &http.Server{Addr: cfg.HTTPAddr, Handler: mux, ReadHeaderTimeout: 5*time.Second, IdleTimeout: 60*time.Second}
+	server := &http.Server{Addr: cfg.HTTPAddr, Handler: mux, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
 	serverErrors := make(chan error, 1)
 	go func() {
 		logger.Info("HTTP server listening", "address", cfg.HTTPAddr)
@@ -75,7 +116,9 @@ func run(logger *slog.Logger) error {
 	}()
 	select {
 	case err := <-serverErrors:
-		if !errors.Is(err, http.ErrServerClosed) { return err }
+		if !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
 		return nil
 	case <-signalCtx.Done():
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
