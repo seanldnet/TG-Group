@@ -1,6 +1,6 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.23
+- 文档版本：0.1.24
 - 更新日期：2026-11-22
 - 仓库：seanldnet/TG-Group
 - 前端阶段分支：feat/phase-1-vben-v5（PR #1，Draft）
@@ -11,15 +11,20 @@
 - Docker 镜像交付分支：feat/docker-release-pipeline-v2（PR #10，Draft，基于 PR #7）
 - V5 认证接入分支：feat/vben-auth-integration-v2（PR #5，Draft，基于 PR #3）
 - V5 Bot 页面分支：feat/vben-bot-management（PR #8，Draft，基于 PR #5；V5 CI 全绿）
-- 当前状态：PR #20 订单管理前后端 CI 已通过，浏览器验收待做；PR #21 群组管理真实数据接入为 Draft，CI/浏览器验收待确认；PR #22 群管规则配置与链接/关键词删除执行为 Draft，后端 Go/PostgreSQL/Redis CI 通过，前端首次 TypeScript 检查发现并已修复空群组索引问题，修复后的 V5 CI 待复跑；Telegram 实群验收待执行
+- 当前状态：PR #20 订单管理前后端 CI 已通过，浏览器验收待做；PR #21 群组管理真实数据接入为 Draft，CI/浏览器验收待确认；PR #22 群管规则配置与链接/关键词删除执行为 Draft，后端 Go/PostgreSQL/Redis CI 通过，空群组索引修复后 V5 与 Go CI 全绿；新增 Telegram 管理员豁免并等待 CI；Telegram 实群验收待执行
 
-## PR #22 本轮验证与修复（0.1.23）
+## PR #22 本轮验证与修复（0.1.24）
 
 - Actions run `44941649944`：Go test、vet、build 与 PostgreSQL 17 / Redis 7 服务容器验证全部通过。
 - Actions run `44941649890`：Vben V5 spacing/架构检查通过；TypeScript 检查发现规则页在空群组列表时直接读取 `groups[0].id`，触发 TS2532。
 - 已在 `apps/web-antd/src/views/tg-saas/rules/index.vue` 改为先判断首个群组对象存在再读取 ID；修复提交 `c8477466e94dfa19bf20954a5cf1ea2e0d01187a`，修复后的 V5 TypeScript、生产构建与 artifact 仍待 CI 复验。
 - 迁移加载器使用 `//go:embed migrations/*.sql` 并按文件名排序，`002_group_moderation_rules.sql` 位于嵌入目录内，会自动纳入迁移；当前命名与既有 `000001`–`000004` 格式不统一，但排序后仍在既有迁移之后执行。
-- 不把 CI 通过等同于 Telegram 实群验收；规则当前仅检查普通文本 `message.text`，不检查媒体 caption / message entities，且尚无管理员豁免。
+- 修复提交 `c8477466e94dfa19bf20954a5cf1ea2e0d01187a` 的复验：Go test/vet/build 与 PostgreSQL 17/Redis 7 通过（run `44941834498`）；Vben V5 spacing/架构、TypeScript、production build 与 artifact 上传通过（run `44941834555`）。
+- 新增管理员豁免：对命中规则的消息调用 Telegram `getChatMember`，`creator` / `administrator` 不执行删除；无法确认发送者身份时 fail-open，保留消息并记录警告，避免误删管理员消息。
+- 新增 `getChatMember` 成功/错误响应单元测试；本次代码提交 `b9a6477`、测试提交 `6740006`，CI 待执行。
+- 规则仍仅检查普通文本 `message.text`，不检查媒体 caption / message entities；管理员豁免不能替代真实 Telegram 群验收。
+- 迁移加载器使用 `//go:embed migrations/*.sql` 并按文件名排序，`002_group_moderation_rules.sql` 会自动纳入迁移；与 `000001`–`000004` 命名风格不同但排序后在现有迁移之后执行。
+- 不把 CI 通过等同于 Telegram 实群验收。
 
 ## 产品架构基线
 
