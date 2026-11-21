@@ -6,7 +6,6 @@ import { Page } from '@vben/common-ui';
 import { getBotsApi, type BotSummary } from '#/api/core/bots';
 import {
   getOrdersApi,
-  type OrderListItem,
   type OrderListResult,
   type OrderStatus,
 } from '#/api/core/orders';
@@ -165,7 +164,7 @@ onMounted(async () => {
           size="middle"
           @change="handleTableChange"
         >
-          <template #bodyCell="{ column, record }: { column: { key: string }; record: OrderListItem }">
+          <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'createdAt'">
               {{ formatDate(record.createdAt) }}
             </template>
