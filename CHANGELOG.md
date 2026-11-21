@@ -8,6 +8,7 @@
 - 新增 PostgreSQL/Redis 连接测试、SSL mode 选择、数据库迁移和用户自设 Owner 初始化。
 - Owner 密码只以 bcrypt hash 写入数据库；检测已有 Owner 时要求匹配原账号凭据，拒绝覆盖。
 - 安装配置原子写入默认 `/var/lib/tg-group/config.json`，权限 0600；安装锁创建后拒绝再次访问安装入口。
+- 首次启动生成 256-bit 随机安装令牌并以 0600 权限保存，安装 API 必须通过 `X-Install-Token` 校验；令牌在宝塔服务日志中仅作为首次引导凭据提供。
 - 安装成功后需要通过宝塔面板重启服务，加载配置进入正常管理模式。
 - [ ] Go test/vet/build CI 通过。
 - [ ] PostgreSQL/Redis 真实集成、安装重试、安装锁与重启登录验收通过。
@@ -20,7 +21,7 @@
 - 新增构建脚本，嵌入版本、commit、构建时间和目标架构信息，并为每个架构生成 SHA-256。
 - 新增 `--version` 输出，CI 通过 QEMU 在对应目标架构容器中执行二进制 smoke test。
 - Pull Request 仅构建并保存 CI artifacts；只有推送 `v*` tag 才创建 GitHub Release 并上传二进制、SHA256SUMS 和构建元数据。
-- [ ] 两种目标架构的 Garble build、QEMU smoke test 和 Release 流水线实际通过。
+- [x] PR #13 的 linux/amd64、linux/arm64 Garble build、QEMU smoke test、CI artifacts 和 Go test/vet/build 均通过；正式 Tag Release 尚未执行。
 - [ ] 宝塔网页安装向导及安装锁仍待后续独立阶段实现。
 
 ## [0.1.11] - 2026-11-21
