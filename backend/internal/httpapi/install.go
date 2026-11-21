@@ -69,6 +69,10 @@ func (h *InstallHandler) page(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *InstallHandler) testConnections(w http.ResponseWriter, r *http.Request) {
+	if h.isInstalled() {
+		apiError(w, http.StatusGone, "installation is already locked")
+		return
+	}
 	input, ok := h.decodeAndValidate(w, r, false)
 	if !ok {
 		return
@@ -163,7 +167,7 @@ func (h *InstallHandler) decodeAndValidate(w http.ResponseWriter, r *http.Reques
 	input.OwnerUsername = strings.TrimSpace(input.OwnerUsername)
 	if input.PostgresHost == "" || strings.ContainsAny(input.PostgresHost, " /\\\t\r\n") ||
 		input.PostgresPort < 1 || input.PostgresPort > 65535 ||
-		input.PostgresDatabase == "" || input.PostgresUsername == "" ||
+		input.PostgresDatabase == "" || strings.ContainsAny(input.PostgresDatabase, "/?#") || input.PostgresUsername == "" ||
 		input.RedisAddress == "" || strings.ContainsAny(input.RedisAddress, "\r\n") ||
 		input.RedisDB < 0 {
 		apiError(w, http.StatusBadRequest, "PostgreSQL and Redis connection fields are invalid")
@@ -185,8 +189,14 @@ func (h *InstallHandler) decodeAndValidate(w http.ResponseWriter, r *http.Reques
 			return input, false
 		}
 	}
-	if _, _, err := net.SplitHostPort(input.RedisAddress); err != nil {
+	redisHost, redisPort, err := net.SplitHostPort(input.RedisAddress)
+	if err != nil || redisHost == "" {
 		apiError(w, http.StatusBadRequest, "Redis address must include host and port, for example 127.0.0.1:6379")
+		return input, false
+	}
+	portNumber, err := strconv.Atoi(redisPort)
+	if err != nil || portNumber < 1 || portNumber > 65535 {
+		apiError(w, http.StatusBadRequest, "Redis port must be between 1 and 65535")
 		return input, false
 	}
 	return input, true
@@ -228,7 +238,7 @@ func testInstallDependencies(parent context.Context, input installRequest) error
 
 func (h *InstallHandler) isInstalled() bool {
 	_, err := os.Lstat(h.ConfigFile)
-	return err == nil
+	return err == nil || !os.IsNotExist(err)
 }
 
 func (h *InstallHandler) persistConfig(config persistedInstallConfig) error {
