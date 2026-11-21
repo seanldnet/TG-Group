@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
@@ -49,6 +51,7 @@ type persistedInstallConfig struct {
 	RedisAddr    string `json:"redisAddr"`
 	RedisPassword string `json:"redisPassword"`
 	RedisDB      int    `json:"redisDB"`
+	BotTokenEncryptionKey string `json:"botTokenEncryptionKey"`
 }
 
 func (h *InstallHandler) Register(mux *http.ServeMux) {
@@ -151,9 +154,15 @@ func (h *InstallHandler) complete(w http.ResponseWriter, r *http.Request) {
 		apiError(w, http.StatusInternalServerError, "could not inspect the existing platform owner")
 		return
 	}
+	encryptionKeyBytes := make([]byte, 32)
+	if _, err := rand.Read(encryptionKeyBytes); err != nil {
+		apiError(w, http.StatusInternalServerError, "could not generate application encryption key")
+		return
+	}
 	config := persistedInstallConfig{
 		DatabaseURL: databaseURL, RedisAddr: input.RedisAddress,
 		RedisPassword: input.RedisPassword, RedisDB: input.RedisDB,
+		BotTokenEncryptionKey: hex.EncodeToString(encryptionKeyBytes),
 	}
 	if err := h.persistConfig(config); err != nil {
 		apiError(w, http.StatusInternalServerError, "Owner initialized but configuration could not be saved; fix config directory permissions and retry with the same Owner username and password")
