@@ -38,7 +38,7 @@ func TestLoadEntersSetupModeWithoutDatabaseURL(t *testing.T) {
 
 func TestLoadReadsPersistedInstallConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
-	data := []byte(`{"databaseURL":"postgres://user:pass@db:5432/tg_group","redisAddr":"redis:6379","redisPassword":"redis-secret","redisDB":3}`)
+	data := []byte(`{"databaseURL":"postgres://user:pass@db:5432/tg_group","redisAddr":"redis:6379","redisPassword":"redis-secret","redisDB":3,"botTokenEncryptionKey":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`)
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestLoadReadsPersistedInstallConfig(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 	if cfg.NeedsSetup || cfg.DatabaseURL != "postgres://user:pass@db:5432/tg_group" ||
-		cfg.RedisAddr != "redis:6379" || cfg.RedisPassword != "redis-secret" || cfg.RedisDB != 3 {
+		cfg.RedisAddr != "redis:6379" || cfg.RedisPassword != "redis-secret" || cfg.RedisDB != 3 || cfg.BotTokenEncryptionKey != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
 		t.Fatalf("unexpected persisted configuration: %#v", cfg)
 	}
 }
