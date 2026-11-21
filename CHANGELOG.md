@@ -9,8 +9,8 @@
 - 后端登录前强制调用 Cap `siteverify`；验证失败、超时、非 2xx 和无效响应均拒绝登录。
 - Cap Secret 以 AES-256-GCM 加密入库，优先使用 `CAP_SECRET_ENCRYPTION_KEY`，回退到安装配置中持久化的 Bot Token AES-256-GCM 密钥。
 - Cap 设置页支持域名、Site Key、Secret、启停和模式选择；移除设置页不需要的说明提示框。
-- [ ] Go test/vet/build CI 通过。
-- [ ] Vben V5 spacing、TypeScript、production build CI 通过。
+- [x] Go test/vet/build 与 Cap 单元测试通过（Actions run 44845396660）。
+- [x] Vben V5 spacing、TypeScript、production build 与 artifact 上传通过（Actions run 44845396655）。
 - [ ] 用户自建 Cap 实例三种模式浏览器端 E2E 通过。
 
 ## [0.1.14] - 2026-11-21
