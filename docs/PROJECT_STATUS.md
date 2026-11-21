@@ -86,4 +86,6 @@
 - 平台设置仅需 Cap 服务域名、Site Key、Secret，另可启停验证并选择显示模式；Secret 使用 AES-256-GCM 加密入库，读取配置时不返回明文。
 - 加密密钥优先读取 `CAP_SECRET_ENCRYPTION_KEY`，未设置时复用 `BOT_TOKEN_ENCRYPTION_KEY`；必须保持该密钥稳定并纳入安全备份。
 - 登录页验证组件适配 Vben V5，复选框与浮动触发入口均限制在账号/密码输入框宽度内；隐形模式在提交时执行。
-- CI、TypeScript、生产构建和实际 Cap 自建实例联调待完成。
+- [x] Go test/vet/build CI 通过（run 44840730682，commit ad50df4）。
+- [x] V5 spacing、TypeScript、production build CI 通过（run 44840730584，commit ad50df4）。
+- [ ] 真实浏览器连接用户自建 Cap 实例的端到端验收待部署配置后完成。
