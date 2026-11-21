@@ -9,6 +9,7 @@ on:
       - feat/auth-session-api
       - feat/bot-management-api
       - feat/bot-runtime-worker-v2
+      - feat/docker-one-click-install
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
@@ -17,6 +18,7 @@ on:
     branches:
       - feat/backend-foundation
       - feat/auth-session-api
+      - feat/garble-release-pipeline
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
