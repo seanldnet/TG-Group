@@ -8,7 +8,8 @@
 - 静态资源构建固定 Node 22.18.0 / pnpm 11.16.0，并在构建后校验 `index.html` 存在。
 - Release SHA256SUMS 覆盖两个架构二进制和前端静态资源包，BUILD-METADATA 记录 Go/Garble/Node/pnpm 版本。
 - 新增带基础 systemd 安全限制的 `tg-group.service`，默认仅监听 loopback，便于宝塔 Nginx HTTPS 反向代理。
-- [ ] Garble + V5 前端构建、Release artifact 和校验和 CI 通过。
+- [x] Vben V5 前端生产构建、静态资源打包、Garble linux/amd64/arm64 构建、QEMU smoke test 与 PR artifacts 通过（Actions run 44843856015；rebase 前等价 staging branch）。
+- [ ] 正式 Tag 发布时的聚合 SHA256SUMS 与 GitHub Release 上传。
 - [ ] 宝塔真实服务器安装、反向代理、首次初始化和升级验收。
 
 ## [0.1.13] - 2026-11-21
