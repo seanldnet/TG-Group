@@ -11,6 +11,7 @@
 - Cap 设置页支持域名、Site Key、Secret、启停和模式选择；移除设置页不需要的说明提示框。
 - [x] Go test/vet/build 与 Cap 单元测试通过（Actions run 44845396660）。
 - [x] Vben V5 spacing、TypeScript、production build 与 artifact 上传通过（Actions run 44845396655）。
+- [x] Garble linux/amd64、linux/arm64 混淆构建、QEMU smoke test 与 V5 静态资源 PR artifacts 通过（Actions run 44845607727）；正式 Tag Release 未执行。
 - [ ] 用户自建 Cap 实例三种模式浏览器端 E2E 通过。
 
 ## [0.1.14] - 2026-11-21
