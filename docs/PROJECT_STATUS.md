@@ -132,6 +132,6 @@
 - Release 静态资源构建固定 Node 22.18.0、pnpm 11.16.0；前端执行 `pnpm --filter @vben/web-antd run build`。
 - 新增 `scripts/deploy/tg-group.service`：以专用无登录用户运行，监听 127.0.0.1:8080，配置文件写入 /var/lib/tg-group，启用 systemd 基础安全限制。
 - 部署文档补充二进制/静态资源安装、首次安装令牌读取、Nginx HTTPS 反向代理、服务重启和升级步骤。
-- [ ] Garble + V5 静态资源 Release bundle workflow 全绿。
+- [x] Garble + V5 静态资源构建、linux/amd64/arm64 混淆构建、QEMU smoke test 和 PR artifacts 全部通过（Actions run 44843856015；在 rebase 前的等价 staging branch 上运行，PR #16 保留相同 workflow 实现）。
 - [ ] 宝塔真实服务器上传、解包、服务启动、安装向导、登录和升级验收。
 - [ ] 最终发布必须在集成 V5 登录/Cap 的完整分支重新构建；本分支前端资源只代表当前基线，不代表 PR #12 Cap 已集成。
