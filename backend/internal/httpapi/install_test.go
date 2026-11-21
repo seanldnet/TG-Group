@@ -1,11 +1,22 @@
 package httpapi
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestBuildDatabaseURLEscapesCredentialsAndIPv6(t *testing.T) {
@@ -65,5 +76,102 @@ func TestPersistConfigCreatesPrivateInstallLock(t *testing.T) {
 	}
 	if err := handler.persistConfig(config); err == nil {
 		t.Fatal("persistConfig() should not overwrite an existing installation lock")
+	}
+}
+
+
+func TestInstallCompleteIntegration(t *testing.T) {
+	testDatabaseURL := os.Getenv("TEST_DATABASE_URL")
+	redisAddress := os.Getenv("TEST_REDIS_ADDR")
+	if testDatabaseURL == "" || redisAddress == "" {
+		t.Skip("TEST_DATABASE_URL and TEST_REDIS_ADDR are required for install integration test")
+	}
+	parsed, err := url.Parse(testDatabaseURL)
+	if err != nil {
+		t.Fatalf("parse TEST_DATABASE_URL: %v", err)
+	}
+	port, err := strconv.Atoi(parsed.Port())
+	if err != nil {
+		t.Fatalf("parse PostgreSQL port: %v", err)
+	}
+	password, _ := parsed.User.Password()
+	input := installRequest{
+		PostgresHost: parsed.Hostname(), PostgresPort: port,
+		PostgresDatabase: strings.TrimPrefix(parsed.Path, "/"),
+		PostgresUsername: parsed.User.Username(), PostgresPassword: password,
+		PostgresSSLMode: parsed.Query().Get("sslmode"),
+		RedisAddress: redisAddress, OwnerUsername: fmt.Sprintf("owner-%d", time.Now().UnixNano()),
+		OwnerPassword: "Strong-Owner-Password-2026",
+	}
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	handler := &InstallHandler{ConfigFile: configPath}
+	body, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/install/complete", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.complete(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("install completion status = %d, body = %s", response.Code, response.Body.String())
+	}
+	var result struct {
+		Code int `json:"code"`
+		Data struct {
+			Installed bool `json:"installed"`
+			RestartRequired bool `json:"restartRequired"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode install response: %v", err)
+	}
+	if result.Code != 0 || !result.Data.Installed || !result.Data.RestartRequired {
+		t.Fatalf("unexpected install response: %#v", result)
+	}
+	info, err := os.Stat(configPath)
+	if err != nil {
+		t.Fatalf("stat install config: %v", err)
+	}
+	if info.Mode().Perm() != 0600 {
+		t.Fatalf("install config mode = %o, want 600", info.Mode().Perm())
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	db, err := pgxpool.New(ctx, testDatabaseURL)
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	defer db.Close()
+	var passwordHash string
+	if err := db.QueryRow(ctx, "SELECT password_hash FROM platform_users WHERE username = $1 AND role = 'owner'", input.OwnerUsername).Scan(&passwordHash); err != nil {
+		t.Fatalf("find initialized Owner: %v", err)
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(input.OwnerPassword)); err != nil {
+		t.Fatalf("Owner password was not bcrypt-hashed correctly: %v", err)
+	}
+
+	lockedPage := httptest.NewRecorder()
+	handler.page(lockedPage, httptest.NewRequest(http.MethodGet, "/", nil))
+	if lockedPage.Code != http.StatusGone {
+		t.Fatalf("installer page status after completion = %d, want 410", lockedPage.Code)
+	}
+	lockedAPI := httptest.NewRecorder()
+	handler.testConnections(lockedAPI, httptest.NewRequest(http.MethodPost, "/api/install/test", bytes.NewReader(body)))
+	if lockedAPI.Code != http.StatusGone {
+		t.Fatalf("installer test API status after completion = %d, want 410", lockedAPI.Code)
+	}
+
+	// A second installation attempt against the same database must not replace
+	// the existing Owner's password or username.
+	second := input
+	second.OwnerPassword = "Different-Owner-Password-2026"
+	secondBody, _ := json.Marshal(second)
+	secondHandler := &InstallHandler{ConfigFile: filepath.Join(t.TempDir(), "second-config.json")}
+	secondResponse := httptest.NewRecorder()
+	secondHandler.complete(secondResponse, httptest.NewRequest(http.MethodPost, "/api/install/complete", bytes.NewReader(secondBody)))
+	if secondResponse.Code != http.StatusConflict {
+		t.Fatalf("second install status = %d, want 409; body = %s", secondResponse.Code, secondResponse.Body.String())
 	}
 }
