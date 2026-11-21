@@ -36,6 +36,7 @@ export const useAuthStore = defineStore('auth', () => {
       const { accessToken } = await loginApi({
         username: String(params.username ?? ''),
         password: String(params.password ?? ''),
+        captchaToken: String(params.captchaToken ?? ''),
       });
 
       // 如果成功获取到 accessToken

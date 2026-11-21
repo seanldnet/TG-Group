@@ -44,7 +44,10 @@ func run(logger *slog.Logger) error {
 	defer redisClient.Close()
 	mux := http.NewServeMux()
 	httpapi.HealthHandler{DB: db, Redis: redisClient}.Register(mux)
-	httpapi.AuthHandler{DB: db, Redis: redisClient}.Register(mux)
+	capVerifier := &httpapi.CapVerifier{DB: db, EncryptionKey: cfg.CapSecretEncryptionKey}
+	authHandler := httpapi.AuthHandler{DB: db, Redis: redisClient, Cap: capVerifier}
+	authHandler.Register(mux)
+	capVerifier.Register(mux, authHandler)
 	server := &http.Server{Addr: cfg.HTTPAddr, Handler: mux, ReadHeaderTimeout: 5*time.Second, IdleTimeout: 60*time.Second}
 	serverErrors := make(chan error, 1)
 	go func() {

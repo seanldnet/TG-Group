@@ -16,6 +16,7 @@ type Config struct {
 	RedisDB int
 	AdminUsername string
 	AdminPassword string
+	CapSecretEncryptionKey string
 	ShutdownTimeout time.Duration
 }
 
@@ -27,6 +28,7 @@ func Load() (Config, error) {
 		RedisPassword: os.Getenv("REDIS_PASSWORD"),
 		AdminUsername: env("INITIAL_ADMIN_USERNAME", "admin"),
 		AdminPassword: env("INITIAL_ADMIN_PASSWORD", "123456"),
+		CapSecretEncryptionKey: env("CAP_SECRET_ENCRYPTION_KEY", strings.TrimSpace(os.Getenv("BOT_TOKEN_ENCRYPTION_KEY"))),
 		ShutdownTimeout: 10 * time.Second,
 	}
 	parsed, err := strconv.Atoi(env("REDIS_DB", "0"))
