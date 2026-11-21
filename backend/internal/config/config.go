@@ -20,6 +20,7 @@ type Config struct {
 	AdminUsername string
 	AdminPassword string
 	BotTokenEncryptionKey string
+	CapSecretEncryptionKey string
 	ShutdownTimeout time.Duration
 	ConfigFile string
 	NeedsSetup bool
@@ -60,6 +61,7 @@ func Load() (Config, error) {
 		AdminUsername: env("INITIAL_ADMIN_USERNAME", "admin"),
 		AdminPassword: env("INITIAL_ADMIN_PASSWORD", "123456"),
 		BotTokenEncryptionKey: env("BOT_TOKEN_ENCRYPTION_KEY", strings.TrimSpace(saved.BotTokenEncryptionKey)),
+		CapSecretEncryptionKey: env("CAP_SECRET_ENCRYPTION_KEY", env("BOT_TOKEN_ENCRYPTION_KEY", strings.TrimSpace(saved.BotTokenEncryptionKey))),
 		ShutdownTimeout: 10 * time.Second,
 		ConfigFile: configFile,
 	}

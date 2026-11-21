@@ -47,12 +47,13 @@ func TestLoadReadsPersistedInstallConfig(t *testing.T) {
 	t.Setenv("REDIS_ADDR", "")
 	t.Setenv("REDIS_PASSWORD", "")
 	t.Setenv("REDIS_DB", "")
+	t.Setenv("CAP_SECRET_ENCRYPTION_KEY", "")
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
 	if cfg.NeedsSetup || cfg.DatabaseURL != "postgres://user:pass@db:5432/tg_group" ||
-		cfg.RedisAddr != "redis:6379" || cfg.RedisPassword != "redis-secret" || cfg.RedisDB != 3 || cfg.BotTokenEncryptionKey != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
+		cfg.RedisAddr != "redis:6379" || cfg.RedisPassword != "redis-secret" || cfg.RedisDB != 3 || cfg.BotTokenEncryptionKey != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || cfg.CapSecretEncryptionKey != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
 		t.Fatalf("unexpected persisted configuration: %#v", cfg)
 	}
 }

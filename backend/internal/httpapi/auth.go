@@ -27,11 +27,13 @@ const (
 type AuthHandler struct {
 	DB    *pgxpool.Pool
 	Redis *redis.Client
+	Cap   *CapVerifier
 }
 
 type loginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username     string `json:"username"`
+	Password     string `json:"password"`
+	CaptchaToken string `json:"captchaToken"`
 }
 
 type passwordRequest struct {
@@ -81,6 +83,12 @@ func (h AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 	if !allowed {
 		apiError(w, http.StatusTooManyRequests, "too many login attempts; try again later")
 		return
+	}
+	if h.Cap != nil {
+		if err := h.Cap.Verify(ctx, input.CaptchaToken); err != nil {
+			apiError(w, http.StatusUnauthorized, "人机验证未通过，请重新验证")
+			return
+		}
 	}
 
 	var account owner

@@ -110,8 +110,10 @@ func runApplication(signalCtx context.Context, logger *slog.Logger, cfg config.C
 
 	apiMux := http.NewServeMux()
 	httpapi.HealthHandler{DB: db, Redis: redisClient}.Register(apiMux)
-	authHandler := httpapi.AuthHandler{DB: db, Redis: redisClient}
+	capVerifier := &httpapi.CapVerifier{DB: db, EncryptionKey: cfg.CapSecretEncryptionKey}
+	authHandler := httpapi.AuthHandler{DB: db, Redis: redisClient, Cap: capVerifier}
 	authHandler.Register(apiMux)
+	capVerifier.Register(apiMux, authHandler)
 	httpapi.BotHandler{DB: db, EncryptionKey: cfg.BotTokenEncryptionKey}.Register(apiMux, authHandler)
 
 	mux := http.NewServeMux()
