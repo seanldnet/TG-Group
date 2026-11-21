@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.13] - 2026-11-21
+
+### 宝塔网页安装向导（PR #14，CI 待运行）
+
+- 无数据库配置时启动安装专用页面，避免应用 API 和 Bot worker 在初始化前运行。
+- 新增 PostgreSQL/Redis 连接测试、SSL mode 选择、数据库迁移和用户自设 Owner 初始化。
+- Owner 密码只以 bcrypt hash 写入数据库；检测已有 Owner 时要求匹配原账号凭据，拒绝覆盖。
+- 安装配置原子写入默认 `/var/lib/tg-group/config.json`，权限 0600；安装锁创建后拒绝再次访问安装入口。
+- 安装成功后需要通过宝塔面板重启服务，加载配置进入正常管理模式。
+- [ ] Go test/vet/build CI 通过。
+- [ ] PostgreSQL/Redis 真实集成、安装重试、安装锁与重启登录验收通过。
+
 ## [0.1.12] - 2026-11-21
 
 ### Garble 多架构二进制构建与 Release 流水线（独立开发分支，待 CI）
