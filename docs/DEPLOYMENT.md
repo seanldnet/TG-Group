@@ -205,4 +205,4 @@ sudo docker compose --env-file .env -f compose.yaml ps
 - 配置文件默认位于 `/var/lib/tg-group/config.json`，通过 `APP_CONFIG_FILE` 可覆盖；服务启动时要求它是权限不宽于 0600 的普通文件。配置文件保存 PostgreSQL/Redis 凭据及 Bot Token AES-256-GCM 密钥，必须备份且仅限服务用户读取。
 - 安装完成后必须从宝塔守护进程管理界面重启服务。当前安装完成接口不会尝试自行重启进程。
 - 数据库迁移与 Owner 初始化是幂等操作；如果安装后配置文件写入失败，使用相同 Owner 用户名和密码重试，不会重置已创建的密码。
-- PR #14 的真实 PostgreSQL/Redis 集成验收尚待执行；不得仅凭单元测试宣称宝塔部署已完成。
+- PR #14 的 CI 已通过 PostgreSQL 17/Redis 7 服务容器集成测试，覆盖首次安装、Owner hash、安装锁与已有 Owner 保护；宝塔面板实际守护进程重启、反向代理和浏览器登录仍待真实服务器验收。
