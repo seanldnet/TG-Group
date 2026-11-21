@@ -121,6 +121,6 @@
 - 首次安装自动生成 32-byte Bot Token AES-256-GCM 加密密钥并写入 0600 配置文件；若绑定的数据库已有 Bot 记录，必须通过服务环境提供原 `BOT_TOKEN_ENCRYPTION_KEY`，否则拒绝安装，避免已有 Token 无法解密。
 - 安装配置原子写入 `APP_CONFIG_FILE`（默认 `/var/lib/tg-group/config.json`），文件权限 0600；安装锁存在后安装页/API fail closed。首次启动还会生成独立 256-bit 安装令牌（同目录 `.install-token`，权限 0600），令牌通过宝塔服务日志提示，并通过 `X-Install-Token` 保护安装 API。
 - 安装成功后需在宝塔面板重启服务，应用读取配置文件进入正常运行模式；Docker Compose 的 `DATABASE_URL` 环境变量启动路径保持不变。
-- [ ] PR #14 Go test/vet/build CI 全绿（含 PostgreSQL 17 + Redis 7 服务容器的安装集成测试）。
-- [ ] 使用真实 PostgreSQL/Redis 完成首次安装、错误凭据、迁移重试、安装锁、重启登录和密码不覆盖集成验收。
+- [x] PR #14 Go test/vet/build CI 全绿，PostgreSQL 17 + Redis 7 服务容器的安装集成测试通过（Actions run 44843294641）。
+- [x] CI 已通过真实 PostgreSQL 17/Redis 7 容器的首次安装、Owner bcrypt、配置密钥持久化、安装锁和已有 Owner 密码保护集成测试；[ ] 宝塔面板实际守护进程重启、反向代理和浏览器登录验收待真实部署。
 - [ ] 最终 Garble Release 需在集成 V5/Cap 和安装向导的完整分支重新构建。
