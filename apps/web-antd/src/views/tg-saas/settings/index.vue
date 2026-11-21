@@ -2,7 +2,6 @@
 import { onMounted, reactive, ref } from 'vue';
 
 import {
-  Alert,
   Button,
   Card,
   Form,
@@ -79,13 +78,6 @@ function savePreview() {
 <template>
   <Page title="平台设置" description="平台基本信息与安全策略">
     <section class="flex flex-col gap-4">
-      <Alert
-        message="新版 Cap 人机验证"
-        description="仅需配置 Cap 服务域名、Site Key 和 Secret。Widget 与 WASM 由 jsDelivr 加载，不需要开启旧版 Widget files。"
-        type="info"
-        show-icon
-      />
-
       <Card title="基础配置">
         <Form layout="vertical" :model="settings">
           <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -133,7 +125,7 @@ function savePreview() {
                 autocomplete="off"
               />
             </Form.Item>
-            <Form.Item label="Secret" required>
+            <Form.Item label="Secret" :required="!captcha.secretConfigured">
               <Input.Password
                 v-model:value="captcha.secret"
                 :placeholder="captcha.secretConfigured ? '已配置，留空表示不修改' : '请输入 Cap Secret'"
@@ -151,28 +143,6 @@ function savePreview() {
               </Radio.Group>
             </Form.Item>
           </Form>
-
-          <Alert
-            v-if="captcha.mode === 'checkbox'"
-            message="复选框模式"
-            description="验证组件显示在登录密码框下方，宽度与账号、密码输入框一致。"
-            type="info"
-            show-icon
-          />
-          <Alert
-            v-else-if="captcha.mode === 'floating'"
-            message="浮动模式"
-            description="点击登录框下方的安全验证入口后，在浮动窗口中完成验证。"
-            type="info"
-            show-icon
-          />
-          <Alert
-            v-else
-            message="隐形模式"
-            description="登录时自动在后台执行验证，不显示验证控件。"
-            type="info"
-            show-icon
-          />
 
           <div class="flex justify-end">
             <Button
