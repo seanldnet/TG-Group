@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -37,7 +38,7 @@ func TestParseOrderListQueryRejectsInvalidFilters(t *testing.T) {
 		"/orders?status=unknown",
 		"/orders?page=0",
 		"/orders?pageSize=101",
-		"/orders?q=" + string(make([]byte, 101)),
+		"/orders?q=" + strings.Repeat("a", 101),
 	}
 	for _, target := range tests {
 		t.Run(target, func(t *testing.T) {
