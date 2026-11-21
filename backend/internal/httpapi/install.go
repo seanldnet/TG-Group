@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,6 +25,8 @@ import (
 
 type InstallHandler struct {
 	ConfigFile string
+	TokenFile  string
+	Token      string
 	mu         sync.Mutex
 }
 
@@ -70,6 +73,9 @@ func (h *InstallHandler) page(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *InstallHandler) testConnections(w http.ResponseWriter, r *http.Request) {
+	if !h.authorize(w, r) {
+		return
+	}
 	if h.isInstalled() {
 		apiError(w, http.StatusGone, "installation is already locked")
 		return
@@ -86,6 +92,9 @@ func (h *InstallHandler) testConnections(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *InstallHandler) complete(w http.ResponseWriter, r *http.Request) {
+	if !h.authorize(w, r) {
+		return
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -150,11 +159,23 @@ func (h *InstallHandler) complete(w http.ResponseWriter, r *http.Request) {
 		apiError(w, http.StatusInternalServerError, "Owner initialized but configuration could not be saved; fix config directory permissions and retry with the same Owner username and password")
 		return
 	}
+	if h.TokenFile != "" {
+		_ = os.Remove(h.TokenFile)
+	}
 	apiOK(w, http.StatusOK, map[string]any{
 		"installed": true,
 		"restartRequired": true,
 		"message": "Installation completed. Restart the TG Group service to open the management system.",
 	})
+}
+
+func (h *InstallHandler) authorize(w http.ResponseWriter, r *http.Request) bool {
+	provided := r.Header.Get("X-Install-Token")
+	if h.Token == "" || len(provided) != len(h.Token) || subtle.ConstantTimeCompare([]byte(provided), []byte(h.Token)) != 1 {
+		apiError(w, http.StatusForbidden, "invalid installation token")
+		return false
+	}
+	return true
 }
 
 func (h *InstallHandler) decodeAndValidate(w http.ResponseWriter, r *http.Request, requireOwner bool) (installRequest, bool) {
@@ -313,8 +334,9 @@ input,select{height:42px;width:100%;border:1px solid #d0d5dd;border-radius:8px;p
 .note{font-size:12px;color:#667085;line-height:1.6;margin-top:6px}@media(max-width:600px){.grid{grid-template-columns:1fr}.field.full{grid-column:auto}.panel{padding:20px}}
 </style></head>
 <body><main class="wrap"><section class="panel">
-<h1>TG Group 安装向导</h1><p class="sub">配置 PostgreSQL 与 Redis，验证连接后初始化数据库并创建平台 Owner。密码只用于首次创建，不会写入安装配置文件。</p>
+<h1>TG Group 安装向导</h1><p class="sub">先从宝塔服务日志中获取首次安装令牌。配置 PostgreSQL 与 Redis 后，验证连接并初始化平台 Owner。</p>
 <form id="setup">
+<div class="field full"><label for="installToken">首次安装令牌</label><input id="installToken" type="password" autocomplete="off" required></div>
 <h2>PostgreSQL 数据库</h2><div class="grid">
 <div class="field"><label for="pgHost">主机地址</label><input id="pgHost" value="127.0.0.1" required></div>
 <div class="field"><label for="pgPort">端口</label><input id="pgPort" type="number" value="5432" min="1" max="65535" required></div>
@@ -338,7 +360,7 @@ input,select{height:42px;width:100%;border:1px solid #d0d5dd;border-radius:8px;p
 <script>
 const $=id=>document.getElementById(id),result=$("result");
 function payload(){return {postgresHost:$("pgHost").value,postgresPort:Number($("pgPort").value),postgresDatabase:$("pgDB").value,postgresUsername:$("pgUser").value,postgresPassword:$("pgPass").value,postgresSSLMode:$("pgSSL").value,redisAddress:$("redisAddr").value,redisPassword:$("redisPass").value,redisDB:Number($("redisDB").value),ownerUsername:$("owner").value,ownerPassword:$("ownerPass").value}}
-async function request(path){const response=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload())});const body=await response.json();if(!response.ok||body.code!==0)throw new Error(body.message||"请求失败");return body.data}
+async function request(path){const response=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json","X-Install-Token":$("installToken").value},body:JSON.stringify(payload())});const body=await response.json();if(!response.ok||body.code!==0)throw new Error(body.message||"请求失败");return body.data}
 $("test").addEventListener("click",async()=>{result.className="";result.textContent="正在测试 PostgreSQL 和 Redis…";$("test").disabled=true;try{await request("/api/install/test");result.className="success";result.textContent="PostgreSQL 与 Redis 连接成功。"}catch(e){result.className="error";result.textContent=e.message}finally{$("test").disabled=false}});
 $("setup").addEventListener("submit",async e=>{e.preventDefault();$("install").disabled=true;result.className="";result.textContent="正在验证依赖、执行迁移并创建 Owner，请勿关闭页面…";try{const data=await request("/api/install/complete");result.className="success";result.textContent=data.message+"\n请在宝塔面板重启 TG Group 服务，然后重新访问网站。";$("setup").hidden=true}catch(e){result.className="error";result.textContent=e.message;$("install").disabled=false}});
 </script></body></html>`
