@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.12] - 2026-11-21
+
+### Garble 多架构二进制构建与 Release 流水线（独立开发分支，待 CI）
+
+- 固定 Go 1.23.12 与 Garble v0.14.2，针对 linux/amd64、linux/arm64 执行真实 Garble 混淆构建。
+- 新增构建脚本，嵌入版本、commit、构建时间和目标架构信息，并为每个架构生成 SHA-256。
+- 新增 `--version` 输出，CI 通过 QEMU 在对应目标架构容器中执行二进制 smoke test。
+- Pull Request 仅构建并保存 CI artifacts；只有推送 `v*` tag 才创建 GitHub Release 并上传二进制、SHA256SUMS 和构建元数据。
+- [ ] 两种目标架构的 Garble build、QEMU smoke test 和 Release 流水线实际通过。
+- [ ] 宝塔网页安装向导及安装锁仍待后续独立阶段实现。
+
 ## [0.1.11] - 2026-11-21
 
 ### Docker 一键安装、升级与 digest 回滚（PR #11，待验收）

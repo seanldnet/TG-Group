@@ -1,6 +1,6 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.11
+- 文档版本：0.1.12
 - 更新日期：2026-11-21
 - 仓库：seanldnet/TG-Group
 - 前端阶段分支：feat/phase-1-vben-v5（PR #1，Draft）
@@ -100,3 +100,13 @@
 - 安装脚本首次生成随机 PostgreSQL/Redis 密码与 Bot Token 加密密钥；检测到已有 .env 时不覆盖任何配置。
 - PR #11 的 shell 静态检查、Compose contract CI、实际安装/升级和回滚验收尚未完成。
 - 宝塔网页安装向导与 Garble 多平台 Release 仍待独立开发；Dashboard、订单、支付真实 API 和群管规则也仍待开发。
+
+## Garble 二进制发布流水线（当前分支）
+
+- 新增 `.github/workflows/garble-release.yml`：固定 Go 1.23.12 与 Garble v0.14.2，目标为 linux/amd64、linux/arm64。
+- 新增 `scripts/release/build-garble.sh`：实际执行 `garble -literals -tiny build`，写入版本/commit/build 元数据并生成每个目标架构的 SHA-256。
+- Go 服务新增 `--version` / `version` 输出，供二进制 smoke test 验证构建元数据；CI 使用 QEMU 在目标架构 Alpine 容器内启动二进制执行版本检查。
+- Pull Request 只构建并上传短期 CI artifacts；只有推送 `v*` tag 才创建 GitHub Release，发布两种 Linux 架构二进制、聚合 SHA256SUMS 与构建元数据。
+- [ ] Garble amd64/arm64 构建、QEMU smoke test、artifact 与 Release workflow 实际运行通过。
+- [ ] 宝塔网页安装向导、PostgreSQL/Redis 配置验证、幂等迁移、Owner 初始化和安装锁尚未实现；本 PR 不宣称宝塔安装交付完成。
+- [ ] 二进制需在最终集成的完整应用分支上重新构建；当前分支基于 PR #11 的 Docker 安装链，尚未包含独立的 V5 认证/Cap 功能分支。

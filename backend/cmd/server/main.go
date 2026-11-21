@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -17,7 +18,17 @@ import (
 	"github.com/seanldnet/tg-group/backend/internal/store"
 )
 
+var (
+	version = "dev"
+	commit = "unknown"
+	builtAt = "unknown"
+)
+
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "version") {
+		fmt.Printf("TG Group %s (commit %s, built %s)\n", version, commit, builtAt)
+		return
+	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	if err := run(logger); err != nil {
 		logger.Error("server stopped", "error", err)

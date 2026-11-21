@@ -84,7 +84,7 @@ Bot 使用 Telegram `getUpdates` 长轮询接收群组事件。不要为同一�
 - 正式 Release 二进制必须通过 **Garble 混淆构建**，不能把普通 `go build` 产物改名后当作正式交付。
 - CI 使用固定版本的 Go 和 Garble，在受控构建环境中构建；记录 Go 版本、Garble 版本、构建参数、目标 OS/ARCH、Git commit 和版本号。
 - 按支持的平台发布独立文件，文件名包含应用版本与 OS/ARCH；同时发布 SHA-256 校验和。
-- 发布前执行单元测试、构建后启动/版本检查及安装向导 smoke test。
+- 发布前执行 Go 单元测试/vet、构建后版本检查及目标架构 QEMU smoke test；网页安装向导完成后，再将安装向导 smoke test 纳入正式发布门槛。
 - 普通未混淆 Go 二进制可以用于本地开发或 CI 调试，但不得作为正式 Release 资产。
 
 Garble 混淆不等于加密，也不能保证源码不可逆向；不得对外宣传为绝对防逆向。
@@ -189,3 +189,9 @@ sudo docker compose --env-file .env -f compose.yaml ps
 - .env 包含数据库凭据和加密密钥，必须限制文件权限并纳入安全备份，禁止提交到 Git。
 - 如果 GHCR package 为私有包，服务器必须先完成 GHCR 登录；脚本不会收集或保存 GitHub Token。
 - PR 构建只验证镜像，不会发布镜像。只有合并到 main 后触发发布流水线，才可使用公开/授权的 GHCR 镜像。
+
+### 当前流水线状态边界
+
+- Garble 工作流位于独立开发分支，尚未以真实 CI 结果证明构建和 Release 成功；PR 阶段不会发布正式 Release。
+- 当前 PR 只负责 Garble 构建和版本 smoke test，不包含网页安装向导。安装向导必须在后续阶段实现数据库连接测试、迁移、用户自设 Owner 和不可重复安装锁，不能以静态安装页面代替真实初始化。
+- Garble 是混淆工具，不是加密工具；二进制仍需通过正式版本验收与安全审查。
