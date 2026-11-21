@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -262,7 +263,8 @@ func (r *BotRuntime) enforceGroupRules(ctx context.Context, token string, groupI
 		SELECT block_links, blocked_keywords
 		FROM group_moderation_rules WHERE group_id = $1
 	`, groupID).Scan(&rules.BlockLinks, &rules.BlockedKeywords)
-	if err != nil { return nil } // No explicit policy means moderation is disabled.
+	if errors.Is(err, pgx.ErrNoRows) { return nil }
+	if err != nil { return err }
 	text := strings.ToLower(message.Text)
 	matched := false
 	if rules.BlockLinks && (strings.Contains(text, "http://") || strings.Contains(text, "https://") ||
