@@ -76,6 +76,40 @@ Bot 使用 Telegram `getUpdates` 长轮询接收群组事件。不要为同一�
 
 安装页面的连接测试和完成 API 均要求输入首次启动生成的安装令牌（通过 `X-Install-Token` 请求头传递）；请从宝塔服务日志中获取令牌，不要公开分享日志。安装向导会拒绝覆盖已存在的配置文件。若数据库中已有 Owner，必须输入匹配的用户名和密码才能继续绑定该数据库；不会重置或覆盖现有 Owner。若迁移或连接失败，页面返回错误并允许修复连接后重试。安装成功后安装页面和安装 API 均 fail closed。
 
+### 推荐 systemd 服务部署
+
+仓库提供 `scripts/deploy/tg-group.service` 模板。以下示例以 Linux systemd 为例，宝塔进程守护也可使用同样的二进制、工作目录和环境变量：
+
+```bash
+sudo useradd --system --home-dir /opt/tg-group --shell /usr/sbin/nologin tg-group
+sudo install -d -o root -g tg-group -m 0750 /opt/tg-group
+sudo install -d -o tg-group -g tg-group -m 0750 /opt/tg-group/web /var/lib/tg-group
+sudo install -o root -g tg-group -m 0750 tg-group-linux-amd64 /opt/tg-group/tg-group
+sudo tar -xzf tg-group-web-assets.tar.gz -C /opt/tg-group/web
+sudo chown -R root:tg-group /opt/tg-group/web
+sudo install -d -m 0755 /etc/tg-group
+sudo install -m 0644 tg-group.service /etc/systemd/system/tg-group.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now tg-group
+```
+
+ARM64 服务器应上传 `tg-group-linux-arm64`，其余步骤相同。首次启动后，从宝塔服务日志或 `sudo journalctl -u tg-group -n 100 --no-pager` 读取一次性安装令牌，输入安装页面。完成向导后执行 `sudo systemctl restart tg-group`。
+
+服务模板默认监听 `127.0.0.1:8080`，不要将该端口直接暴露到公网。通过宝塔 Nginx 配置 HTTPS 站点并反向代理到本机：
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+升级时先备份当前二进制和 web 目录，再替换同一 Release 的新二进制及静态资源，最后执行 `sudo systemctl restart tg-group`。不要删除 `/var/lib/tg-group/config.json`，其中包含数据库连接凭据和 Bot Token 加密密钥。
+
 ### Redis 依赖
 
 如果应用运行需要 Redis，宝塔二进制模式应在安装向导或首次启动配置中支持填写 Redis 地址、端口、密码和 DB 编号；也可在部署说明中明确兼容的本机 Redis 安装方式。不得假定 Docker Compose 内置的 Redis 在宝塔二进制模式下自动存在。
@@ -206,3 +240,11 @@ sudo docker compose --env-file .env -f compose.yaml ps
 - 安装完成后必须从宝塔守护进程管理界面重启服务。当前安装完成接口不会尝试自行重启进程。
 - 数据库迁移与 Owner 初始化是幂等操作；如果安装后配置文件写入失败，使用相同 Owner 用户名和密码重试，不会重置已创建的密码。
 - PR #14 的 CI 已通过 PostgreSQL 17/Redis 7 服务容器集成测试，覆盖首次安装、Owner hash、安装锁与已有 Owner 保护；宝塔面板实际守护进程重启、反向代理和浏览器登录仍待真实服务器验收。
+
+
+### 宝塔 Release bundle 当前状态（PR #15）
+
+- Garble Release 构建新增 Vben V5 静态资源打包；只有 Tag Release 才上传正式资产，PR 阶段仅上传短期 CI artifacts。
+- 当前 PR 的 V5 静态资源来自其所在分支；PR #12 Cap 登录验证分支尚未集成。正式 Release 必须从完成 V5 登录、Cap 和安装向导集成的最终分支重新构建。
+- systemd 服务模板将 HTTP 绑定到 loopback，并使用专用无登录用户；反向代理必须保留原始 Host，以通过安装接口的 Origin 校验。
+- 宝塔真实服务器的安装、重启、HTTPS 反代和升级验收仍需执行。
