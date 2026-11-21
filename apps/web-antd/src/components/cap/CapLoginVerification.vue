@@ -153,9 +153,6 @@ defineExpose({ getToken });
     >
       {{ token ? '验证成功' : '点击进行安全验证' }}
     </button>
-    <p v-if="mode === 'invisible'" class="text-muted-foreground text-xs">
-      登录时将自动进行安全验证
-    </p>
   </div>
 </template>
 
