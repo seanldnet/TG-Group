@@ -150,4 +150,5 @@
 - [x] Vben V5 spacing、TypeScript、production build 和 artifact 上传通过（Actions run 44845396655）。
 - [ ] 浏览器配置用户自建新版 Cap 后完成 checkbox/floating/invisible 三模式真实 E2E。
 - [x] PR #17 的 Vben V5 静态资源包已成功构建并上传（Garble run 44845396665 的 web-assets job）。
-- [ ] Garble 两架构最终二进制与 QEMU 检查、Docker 多架构 build-only 仍在运行；正式 Release 尚未发布。
+- [x] Garble linux/amd64、linux/arm64 混淆构建、QEMU 版本 smoke test、前端静态资源打包和 PR artifacts 全部通过（Actions run 44845607727）；正式 Tag Release 未执行。
+- [ ] Docker 多架构 build-only 仍在运行，未推送 GHCR。
