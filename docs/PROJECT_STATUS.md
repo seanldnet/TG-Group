@@ -146,7 +146,8 @@
 - Go 登录接口在校验账号密码前调用 Cap `siteverify`；超时、非 2xx、无效 JSON、success=false 均拒绝登录。
 - Cap Secret 使用 AES-256-GCM 加密存储；密钥优先 `CAP_SECRET_ENCRYPTION_KEY`，默认回退到安装向导生成并持久化的 `BOT_TOKEN_ENCRYPTION_KEY`。
 - 新增 Cap URL 校验、Secret 加解密、siteverify 请求/响应单元测试；PR #17 CI 待运行。
-- [ ] Go test/vet/build、安全检查通过。
-- [ ] Vben V5 spacing、TypeScript、production build 通过。
+- [x] Go test/vet/build 与 Cap 单元测试通过（Actions run 44845396660）。
+- [x] Vben V5 spacing、TypeScript、production build 和 artifact 上传通过（Actions run 44845396655）。
 - [ ] 浏览器配置用户自建新版 Cap 后完成 checkbox/floating/invisible 三模式真实 E2E。
-- [ ] 最终 Docker 和 Garble Release 必须从包含 Cap 的集成分支重新构建；PR #12 原分支仍独立 Draft，不会自动进入已发布镜像。
+- [x] PR #17 的 Vben V5 静态资源包已成功构建并上传（Garble run 44845396665 的 web-assets job）。
+- [ ] Garble 两架构最终二进制与 QEMU 检查、Docker 多架构 build-only 仍在运行；正式 Release 尚未发布。
