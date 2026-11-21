@@ -2,11 +2,13 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -33,6 +35,10 @@ func (h GroupRulesHandler) get(w http.ResponseWriter, r *http.Request) {
 		FROM group_moderation_rules WHERE group_id = $1
 	`, id).Scan(&rules.GroupID, &rules.BlockLinks, &rules.BlockedKeywords, &rules.UpdatedAt)
 	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			apiError(w, http.StatusInternalServerError, "could not load group rules")
+			return
+		}
 		// A group without an explicit policy uses the safe, disabled defaults.
 		var exists bool
 		if checkErr := h.DB.QueryRow(r.Context(), "SELECT EXISTS (SELECT 1 FROM telegram_groups WHERE id = $1)", id).Scan(&exists); checkErr != nil {
