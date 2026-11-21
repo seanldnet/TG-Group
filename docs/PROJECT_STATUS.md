@@ -1,6 +1,6 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.13
+- 文档版本：0.1.14
 - 更新日期：2026-11-21
 - 仓库：seanldnet/TG-Group
 - 前端阶段分支：feat/phase-1-vben-v5（PR #1，Draft）
@@ -124,3 +124,14 @@
 - [x] PR #14 Go test/vet/build CI 全绿，PostgreSQL 17 + Redis 7 服务容器的安装集成测试通过（Actions run 44843294641）。
 - [x] CI 已通过真实 PostgreSQL 17/Redis 7 容器的首次安装、Owner bcrypt、配置密钥持久化、安装锁和已有 Owner 密码保护集成测试；[ ] 宝塔面板实际守护进程重启、反向代理和浏览器登录验收待真实部署。
 - [ ] 最终 Garble Release 需在集成 V5/Cap 和安装向导的完整分支重新构建。
+
+
+## 宝塔正式交付包（PR #15，CI 待运行）
+
+- Garble Release 工作流新增独立 Vben V5 前端构建任务，打包 `tg-group-web-assets.tar.gz`；正式 Release 同时提供 linux/amd64、linux/arm64 Go 二进制、V5 静态资源包、SHA256SUMS 和 BUILD-METADATA.txt。
+- Release 静态资源构建固定 Node 22.18.0、pnpm 11.16.0；前端执行 `pnpm --filter @vben/web-antd run build`。
+- 新增 `scripts/deploy/tg-group.service`：以专用无登录用户运行，监听 127.0.0.1:8080，配置文件写入 /var/lib/tg-group，启用 systemd 基础安全限制。
+- 部署文档补充二进制/静态资源安装、首次安装令牌读取、Nginx HTTPS 反向代理、服务重启和升级步骤。
+- [ ] Garble + V5 静态资源 Release bundle workflow 全绿。
+- [ ] 宝塔真实服务器上传、解包、服务启动、安装向导、登录和升级验收。
+- [ ] 最终发布必须在集成 V5 登录/Cap 的完整分支重新构建；本分支前端资源只代表当前基线，不代表 PR #12 Cap 已集成。
