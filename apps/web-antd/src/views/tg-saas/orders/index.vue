@@ -125,7 +125,8 @@ onMounted(async () => {
         @close="errorMessage = ''"
       />
       <Card title="订单列表">
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="flex flex-col gap-4">
+          <div class="flex flex-wrap items-center gap-3">
           <Select
             v-model:value="selectedBot"
             :options="botOptions"
@@ -147,9 +148,8 @@ onMounted(async () => {
           />
           <Button type="primary" @click="searchOrders">查询</Button>
           <Button @click="resetFilters">重置</Button>
-        </div>
-        <Table
-          class="mt-4"
+          </div>
+          <Table
           :columns="columns"
           :data-source="orders.items"
           :loading="loading"
@@ -175,7 +175,8 @@ onMounted(async () => {
               {{ statusLabels[record.status] }}
             </Tag>
           </template>
-        </Table>
+          </Table>
+        </div>
       </Card>
     </section>
   </Page>
