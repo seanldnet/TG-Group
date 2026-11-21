@@ -15,7 +15,8 @@ export default defineConfig(async () => {
         proxy: {
           '/api': {
             changeOrigin: true,
-            // Keep /api prefix; the Go service strips it before routing.
+            rewrite: (path) => path.replace(/^\/api/, ''),
+            // Route API calls to the Go service; /api is stripped to match backend routes.
             target: 'http://localhost:8080',
             ws: true,
           },
