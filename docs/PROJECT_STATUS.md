@@ -1,6 +1,6 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.13
+- 文档版本：0.1.14
 - 更新日期：2026-11-21
 - 仓库：seanldnet/TG-Group
 - 前端阶段分支：feat/phase-1-vben-v5（PR #1，Draft）
@@ -108,11 +108,11 @@
 - Go 服务新增 `--version` / `version` 输出，供二进制 smoke test 验证构建元数据；CI 使用 QEMU 在目标架构 Alpine 容器内启动二进制执行版本检查。
 - Pull Request 只构建并上传短期 CI artifacts；只有推送 `v*` tag 才创建 GitHub Release，发布两种 Linux 架构二进制、聚合 SHA256SUMS 与构建元数据。
 - [x] PR #13 Garble linux/amd64、linux/arm64 构建、QEMU 版本 smoke test、CI artifact 上传和后端 Go test/vet/build 均通过（Actions run 44841835411、44841835542）。
-- PR #14（feat/baota-web-installer，基于 PR #13）新增宝塔网页安装向导：PostgreSQL/Redis 连通性测试、数据库迁移、Owner 创建/凭据校验、0600 配置文件持久化和安装锁；本分支 CI 与真实数据库/Redis 集成验收待运行。
+- PR #14（feat/baota-web-installer，基于 PR #13）新增宝塔网页安装向导：PostgreSQL/Redis 连通性测试、数据库迁移、Owner 创建/凭据校验、0600 配置文件持久化和安装锁；Go test/vet/build 与 PostgreSQL 17/Redis 7 集成 CI 已通过，宝塔真实服务器验收待做。
 - [ ] 二进制需在最终集成的完整应用分支上重新构建；当前 PR 链仍基于 PR #11 的 Docker 安装链，尚未包含独立的 V5 认证/Cap 功能分支。
 
 
-## 宝塔网页安装向导（PR #14，CI 待运行）
+## 宝塔网页安装向导（PR #14，Go 与数据库集成 CI 已通过；真实宝塔验收待做）
 
 - 首次启动未配置 `DATABASE_URL` 且找不到 `APP_CONFIG_FILE` 时进入安装专用 HTTP 模式，不会启动 Bot worker 或暴露管理 API。
 - 新增中文安装页面，支持 PostgreSQL 主机/端口/数据库/用户名/密码/SSL mode，Redis 地址/密码/DB，以及用户自设 Owner 用户名/密码。
@@ -124,3 +124,14 @@
 - [x] PR #14 Go test/vet/build CI 全绿，PostgreSQL 17 + Redis 7 服务容器的安装集成测试通过（Actions run 44843294641）。
 - [x] CI 已通过真实 PostgreSQL 17/Redis 7 容器的首次安装、Owner bcrypt、配置密钥持久化、安装锁和已有 Owner 密码保护集成测试；[ ] 宝塔面板实际守护进程重启、反向代理和浏览器登录验收待真实部署。
 - [ ] 最终 Garble Release 需在集成 V5/Cap 和安装向导的完整分支重新构建。
+
+
+## 宝塔正式交付包（PR #16，CI 运行中）
+
+- Garble Release 工作流新增独立 Vben V5 前端构建任务，打包 `tg-group-web-assets.tar.gz`；正式 Release 同时提供 linux/amd64、linux/arm64 Go 二进制、V5 静态资源包、SHA256SUMS 和 BUILD-METADATA.txt。
+- Release 静态资源构建固定 Node 22.18.0、pnpm 11.16.0；前端执行 `pnpm --filter @vben/web-antd run build`。
+- 新增 `scripts/deploy/tg-group.service`：以专用无登录用户运行，监听 127.0.0.1:8080，配置文件写入 /var/lib/tg-group，启用 systemd 基础安全限制。
+- 部署文档补充二进制/静态资源安装、首次安装令牌读取、Nginx HTTPS 反向代理、服务重启和升级步骤。
+- [x] Garble + V5 静态资源构建、linux/amd64/arm64 混淆构建、QEMU smoke test 和 PR artifacts 全部通过（Actions run 44843856015；在 rebase 前的等价 staging branch 上运行，PR #16 保留相同 workflow 实现）。
+- [ ] 宝塔真实服务器上传、解包、服务启动、安装向导、登录和升级验收。
+- [ ] 最终发布必须在集成 V5 登录/Cap 的完整分支重新构建；本分支前端资源只代表当前基线，不代表 PR #12 Cap 已集成。

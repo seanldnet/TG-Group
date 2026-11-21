@@ -1,8 +1,20 @@
 # Changelog
 
+## [0.1.14] - 2026-11-21
+
+### 宝塔正式交付包：V5 静态资源与 systemd 服务（PR #16，CI 运行中）
+
+- Garble Release 流水线新增独立 Vben V5 前端构建，正式资产包含 linux/amd64、linux/arm64 混淆二进制及 `tg-group-web-assets.tar.gz`。
+- 静态资源构建固定 Node 22.18.0 / pnpm 11.16.0，并在构建后校验 `index.html` 存在。
+- Release SHA256SUMS 覆盖两个架构二进制和前端静态资源包，BUILD-METADATA 记录 Go/Garble/Node/pnpm 版本。
+- 新增带基础 systemd 安全限制的 `tg-group.service`，默认仅监听 loopback，便于宝塔 Nginx HTTPS 反向代理。
+- [x] Vben V5 前端生产构建、静态资源打包、Garble linux/amd64/arm64 构建、QEMU smoke test 与 PR artifacts 通过（Actions run 44843856015；rebase 前等价 staging branch）。
+- [ ] 正式 Tag 发布时的聚合 SHA256SUMS 与 GitHub Release 上传。
+- [ ] 宝塔真实服务器安装、反向代理、首次初始化和升级验收。
+
 ## [0.1.13] - 2026-11-21
 
-### 宝塔网页安装向导（PR #14，CI 待运行）
+### 宝塔网页安装向导（PR #14，CI 已通过）
 
 - 无数据库配置时启动安装专用页面，避免应用 API 和 Bot worker 在初始化前运行。
 - 新增 PostgreSQL/Redis 连接测试、SSL mode 选择、数据库迁移和用户自设 Owner 初始化。
