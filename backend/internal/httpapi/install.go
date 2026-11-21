@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/jackc/pgx/v5"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/seanldnet/tg-group/backend/internal/store"
 )
@@ -123,8 +125,21 @@ func (h *InstallHandler) complete(w http.ResponseWriter, r *http.Request) {
 		apiError(w, http.StatusInternalServerError, "database migration failed; inspect server logs and retry")
 		return
 	}
-	if err := store.SeedOwner(ctx, db, strings.TrimSpace(input.OwnerUsername), input.OwnerPassword); err != nil {
-		apiError(w, http.StatusInternalServerError, "could not initialize the platform owner")
+	var existingUsername, existingPasswordHash string
+	ownerErr := db.QueryRow(ctx, "SELECT username, password_hash FROM platform_users WHERE role = 'owner' LIMIT 1").Scan(&existingUsername, &existingPasswordHash)
+	switch {
+	case ownerErr == nil:
+		if existingUsername != input.OwnerUsername || bcrypt.CompareHashAndPassword([]byte(existingPasswordHash), []byte(input.OwnerPassword)) != nil {
+			apiError(w, http.StatusConflict, "this database already has an Owner; enter that exact account and password or choose a new empty database")
+			return
+		}
+	case ownerErr == pgx.ErrNoRows:
+		if err := store.SeedOwner(ctx, db, input.OwnerUsername, input.OwnerPassword); err != nil {
+			apiError(w, http.StatusInternalServerError, "could not initialize the platform owner")
+			return
+		}
+	default:
+		apiError(w, http.StatusInternalServerError, "could not inspect the existing platform owner")
 		return
 	}
 	config := persistedInstallConfig{
@@ -132,7 +147,7 @@ func (h *InstallHandler) complete(w http.ResponseWriter, r *http.Request) {
 		RedisPassword: input.RedisPassword, RedisDB: input.RedisDB,
 	}
 	if err := h.persistConfig(config); err != nil {
-		apiError(w, http.StatusInternalServerError, "database initialized but configuration could not be saved; fix the config directory permissions and retry")
+		apiError(w, http.StatusInternalServerError, "Owner initialized but configuration could not be saved; fix config directory permissions and retry with the same Owner username and password")
 		return
 	}
 	apiOK(w, http.StatusOK, map[string]any{
