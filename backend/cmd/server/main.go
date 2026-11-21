@@ -2,12 +2,16 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -51,8 +55,14 @@ func run(logger *slog.Logger) error {
 }
 
 func runInstaller(ctx context.Context, logger *slog.Logger, cfg config.Config) error {
+	tokenPath := cfg.ConfigFile + ".install-token"
+	token, err := loadOrCreateInstallToken(tokenPath)
+	if err != nil {
+		return fmt.Errorf("prepare one-time installation token: %w", err)
+	}
+	logger.Warn("first-run installation token; keep it private and enter it in the setup page", "token", token, "token_file", tokenPath)
 	mux := http.NewServeMux()
-	(&httpapi.InstallHandler{ConfigFile: cfg.ConfigFile}).Register(mux)
+	(&httpapi.InstallHandler{ConfigFile: cfg.ConfigFile, TokenFile: tokenPath, Token: token}).Register(mux)
 	server := &http.Server{
 		Addr: cfg.HTTPAddr, Handler: mux,
 		ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second,
@@ -125,4 +135,52 @@ func runApplication(signalCtx context.Context, logger *slog.Logger, cfg config.C
 		defer shutdownCancel()
 		return server.Shutdown(shutdownCtx)
 	}
+}
+
+
+func loadOrCreateInstallToken(path string) (string, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
+		return "", err
+	}
+	if info, err := os.Lstat(path); err == nil {
+		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+			return "", fmt.Errorf("installation token file must be a regular file with permissions 0600")
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return "", err
+		}
+		token := strings.TrimSpace(string(data))
+		if len(token) < 32 {
+			return "", fmt.Errorf("installation token file is invalid")
+		}
+		return token, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	token := hex.EncodeToString(raw)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		if os.IsExist(err) {
+			return loadOrCreateInstallToken(path)
+		}
+		return "", err
+	}
+	if _, err := file.WriteString(token + "\\n"); err != nil {
+		_ = file.Close()
+		_ = os.Remove(path)
+		return "", err
+	}
+	if err := file.Sync(); err != nil {
+		_ = file.Close()
+		return "", err
+	}
+	if err := file.Close(); err != nil {
+		return "", err
+	}
+	return token, nil
 }
