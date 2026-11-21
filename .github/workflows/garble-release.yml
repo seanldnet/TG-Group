@@ -6,6 +6,7 @@ on:
       - main
       - feat/docker-one-click-install
       - feat/baota-web-installer
+      - feat/baota-release-bundle-v2
     paths:
       - 'backend/**'
       - 'apps/web-antd/**'
