@@ -48,6 +48,18 @@ const statusColors: Record<OrderStatus, string> = {
   refunded: 'warning',
 };
 
+function getStatusLabel(value: unknown) {
+  return typeof value === 'string' && value in statusLabels
+    ? statusLabels[value as OrderStatus]
+    : '未知状态';
+}
+
+function getStatusColor(value: unknown) {
+  return typeof value === 'string' && value in statusColors
+    ? statusColors[value as OrderStatus]
+    : 'default';
+}
+
 const columns = [
   { title: '订单号', dataIndex: 'orderNo', key: 'orderNo', width: 190 },
   { title: '所属机器人', dataIndex: 'botName', key: 'botName', width: 170 },
@@ -171,8 +183,8 @@ onMounted(async () => {
               <template v-else-if="column.key === 'amountMinor'">
                 {{ record.amountMinor.toLocaleString() }}
               </template>
-              <Tag v-else-if="column.key === 'status'" :color="statusColors[record.status]">
-                {{ statusLabels[record.status] }}
+              <Tag v-else-if="column.key === 'status'" :color="getStatusColor(record.status)">
+                {{ getStatusLabel(record.status) }}
               </Tag>
             </template>
           </Table>
