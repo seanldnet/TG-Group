@@ -1,7 +1,7 @@
 # TG Group Manager — Project Status
 
-- 文档版本：0.1.21
-- 更新日期：2026-11-21
+- 文档版本：0.1.22
+- 更新日期：2026-11-22
 - 仓库：seanldnet/TG-Group
 - 前端阶段分支：feat/phase-1-vben-v5（PR #1，Draft）
 - 后端基础分支：feat/backend-foundation（PR #2，Draft，基于 PR #1）
@@ -11,7 +11,7 @@
 - Docker 镜像交付分支：feat/docker-release-pipeline-v2（PR #10，Draft，基于 PR #7）
 - V5 认证接入分支：feat/vben-auth-integration-v2（PR #5，Draft，基于 PR #3）
 - V5 Bot 页面分支：feat/vben-bot-management（PR #8，Draft，基于 PR #5；V5 CI 全绿）
-- 当前状态：PR #2、PR #3 的 Go test/vet/build CI 已通过；PR #5 V5 spacing、TypeScript 与生产构建 CI 已通过；PR #6 Go test/vet/build CI 已全部通过；PR #7 Bot 长轮询/群组成员同步 Go test/vet/build CI 已全部通过；PR #10 云端镜像/静态前端集成已提交，CI 验证中
+- 当前状态：PR #20 订单管理前后端 CI 已通过，浏览器验收待做；PR #21 群组管理真实数据接入为 Draft，CI/浏览器验收待确认；PR #22 群管规则配置与链接/关键词删除执行已提交为 Draft，CI 与 Telegram 实群验收待执行
 
 ## 产品架构基线
 
@@ -30,7 +30,7 @@
 - V5 专项 CI 在提交 `0fc7335` 的运行 `44830241707` 结果为 success。
 - PR #5 已将 V5 登录、用户信息、退出登录和修改密码接入 Owner API，V5 spacing/TypeScript/生产构建 CI 全绿。
 - PR #8 已将 Bot 页面接入真实 Bot 列表/创建/重命名/删除 API，V5 spacing/TypeScript/生产构建 CI 全绿；真实端到端验收待 PR #6/#7 后端合并。
-- Dashboard、订单和统一支付页面仍为演示 UI，尚未接入真实 API。
+- Dashboard 与订单页面已分别在 PR #19、PR #20 接入真实 API；订单 PR #20 CI 全绿，Owner 浏览器验收待做。统一支付页面仍为演示 UI。
 
 ### 后端基础（PR #2）
 
@@ -46,7 +46,7 @@
 - PR #7 新增 Telegram getUpdates 长轮询 worker，自动同步群组和观察到的成员，持久化 update offset，Token 被 Telegram 拒绝时标记 Bot error；Go test/vet/build CI 全绿。
 - PR #10 新增根目录多阶段 Dockerfile，云端构建 V5 静态资源与 Go 服务；同一端口提供前端、`/api/*` 和健康检查。
 - PR #10 新增 GHCR 多架构构建/发布工作流：PR 只构建不推送，main/tag 发布 latest、版本/SHA 标签并记录 digest；CI 验证中，尚未实际发布镜像。
-- 当前仅完成群组/成员同步，不包含反垃圾、欢迎语、自动封禁等群管规则执行。
+- PR #22 新增按群组持久化的链接拦截与关键词策略，并在 Bot 长轮询处理普通文本消息时调用 Telegram deleteMessage；Bot 必须具备删除消息权限。当前不包含媒体 caption/实体链接识别、管理员豁免、禁言/封禁、频率限制、欢迎语和审计日志。
 - GHCR 发布工作流已在 PR #10 提交；实际 GHCR 镜像发布、Docker 首次安装/升级和 digest 验收尚未完成，Compose 仍引用待发布镜像。
 
 ## 最终交付与部署基线（强制）
@@ -189,3 +189,14 @@
 - [x] Vben V5 间距与单 Owner 架构检查通过（Actions run 44890789799）。
 - [x] 首次 Vben TypeScript 检查发现订单状态表格插槽类型收窄问题；已修复并提交 `3d763eb`。后续完整复验通过：V5 spacing/架构检查、TypeScript、production build、artifact 上传（Actions run 44940473464，artifact `tg-group-admin-v5-phase1-dist`，SHA-256 `a23792a11955e2a5b0e42b7cc9cdf1341b524c3b0140155a34daedff8058f461`）。
 - [ ] Owner 登录后订单列表、Bot 筛选、状态筛选、搜索及分页浏览器验收。CI 通过不等于浏览器 E2E 已通过。
+
+
+## 当前连续开发状态（2026-11-22）
+
+- PR #20（订单管理）：后端 Go/PostgreSQL/Redis CI 与 Vben V5 TypeScript/生产构建/artifact 均已通过；浏览器验收待做，PR 仍为 Draft。
+- PR #21（群组管理）：新增 Owner 保护的群组查询 API、Bot 筛选、名称/Chat ID 搜索、分页和 V5 群组列表页；CI 与浏览器验收待确认，PR 仍为 Draft。
+- PR #22（群管规则）：新增 group_moderation_rules migration、Owner 保护的 GET/PUT 规则 API、V5 规则配置页；Bot worker 对普通文本消息执行链接/关键词命中删除。CI 与真实 Telegram 群组验收待执行，PR 仍为 Draft。
+- PR #21/#22 是 stacked PR；不得在前置 PR 未验证/合并前将后续 PR 合并到 main。
+- 群管规则默认关闭；关键词为不区分大小写的子串匹配。链接识别覆盖 http://、https://、www.、t.me/；Telegram 删除失败只记录日志，不阻塞 update offset。
+- 规则执行需要 Bot 在目标群组具备删除消息权限；当前不支持媒体 caption、Telegram message entities、管理员豁免、禁言/封禁和 flood control。
+- 不得将 CI 通过等同于真实 Telegram 群组端到端验收。
