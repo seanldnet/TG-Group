@@ -45,7 +45,7 @@ func TestBuildDatabaseURLEscapesCredentialsAndIPv6(t *testing.T) {
 
 func TestPersistConfigCreatesPrivateInstallLock(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "private", "config.json")
-	handler := &InstallHandler{ConfigFile: path}
+	handler := &InstallHandler{ConfigFile: path, Token: "integration-token"}
 	config := persistedInstallConfig{
 		DatabaseURL: "postgres://owner:secret@db:5432/tg_group?sslmode=require",
 		RedisAddr: "redis:6379", RedisPassword: "redis-secret", RedisDB: 2,
@@ -111,6 +111,7 @@ func TestInstallCompleteIntegration(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/install/complete", bytes.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Install-Token", "integration-token")
 	response := httptest.NewRecorder()
 	handler.complete(response, request)
 	if response.Code != http.StatusOK {
@@ -158,7 +159,9 @@ func TestInstallCompleteIntegration(t *testing.T) {
 		t.Fatalf("installer page status after completion = %d, want 410", lockedPage.Code)
 	}
 	lockedAPI := httptest.NewRecorder()
-	handler.testConnections(lockedAPI, httptest.NewRequest(http.MethodPost, "/api/install/test", bytes.NewReader(body)))
+	lockedRequest := httptest.NewRequest(http.MethodPost, "/api/install/test", bytes.NewReader(body))
+	lockedRequest.Header.Set("X-Install-Token", "integration-token")
+	handler.testConnections(lockedAPI, lockedRequest)
 	if lockedAPI.Code != http.StatusGone {
 		t.Fatalf("installer test API status after completion = %d, want 410", lockedAPI.Code)
 	}
@@ -168,10 +171,24 @@ func TestInstallCompleteIntegration(t *testing.T) {
 	second := input
 	second.OwnerPassword = "Different-Owner-Password-2026"
 	secondBody, _ := json.Marshal(second)
-	secondHandler := &InstallHandler{ConfigFile: filepath.Join(t.TempDir(), "second-config.json")}
+	secondHandler := &InstallHandler{ConfigFile: filepath.Join(t.TempDir(), "second-config.json"), Token: "integration-token"}
 	secondResponse := httptest.NewRecorder()
-	secondHandler.complete(secondResponse, httptest.NewRequest(http.MethodPost, "/api/install/complete", bytes.NewReader(secondBody)))
+	secondRequest := httptest.NewRequest(http.MethodPost, "/api/install/complete", bytes.NewReader(secondBody))
+	secondRequest.Header.Set("X-Install-Token", "integration-token")
+	secondHandler.complete(secondResponse, secondRequest)
 	if secondResponse.Code != http.StatusConflict {
 		t.Fatalf("second install status = %d, want 409; body = %s", secondResponse.Code, secondResponse.Body.String())
+	}
+}
+
+
+func TestInstallerRejectsInvalidBootstrapToken(t *testing.T) {
+	handler := &InstallHandler{ConfigFile: filepath.Join(t.TempDir(), "config.json"), Token: "expected-secret-token"}
+	request := httptest.NewRequest(http.MethodPost, "/api/install/test", bytes.NewReader([]byte("{}")))
+	request.Header.Set("X-Install-Token", "wrong-token")
+	response := httptest.NewRecorder()
+	handler.testConnections(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("invalid token status = %d, want 403", response.Code)
 	}
 }
