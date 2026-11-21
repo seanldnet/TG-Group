@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feat/bot-runtime-worker-v2
+      - feat/baota-release-bundle-v2
     paths:
       - 'Dockerfile'
       - 'backend/**'
