@@ -12,6 +12,7 @@ on:
       - feat/docker-one-click-install
       - feat/garble-release-pipeline
       - feat/baota-web-installer
+      - feat/baota-release-bundle-v2
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
@@ -22,6 +23,7 @@ on:
       - feat/auth-session-api
       - feat/garble-release-pipeline
       - feat/baota-web-installer
+      - feat/v5-cap-integration
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
