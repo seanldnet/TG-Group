@@ -14,6 +14,7 @@ on:
       - feat/baota-web-installer
       - feat/baota-release-bundle-v2
       - feat/v5-cap-integration
+      - feat/dashboard-live-summary
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
@@ -25,6 +26,7 @@ on:
       - feat/garble-release-pipeline
       - feat/baota-web-installer
       - feat/v5-cap-integration
+      - feat/order-management-live-data
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
