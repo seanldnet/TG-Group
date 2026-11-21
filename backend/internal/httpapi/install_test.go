@@ -49,6 +49,7 @@ func TestPersistConfigCreatesPrivateInstallLock(t *testing.T) {
 	config := persistedInstallConfig{
 		DatabaseURL: "postgres://owner:secret@db:5432/tg_group?sslmode=require",
 		RedisAddr: "redis:6379", RedisPassword: "redis-secret", RedisDB: 2,
+		BotTokenEncryptionKey: strings.Repeat("a", 64),
 	}
 	if err := handler.persistConfig(config); err != nil {
 		t.Fatalf("persistConfig() error = %v", err)
