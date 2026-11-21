@@ -2,7 +2,7 @@
 
 ## [0.1.14] - 2026-11-21
 
-### 宝塔正式交付包：V5 静态资源与 systemd 服务（PR #15，CI 待运行）
+### 宝塔正式交付包：V5 静态资源与 systemd 服务（PR #16，CI 运行中）
 
 - Garble Release 流水线新增独立 Vben V5 前端构建，正式资产包含 linux/amd64、linux/arm64 混淆二进制及 `tg-group-web-assets.tar.gz`。
 - 静态资源构建固定 Node 22.18.0 / pnpm 11.16.0，并在构建后校验 `index.html` 存在。
@@ -13,7 +13,7 @@
 
 ## [0.1.13] - 2026-11-21
 
-### 宝塔网页安装向导（PR #14，CI 待运行）
+### 宝塔网页安装向导（PR #14，CI 已通过）
 
 - 无数据库配置时启动安装专用页面，避免应用 API 和 Bot worker 在初始化前运行。
 - 新增 PostgreSQL/Redis 连接测试、SSL mode 选择、数据库迁移和用户自设 Owner 初始化。
