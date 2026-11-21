@@ -29,6 +29,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '群组管理', icon: 'lucide:users' },
       },
       {
+        name: 'TgSaasRules',
+        path: 'rules',
+        component: () => import('#/views/tg-saas/rules/index.vue'),
+        meta: { title: '群管规则', icon: 'lucide:shield-check' },
+      },
+      {
         name: 'TgSaasOrders',
         path: 'orders',
         component: () => import('#/views/tg-saas/orders/index.vue'),
