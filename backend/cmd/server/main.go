@@ -26,7 +26,7 @@ var (
 
 func main() {
 	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "version") {
-		fmt.Printf("TG Group %s (commit %s, built %s)\\n", version, commit, builtAt)
+		fmt.Printf("TG Group %s (commit %s, built %s)\n", version, commit, builtAt)
 		return
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
