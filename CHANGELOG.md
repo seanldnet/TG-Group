@@ -9,7 +9,9 @@
 - 平台设置增加 Cap 域名、Site Key、Secret、启用开关和模式选择；Secret 以 AES-256-GCM 加密保存且不回显。
 - Cap 加密密钥优先使用 `CAP_SECRET_ENCRYPTION_KEY`，回退复用 `BOT_TOKEN_ENCRYPTION_KEY`。
 - 登录组件按 Vben V5 布局渲染，宽度限制不超过账号/密码输入框；中文状态提示。
-- [ ] Go test/vet/build、V5 TypeScript/production build 与真实 Cap 联调。
+- [x] Go test/vet/build CI 通过。
+- [x] V5 spacing、TypeScript、production build CI 通过。
+- [ ] 真实浏览器连接用户自建 Cap 实例的端到端验收待部署配置后完成。
 
 
 ## [0.1.7] - 2026-11-21
