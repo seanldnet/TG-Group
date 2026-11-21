@@ -154,10 +154,30 @@ func (h *InstallHandler) complete(w http.ResponseWriter, r *http.Request) {
 		apiError(w, http.StatusInternalServerError, "could not inspect the existing platform owner")
 		return
 	}
-	encryptionKeyBytes := make([]byte, 32)
-	if _, err := rand.Read(encryptionKeyBytes); err != nil {
-		apiError(w, http.StatusInternalServerError, "could not generate application encryption key")
-		return
+	var encryptionKeyBytes []byte
+	configuredEncryptionKey := strings.TrimSpace(os.Getenv("BOT_TOKEN_ENCRYPTION_KEY"))
+	if configuredEncryptionKey != "" {
+		decoded, err := hex.DecodeString(configuredEncryptionKey)
+		if err != nil || len(decoded) != 32 {
+			apiError(w, http.StatusBadRequest, "BOT_TOKEN_ENCRYPTION_KEY must be 64 hexadecimal characters")
+			return
+		}
+		encryptionKeyBytes = decoded
+	} else {
+		var existingBotCount int
+		if err := db.QueryRow(ctx, "SELECT COUNT(*) FROM telegram_bots").Scan(&existingBotCount); err != nil {
+			apiError(w, http.StatusInternalServerError, "could not inspect existing Bot records")
+			return
+		}
+		if existingBotCount > 0 {
+			apiError(w, http.StatusConflict, "existing Bot records require their original BOT_TOKEN_ENCRYPTION_KEY in the service environment")
+			return
+		}
+		encryptionKeyBytes = make([]byte, 32)
+		if _, err := rand.Read(encryptionKeyBytes); err != nil {
+			apiError(w, http.StatusInternalServerError, "could not generate application encryption key")
+			return
+		}
 	}
 	config := persistedInstallConfig{
 		DatabaseURL: databaseURL, RedisAddr: input.RedisAddress,
