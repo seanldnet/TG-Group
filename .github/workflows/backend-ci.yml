@@ -15,6 +15,8 @@ on:
       - feat/baota-release-bundle-v2
       - feat/v5-cap-integration
       - feat/dashboard-live-summary
+      - feat/order-management-live-data
+      - feat/group-management-live-data
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci.yml'
