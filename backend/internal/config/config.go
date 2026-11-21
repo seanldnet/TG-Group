@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"os"
 	"strconv"
 	"strings"
@@ -34,12 +35,19 @@ type persistedConfig struct {
 func Load() (Config, error) {
 	configFile := env("APP_CONFIG_FILE", "/var/lib/tg-group/config.json")
 	var saved persistedConfig
-	if data, err := os.ReadFile(configFile); err == nil {
+	if info, err := os.Lstat(configFile); err == nil {
+		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+			return Config{}, fmt.Errorf("application config file %s must be a regular file with permissions 0600", filepath.Clean(configFile))
+		}
+		data, err := os.ReadFile(configFile)
+		if err != nil {
+			return Config{}, fmt.Errorf("read application config file: %w", err)
+		}
 		if err := json.Unmarshal(data, &saved); err != nil {
 			return Config{}, fmt.Errorf("parse application config file: %w", err)
 		}
 	} else if !os.IsNotExist(err) {
-		return Config{}, fmt.Errorf("read application config file: %w", err)
+		return Config{}, fmt.Errorf("inspect application config file: %w", err)
 	}
 
 	cfg := Config{
