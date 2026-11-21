@@ -242,7 +242,7 @@ sudo docker compose --env-file .env -f compose.yaml ps
 - PR #14 的 CI 已通过 PostgreSQL 17/Redis 7 服务容器集成测试，覆盖首次安装、Owner hash、安装锁与已有 Owner 保护；宝塔面板实际守护进程重启、反向代理和浏览器登录仍待真实服务器验收。
 
 
-### 宝塔 Release bundle 当前状态（PR #15）
+### 宝塔 Release bundle 当前状态（PR #16）
 
 - Garble Release 构建新增 Vben V5 静态资源打包；只有 Tag Release 才上传正式资产，PR 阶段仅上传短期 CI artifacts。
 - 当前 PR 的 V5 静态资源来自其所在分支；PR #12 Cap 登录验证分支尚未集成。正式 Release 必须从完成 V5 登录、Cap 和安装向导集成的最终分支重新构建。
