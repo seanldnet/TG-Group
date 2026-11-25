@@ -16,6 +16,7 @@ import {
 import LoginPage from "@/pages/LoginPage"
 import RegisterPage from "@/pages/RegisterPage"
 import DashboardPage from "@/pages/DashboardPage"
+import BotsPage from "@/pages/BotsPage"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -353,5 +354,6 @@ export default function App() {
   if (pathname === "/login") return <LoginPage />
   if (pathname === "/register") return <RegisterPage />
   if (pathname === "/dashboard") return <DashboardPage />
+  if (pathname === "/dashboard/bots") return <BotsPage />
   return <HomePage />
 }
