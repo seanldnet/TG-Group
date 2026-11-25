@@ -129,11 +129,14 @@ export default function DashboardPage() {
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3 rounded-lg border border-border/70 p-3">
                 <Bot className="size-5 text-muted-foreground" />
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">Telegram Bot</p>
-                  <p className="text-xs text-muted-foreground">验证 Token、启停、轮换与解绑 Bot</p>\n                </div>\n                <Button asChild variant="outline" className="w-full">\n                  <a href="/dashboard/bots">进入 Bot 管理</a>\n                </Button>\n              </div>\n              <div className="flex items-center gap-3 rounded-lg border border-border/70 p-3">\n                <UsersRound className="size-5 text-muted-foreground" />\n                <div>\n                  <p className="text-sm font-medium">群组管理</p>\n                  <p className="text-xs text-muted-foreground">群组发现与规则配置开发中</p>
+                  <p className="text-xs text-muted-foreground">验证 Token、启停、轮换与解绑 Bot</p>
                 </div>
               </div>
+              <Button asChild variant="outline" className="w-full">
+                <a href="/dashboard/bots">进入 Bot 管理</a>
+              </Button>
               <div className="flex items-center gap-3 rounded-lg border border-border/70 p-3">
                 <UsersRound className="size-5 text-muted-foreground" />
                 <div>
