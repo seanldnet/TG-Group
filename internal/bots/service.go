@@ -156,6 +156,10 @@ func (s *Service) ModerateGroupMember(ctx context.Context,tenantID,actorUserID,g
  var target telegramChatMemberResult
  if err:=s.callTelegram(ctx,token,"getChatMember",map[string]any{"chat_id":chatID,"user_id":targetUserID},&target);err!=nil{return err}
  if target.Status=="creator" || target.Status=="administrator"{return ErrTargetIsAdministrator}
+ if action=="unban" && target.Status!="kicked" { return ErrInvalidMemberAction }
+ if action=="mute" && target.Status!="member" && target.Status!="restricted" { return ErrInvalidMemberAction }
+ if action=="unmute" && target.Status!="restricted" { return ErrInvalidMemberAction }
+ if action=="ban" && target.Status!="member" && target.Status!="restricted" && target.Status!="left" { return ErrInvalidMemberAction }
  method:=""
  payload:=map[string]any{"chat_id":chatID,"user_id":targetUserID}
  switch action {
