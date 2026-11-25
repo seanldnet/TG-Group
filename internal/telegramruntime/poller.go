@@ -41,11 +41,35 @@ type chat struct {
 	IsForum bool `json:"is_forum"`
 }
 
+type telegramSender struct {
+	ID int64 `json:"id"`
+	Username string `json:"username"`
+	FirstName string `json:"first_name"`
+	LastName string `json:"last_name"`
+	IsBot bool `json:"is_bot"`
+}
+
+type telegramMessage struct {
+	MessageID int64 `json:"message_id"`
+	Date int64 `json:"date"`
+	Chat chat `json:"chat"`
+	From *telegramSender `json:"from"`
+	Text string `json:"text"`
+	Caption string `json:"caption"`
+	Photo []json.RawMessage `json:"photo"`
+	Document json.RawMessage `json:"document"`
+	Video json.RawMessage `json:"video"`
+	Sticker json.RawMessage `json:"sticker"`
+	Animation json.RawMessage `json:"animation"`
+	Voice json.RawMessage `json:"voice"`
+	Audio json.RawMessage `json:"audio"`
+}
+
 type update struct {
 	UpdateID int64 `json:"update_id"`
-	Message *struct { Chat chat `json:"chat"` } `json:"message"`
-	EditedMessage *struct { Chat chat `json:"chat"` } `json:"edited_message"`
-	ChannelPost *struct { Chat chat `json:"chat"` } `json:"channel_post"`
+	Message *telegramMessage `json:"message"`
+	EditedMessage *telegramMessage `json:"edited_message"`
+	ChannelPost *telegramMessage `json:"channel_post"`
 	MyChatMember *struct {
 		Chat chat `json:"chat"`
 		NewChatMember struct { Status string `json:"status"` } `json:"new_chat_member"`
@@ -148,14 +172,40 @@ func (p *Poller) getUpdates(ctx context.Context,token string,offset int64)([]upd
 	return result.Result,nil
 }
 
-func chatFromUpdate(item update) *chat {
+func messageFromUpdate(item update) *telegramMessage {
 	switch {
-	case item.Message!=nil:return &item.Message.Chat
-	case item.EditedMessage!=nil:return &item.EditedMessage.Chat
-	case item.ChannelPost!=nil:return &item.ChannelPost.Chat
-	case item.MyChatMember!=nil:return &item.MyChatMember.Chat
+	case item.Message!=nil:return item.Message
+	case item.EditedMessage!=nil:return item.EditedMessage
+	case item.ChannelPost!=nil:return item.ChannelPost
 	default:return nil
 	}
+}
+
+func chatFromUpdate(item update) *chat {
+	if message:=messageFromUpdate(item);message!=nil{return &message.Chat}
+	if item.MyChatMember!=nil{return &item.MyChatMember.Chat}
+	return nil
+}
+
+func messageType(message telegramMessage) string {
+	switch {
+	case message.Text!="":return "text"
+	case len(message.Photo)>0:return "photo"
+	case len(message.Document)>0:return "document"
+	case len(message.Video)>0:return "video"
+	case len(message.Sticker)>0:return "sticker"
+	case len(message.Animation)>0:return "animation"
+	case len(message.Voice)>0:return "voice"
+	case len(message.Audio)>0:return "audio"
+	default:return "other"
+	}
+}
+
+func senderDisplayName(sender *telegramSender) string {
+	if sender==nil{return ""}
+	if sender.FirstName!="" && sender.LastName!=""{return sender.FirstName+" "+sender.LastName}
+	if sender.FirstName!=""{return sender.FirstName}
+	return sender.LastName
 }
 
 func isManagedChat(value *chat) bool {
@@ -174,13 +224,32 @@ func groupStatus(item update) string {
 func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update)error {
 	value:=chatFromUpdate(item)
 	if !isManagedChat(value){return nil}
-	_,err:=p.pool.Exec(ctx,`INSERT INTO telegram_groups(tenant_id,bot_id,telegram_chat_id,title,username,chat_type,is_forum,status,last_seen_at)
+	var groupID string
+	err:=p.pool.QueryRow(ctx,`INSERT INTO telegram_groups(tenant_id,bot_id,telegram_chat_id,title,username,chat_type,is_forum,status,last_seen_at)
 		VALUES($1,$2,$3,$4,$5,$6,$7,$8,now())
 		ON CONFLICT(bot_id,telegram_chat_id) DO UPDATE SET
 		title=EXCLUDED.title,username=EXCLUDED.username,chat_type=EXCLUDED.chat_type,
-		is_forum=EXCLUDED.is_forum,status=EXCLUDED.status,last_seen_at=now(),updated_at=now()`,
-		bot.tenantID,bot.id,value.ID,value.Title,value.Username,value.Type,value.IsForum,groupStatus(item))
+		is_forum=EXCLUDED.is_forum,status=EXCLUDED.status,last_seen_at=now(),updated_at=now()
+		RETURNING id::text`,
+		bot.tenantID,bot.id,value.ID,value.Title,value.Username,value.Type,value.IsForum,groupStatus(item)).Scan(&groupID)
 	if err!=nil{return fmt.Errorf("upsert Telegram group: %w",err)}
+	message:=messageFromUpdate(item)
+	if message==nil || message.MessageID==0{return nil}
+	var senderID any
+	var username,displayName string
+	if message.From!=nil{senderID=message.From.ID;username=message.From.Username;displayName=senderDisplayName(message.From)}
+	content:=message.Text
+	if content==""{content=message.Caption}
+	if len(content)>4096{content=content[:4096]}
+	var sentAt any
+	if message.Date>0{sentAt=time.Unix(message.Date,0).UTC()}
+	_,err=p.pool.Exec(ctx,`INSERT INTO telegram_message_events(
+		tenant_id,bot_id,group_id,telegram_update_id,telegram_message_id,telegram_user_id,
+		sender_username,sender_display_name,message_type,message_text,telegram_sent_at)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		ON CONFLICT(bot_id,telegram_update_id) DO NOTHING`,
+		bot.tenantID,bot.id,groupID,item.UpdateID,message.MessageID,senderID,username,displayName,
+		messageType(*message),content,sentAt)
+	if err!=nil{return fmt.Errorf("persist Telegram message event: %w",err)}
 	return nil
 }
-
