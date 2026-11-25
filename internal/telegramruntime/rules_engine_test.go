@@ -28,3 +28,22 @@ func repeatRune(value rune,count int) string {
 	for i:=range result { result[i]=value }
 	return string(result)
 }
+
+func TestJoinChallengeOptionsAreDistinctAndContainAnswer(t *testing.T) {
+	for answer:=int64(2);answer<=18;answer++ {
+		options:=joinChallengeOptions(answer)
+		if len(options)!=3 { t.Fatalf("answer %d has %d options",answer,len(options)) }
+		seen:=map[int64]bool{}
+		for _,option:=range options {
+			if option<2 || option>18 { t.Fatalf("answer %d generated out-of-range option %d",answer,option) }
+			if seen[option] { t.Fatalf("answer %d generated duplicate option %d",answer,option) }
+			seen[option]=true
+		}
+		if !seen[answer] { t.Fatalf("answer %d missing from options %v",answer,options) }
+	}
+}
+
+func TestJoinChallengeOptionsRejectsInvalidAnswer(t *testing.T) {
+	if options:=joinChallengeOptions(1);options!=nil { t.Fatalf("invalid answer options = %v",options) }
+	if options:=joinChallengeOptions(19);options!=nil { t.Fatalf("invalid answer options = %v",options) }
+}
