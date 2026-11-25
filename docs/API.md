@@ -146,11 +146,30 @@ openssl rand -base64 32
 
 成员资料通过 Telegram `chat_member` 更新以及普通消息中的 `new_chat_members` / `left_chat_member` 事件增量维护。Telegram 仅向满足条件的 Bot 投递成员状态更新：Bot 必须在群内具备管理员身份，且 `chat_member` 必须列入 `allowed_updates`。因此本列表是 Bot 加入并开始接收更新后的增量记录，不会自动回填 Bot 加入前的完整历史成员名单。
 
+
+### Bot 群组权限实时检测
+
+`GET /api/v1/groups/{groupID}/permissions`
+
+通过 Telegram `getChatMember` 实时读取当前群组内 Bot 自身身份及权限，返回 Bot 状态、管理群组、删除消息、限制成员、邀请成员、固定消息、管理话题等权限。群组和 Bot 均按当前租户查询；群组或 Bot 停用时不执行检测。群主身份按 Telegram 语义视为拥有管理权限。
+
+### 群成员处罚
+
+`POST /api/v1/groups/{groupID}/members/{userID}/action`
+
+请求示例：
+
+```json
+{ "action": "mute", "duration_minutes": 60 }
+```
+
+支持 `ban`（封禁）、`unban`（解封）、`mute`（限时禁言）、`unmute`（解除禁言）。禁言时长为 1–525600 分钟；其他动作的 duration_minutes 必须为 0 或省略。执行前服务端实时核验 Bot 是群管理员/群主且具备 `can_restrict_members`，并向 Telegram 查询目标成员身份；不会处罚群主或管理员，也会拒绝与目标当前状态不匹配的动作。Telegram 操作成功后更新本地成员状态并写入 audit_logs。外部 Telegram 操作与本地数据库事务无法构成分布式原子事务，因此若后续本地审计写入失败，接口会返回错误并在日志中体现“Telegram action succeeded”，应人工核对 Telegram 实际状态。
+
 ### 当前边界
 
 - 长轮询当前记录 message、edited_message、channel_post 更新中的发送者和消息内容；频道帖子可能没有普通用户发送者，因此 Telegram 用户 ID 为空。Telegram Bot 的群组隐私模式会限制其可接收的普通群消息；若需要记录群内全部普通消息，需要按 Telegram 官方规则关闭该 Bot 的群组隐私模式，或将 Bot 设为群管理员，并确保群组授予相应权限。
 - 图片、文件、视频、贴纸、语音等只记录消息类型及 Caption，不保存媒体文件。
-- 尚未实现消息全文搜索、分页游标、导出、自动保留期限、Webhook 模式、Bot 群管理员权限检测或群管规则执行。成员列表当前为增量采集，尚未实现全量成员同步、成员处罚和管理员权限主动刷新。
+- 尚未实现消息全文搜索、分页游标、导出、自动保留期限、Webhook 模式、全量成员同步、自动处罚规则和完整群管规则引擎。成员处罚当前仅覆盖手动封禁/解封/限时禁言/解除禁言。
 - Bot 的 active/disabled 是平台侧管理状态；后台 worker 会按该状态启动/停止长轮询，但不代表 Telegram 已授予 Bot 管理员权限。
 
 ## 通用错误
