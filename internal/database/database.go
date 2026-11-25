@@ -31,6 +31,11 @@ func Open(ctx context.Context, databaseURL string) (*DB, error) {
 func (db *DB) Close() { if db != nil && db.Pool != nil { db.Pool.Close() } }
 
 func (db *DB) Migrate(ctx context.Context) error {
+	conn, err := db.Pool.Acquire(ctx)
+	if err != nil { return fmt.Errorf("acquire migration lock connection: %w", err) }
+	defer conn.Release()
+	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock(8675309)"); err != nil { return fmt.Errorf("lock migrations: %w", err) }
+	defer func() { _, _ = conn.Exec(context.Background(), "SELECT pg_advisory_unlock(8675309)") }()
 	if _, err := db.Pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 	)`); err != nil { return fmt.Errorf("create schema_migrations: %w", err) }
