@@ -63,7 +63,8 @@ TG_GROUP_API_PROXY="http://127.0.0.1:8080" pnpm dev
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
 - `GET /api/v1/auth/me`
-- `POST /api/v1/auth/logout`\n- `GET /api/v1/bots`\n- `POST /api/v1/bots`\n- `PATCH /api/v1/bots/{botID}/status`\n- `PUT /api/v1/bots/{botID}/token`\n- `DELETE /api/v1/bots/{botID}`
+- `POST /api/v1/auth/logout`\n- `GET /api/v1/bots`
+- `GET /api/v1/groups`\n- `POST /api/v1/bots`\n- `PATCH /api/v1/bots/{botID}/status`\n- `PUT /api/v1/bots/{botID}/token`\n- `DELETE /api/v1/bots/{botID}`
 
 API 请求和响应格式见 [API 文档](API.md)。
 
