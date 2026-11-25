@@ -10,7 +10,7 @@ CREATE TABLE telegram_group_rule_events (
     status VARCHAR(24) NOT NULL CHECK (status IN ('succeeded','skipped','failed')),
     detail VARCHAR(500) NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (group_id, telegram_update_id, rule_id, action)
+    UNIQUE (group_id, telegram_update_id, rule_id, action, telegram_user_id)
 );
 CREATE INDEX telegram_group_rule_events_group_created_idx
     ON telegram_group_rule_events(tenant_id, group_id, created_at DESC);
