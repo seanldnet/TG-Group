@@ -174,7 +174,7 @@ func (h *Handler) setBotStatus(w http.ResponseWriter,r *http.Request){
 	user,ok:=h.currentUser(w,r);if !ok{return}
 	var input botStatusRequest
 	if !decodeJSON(w,r,&input){return}
-	result,err:=h.bots.SetStatus(r.Context(),user.TenantID,r.PathValue("botID"),input.Status)
+	result,err:=h.bots.SetStatus(r.Context(),user.TenantID,user.ID,r.PathValue("botID"),input.Status)
 	if err!=nil{h.writeBotError(w,err);return}
 	writeJSON(w,http.StatusOK,result)
 }
@@ -184,7 +184,7 @@ func (h *Handler) rotateBotToken(w http.ResponseWriter,r *http.Request){
 	user,ok:=h.currentUser(w,r);if !ok{return}
 	var input addBotRequest
 	if !decodeJSON(w,r,&input){return}
-	result,err:=h.bots.RotateToken(r.Context(),user.TenantID,r.PathValue("botID"),input.Token)
+	result,err:=h.bots.RotateToken(r.Context(),user.TenantID,user.ID,r.PathValue("botID"),input.Token)
 	if err!=nil{h.writeBotError(w,err);return}
 	writeJSON(w,http.StatusOK,result)
 }
@@ -192,7 +192,7 @@ func (h *Handler) rotateBotToken(w http.ResponseWriter,r *http.Request){
 func (h *Handler) removeBot(w http.ResponseWriter,r *http.Request){
 	if !h.botServicesReady(w){return}
 	user,ok:=h.currentUser(w,r);if !ok{return}
-	if err:=h.bots.Remove(r.Context(),user.TenantID,r.PathValue("botID"));err!=nil{h.writeBotError(w,err);return}
+	if err:=h.bots.Remove(r.Context(),user.TenantID,user.ID,r.PathValue("botID"));err!=nil{h.writeBotError(w,err);return}
 	w.WriteHeader(http.StatusNoContent)
 }
 
