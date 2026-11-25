@@ -19,6 +19,7 @@ import DashboardPage from "@/pages/DashboardPage"
 import BotsPage from "@/pages/BotsPage"
 import GroupsPage from "@/pages/GroupsPage"
 import GroupEventsPage from "@/pages/GroupEventsPage"
+import GroupMembersPage from "@/pages/GroupMembersPage"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -360,5 +361,7 @@ export default function App() {
   if (pathname === "/dashboard/groups") return <GroupsPage />
   const groupEventsMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/events$/i)
   if (groupEventsMatch) return <GroupEventsPage groupID={groupEventsMatch[1]} />
+  const groupMembersMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/members$/i)
+  if (groupMembersMatch) return <GroupMembersPage groupID={groupMembersMatch[1]} />
   return <HomePage />
 }
