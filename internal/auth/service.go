@@ -65,6 +65,7 @@ func (s *Service) Register(ctx context.Context, email, password, displayName, us
 	defer tx.Rollback(ctx)
 
 	var tenantID, userID string
+	var createdAt time.Time
 	if err := tx.QueryRow(ctx, "INSERT INTO tenants(name) VALUES($1) RETURNING id::text", displayName).Scan(&tenantID); err != nil {
 		return Session{}, fmt.Errorf("create tenant: %w", err)
 	}
