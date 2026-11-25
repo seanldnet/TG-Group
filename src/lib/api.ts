@@ -197,3 +197,38 @@ export function listGroupMembers(groupID: string, limit = 200) {
     { headers: authenticatedHeaders() },
   )
 }
+
+export type TelegramGroupBotPermissions = {
+  group_id: string
+  bot_id: string
+  bot_status: string
+  can_manage_chat: boolean
+  can_delete_messages: boolean
+  can_restrict_members: boolean
+  can_invite_users: boolean
+  can_pin_messages: boolean
+  can_manage_topics: boolean
+}
+
+export function getGroupBotPermissions(groupID: string) {
+  return request<TelegramGroupBotPermissions>(
+    `/api/v1/groups/${encodeURIComponent(groupID)}/permissions`,
+    { headers: authenticatedHeaders() },
+  )
+}
+
+export function moderateGroupMember(
+  groupID: string,
+  userID: number,
+  action: "ban" | "unban" | "mute" | "unmute",
+  durationMinutes = 0,
+) {
+  return request<{ ok: boolean; action: string; telegram_user_id: number }>(
+    `/api/v1/groups/${encodeURIComponent(groupID)}/members/${userID}/action`,
+    {
+      method: "POST",
+      headers: authenticatedHeaders(),
+      body: JSON.stringify({ action, duration_minutes: durationMinutes }),
+    },
+  )
+}
