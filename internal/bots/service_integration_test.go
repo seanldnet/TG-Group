@@ -43,6 +43,25 @@ func TestBotLifecycleAndTenantIsolationPostgres(t *testing.T) {
 	if err!=nil{t.Fatalf("add bot: %v",err)}
 	if created.TelegramBotID!=telegramID || created.Username!="integration_test_bot" || created.Status!="active"{t.Fatalf("unexpected bot response: %+v",created)}
 	var stored []byte
+	rule,err:=service.CreateGroupRule(ctx,owner.User.TenantID,groupID,GroupRuleInput{
+		RuleType:"keyword_filter",Name:"integration keyword",Enabled:true,Priority:10,
+		Config:json.RawMessage(`{"words":["integration"],"action":"delete"}`),
+	})
+	if err!=nil{t.Fatalf("create group rule: %v",err)}
+	rules,err:=service.ListGroupRules(ctx,owner.User.TenantID,groupID)
+	if err!=nil || len(rules)!=1 || rules[0].ID!=rule.ID{t.Fatalf("owner group rules = %+v, %v",rules,err)}
+	otherRules,err:=service.ListGroupRules(ctx,other.User.TenantID,groupID)
+	if err!=nil || len(otherRules)!=0{t.Fatalf("cross-tenant group rules = %+v, %v",otherRules,err)}
+	if _,err:=db.Pool.Exec(ctx,`INSERT INTO telegram_group_rule_events(
+		tenant_id,group_id,rule_id,telegram_update_id,telegram_message_id,telegram_user_id,action,status,detail)
+		VALUES($1,$2,$3,9101,88,12345,'delete_message','succeeded','message deleted')`,
+		owner.User.TenantID,groupID,rule.ID);err!=nil{t.Fatalf("create rule event: %v",err)}
+	ruleEvents,err:=service.ListGroupRuleEvents(ctx,owner.User.TenantID,groupID,50)
+	if err!=nil || len(ruleEvents)!=1 || ruleEvents[0].Status!="succeeded" || ruleEvents[0].RuleID!=rule.ID{
+		t.Fatalf("owner group rule events = %+v, %v",ruleEvents,err)
+	}
+	otherRuleEvents,err:=service.ListGroupRuleEvents(ctx,other.User.TenantID,groupID,50)
+	if err!=nil || len(otherRuleEvents)!=0{t.Fatalf("cross-tenant rule events = %+v, %v",otherRuleEvents,err)}
 	if err:=db.Pool.QueryRow(ctx,"SELECT token_ciphertext FROM telegram_bots WHERE id=$1",created.ID).Scan(&stored);err!=nil{t.Fatal(err)}
 	if string(stored)=="111:token-one-abcdefghijklmnop"{t.Fatal("bot token was stored in plaintext")}
 	recovered,err:=service.GetToken(ctx,owner.User.TenantID,created.ID)
