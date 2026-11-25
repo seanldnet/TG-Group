@@ -12,7 +12,7 @@ import (
 )
 
 func TestHealthEndpoint(t *testing.T) {
-	handler := NewHandler(slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
+	handler := NewHandler(slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	response := httptest.NewRecorder()
 
@@ -38,7 +38,7 @@ func TestHealthEndpoint(t *testing.T) {
 }
 
 func TestUnknownRouteReturnsNotFound(t *testing.T) {
-	handler := NewHandler(slog.Default(), nil)
+	handler := NewHandler(slog.Default(), nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/missing", nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
