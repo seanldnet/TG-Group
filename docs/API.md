@@ -165,6 +165,32 @@ openssl rand -base64 32
 
 支持 `ban`（封禁）、`unban`（解封）、`mute`（限时禁言）、`unmute`（解除禁言）。禁言时长为 1–525600 分钟；其他动作的 duration_minutes 必须为 0 或省略。执行前服务端实时核验 Bot 是群管理员/群主且具备 `can_restrict_members`，并向 Telegram 查询目标成员身份；不会处罚群主或管理员，也会拒绝与目标当前状态不匹配的动作。解除禁言时先读取群组默认权限并按群组默认权限恢复，不会直接把成员提升为全部权限；若 Telegram 未返回默认权限则拒绝解除禁言。Telegram 操作成功后更新本地成员状态并写入 audit_logs。外部 Telegram 操作与本地数据库事务无法构成分布式原子事务，因此若后续本地审计写入失败，接口会返回错误并在日志中体现“Telegram action succeeded”，应人工核对 Telegram 实际状态。
 
+
+### 群组规则配置（第一阶段：配置管理）
+
+规则数据按当前登录用户的租户和群组隔离。支持以下类型：`keyword_filter`、`sensitive_word`、`anti_spam`、`anti_ad`、`welcome`、`leave_notice`。
+
+- `GET /api/v1/groups/{groupID}/rules`：查询当前群组规则。
+- `POST /api/v1/groups/{groupID}/rules`：创建规则。
+- `PUT /api/v1/groups/{groupID}/rules/{ruleID}`：完整更新规则。
+- `DELETE /api/v1/groups/{groupID}/rules/{ruleID}`：删除规则。
+
+创建/更新请求示例（关键词过滤）：
+
+```json
+{
+  "rule_type": "keyword_filter",
+  "name": "广告关键词",
+  "enabled": true,
+  "priority": 100,
+  "config": { "words": ["广告", "推广"], "action": "delete" }
+}
+```
+
+配置由服务端按规则类型进行严格字段校验。关键词/敏感词使用 `words` 数组；反广告使用 `patterns` 数组；反刷屏使用 `max_messages`、`window_seconds`；过滤动作目前仅接受安全子集 `delete`；欢迎和离群通知使用 `text`。优先级范围为 0–1000，数值越小越靠前。同一群组内同类型规则名称不可重复。
+
+当前版本只完成规则持久化、租户隔离、类型配置校验和网站配置页面；消息执行引擎、Telegram 自动删除消息、欢迎/离群通知发送、规则命中日志尚未启用，不能将“已保存/已启用”理解为规则已经自动生效。
+
 ### 当前边界
 
 - 长轮询当前记录 message、edited_message、channel_post 更新中的发送者和消息内容；频道帖子可能没有普通用户发送者，因此 Telegram 用户 ID 为空。Telegram Bot 的群组隐私模式会限制其可接收的普通群消息；若需要记录群内全部普通消息，需要按 Telegram 官方规则关闭该 Bot 的群组隐私模式，或将 Bot 设为群管理员，并确保群组授予相应权限。
