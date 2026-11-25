@@ -274,6 +274,7 @@ func (h *Handler) writeBotError(w http.ResponseWriter,err error){
 	case errors.Is(err,bots.ErrTargetIsAdministrator):writeError(w,http.StatusForbidden,"cannot moderate a group administrator or creator")
 	case errors.Is(err,bots.ErrInvalidMemberAction):writeError(w,http.StatusBadRequest,"invalid member action or duration")
 	case errors.Is(err,bots.ErrTelegramOperation):writeError(w,http.StatusUnprocessableEntity,err.Error())
+	case errors.Is(err,bots.ErrGroupPermissionsUnavailable):writeError(w,http.StatusConflict,"group default permissions are unavailable; unmute was not applied")
 	default:h.logger.Error("Telegram bot operation failed","error",err);writeError(w,http.StatusInternalServerError,"internal server error")
 	}
 }
