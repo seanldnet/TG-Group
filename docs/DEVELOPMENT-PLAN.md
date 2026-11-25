@@ -9,9 +9,9 @@
 - [ ] 运行 shadcn/ui 官方 CLI 初始化配置并添加官方组件（当前受执行环境无法访问 npm/GitHub 网络限制，尚未运行及验证）。
 - [x] 确认后端语言为 Go（Golang）。
 - [x] Go 后端采用标准库 `net/http`，不引入第三方 Web 框架；建立基础服务入口、配置和健康检查。
-- [ ] 设计并实现业务模块边界、数据库访问、Redis 与后台任务执行模型。
-- [ ] 建立 PostgreSQL / Redis 开发与测试环境。
-- [ ] 建立认证、租户隔离、账号绑定和套餐领域模型。
+- [x] 建立 PostgreSQL pgx 连接池、Ping、版本化迁移执行器与身份/租户基础 schema（尚未完成 Redis 和后台任务）。
+- [ ] 建立 PostgreSQL / Redis 开发与测试环境（连接配置与迁移代码已提交，尚无 Compose 测试环境）。
+- [ ] 建立认证、租户隔离、账号绑定和套餐领域模型（当前仅完成 tenants/users/session/audit 数据表，认证 API 未实现）。
 - [ ] 建立网站注册/登录和 Telegram 注册管理 Bot。
 - [ ] 建立用户 Bot Token 绑定、Bot 状态与群组发现。
 - [ ] 建立统一规则/权限/审计模型。
@@ -30,8 +30,7 @@
 3. shadcn/ui 官方 CLI 初始化；页面 UI 仅使用 shadcn/ui 官方组件。
 4. 代码格式、类型检查、测试和 CI 基础。
 5. Go 后端使用标准库 `net/http` 建立服务入口、配置、结构化日志、优雅停机和健康检查。
-6. 后续评估 PostgreSQL/Redis 访问、迁移与 Worker 方案。
-6. PostgreSQL / Redis 连接方案。
+6. PostgreSQL pgx 连接池与版本化迁移执行器。
 
 **验收**：干净环境可安装依赖；前端构建通过；官方 shadcn/ui 组件可正常渲染；无其他 UI 组件库混入。
 
