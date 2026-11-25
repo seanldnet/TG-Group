@@ -81,3 +81,14 @@ docker compose -f compose.dev.yml down -v
 ```
 
 `compose.dev.yml` 是本地开发依赖环境，不是最终生产部署方案。生产交付仍要求云端构建并发布镜像，服务器只拉取镜像运行。
+
+
+## Telegram 群消息日志验证
+
+1. 在网站登录后打开 `/dashboard/groups`。
+2. 将已登记并启用的测试 Bot 加入测试群组，发送一条普通文字消息。
+3. 在群组列表对应行打开“消息日志”，或请求 `GET /api/v1/groups/{groupID}/events?limit=50`。
+4. 日志应显示发送者名称、Telegram 用户 ID、消息类型、文字内容和发送时间。
+5. 可在 PostgreSQL 检查：`SELECT telegram_user_id,sender_username,message_type,message_text,telegram_sent_at FROM telegram_message_events ORDER BY received_at DESC LIMIT 20;`
+
+消息日志当前保存文字和 Caption，不保存媒体文件本体；暂未配置自动保留期限。请仅使用测试群组验证，避免把不应进入开发数据库的真实用户消息写入测试环境。
