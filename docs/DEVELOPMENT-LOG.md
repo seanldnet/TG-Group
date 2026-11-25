@@ -189,3 +189,13 @@
 
 
 - **CI 验证补充**：GitHub Actions run `45713735190`（代码提交 `decbbbd7a6566283eb274683fe87a98f6eae14eb`）两个 Job 均为 success：Go 格式检查、Go/PostgreSQL 测试、`go vet ./...` 全部通过；前端依赖安装与生产构建通过。成员列表 API 与前端页面已通过云端构建验证。真实 Telegram 群成员更新仍需测试群组联调。
+
+
+### Bot 群组权限实时检测与成员处罚（第十二批）
+- **服务端权限检测**：新增 `GET /api/v1/groups/{groupID}/permissions`，使用 Bot 自身 Telegram 用户 ID 调用 `getChatMember` 获取实时身份与权限；群主身份按 Telegram 语义视为拥有管理权限。
+- **成员处罚**：新增 `POST /api/v1/groups/{groupID}/members/{userID}/action`，支持封禁、解封、限时禁言和解除禁言。执行前验证当前租户的群组/Bot 关系、Bot active 状态、Bot 管理员身份与 `can_restrict_members`；再通过 Telegram 查询目标成员，禁止处罚管理员/群主，并校验动作与目标当前状态是否匹配。
+- **状态与审计**：Telegram 操作成功后，在 PostgreSQL 事务中更新本地成员状态并写入 `audit_logs`。Telegram API 与本地数据库不是分布式事务；若 Telegram 已执行而本地事务失败，接口会明确返回“Telegram action succeeded”错误，要求人工核对。
+- **网站**：群成员页展示实时 Bot 权限，增加禁言、解除禁言、封禁、解封操作；危险操作要求确认，禁言时要求输入 1–525600 分钟。
+- **测试**：增加非法成员操作参数测试；HTTP 测试覆盖权限与处罚接口在服务未配置时返回 503。
+- **文档**：更新 API、开发计划和本地测试说明。
+- **验证状态**：代码与文档已提交 main；GitHub Actions 最新 CI 正在运行，尚未取得最终结果。真实 Bot 群组权限和处罚动作必须在测试群组联调后才能验收。
