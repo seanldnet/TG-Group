@@ -229,3 +229,10 @@
 - **测试**：新增通知模板占位符与长度上限单测；等待最新 CI 对 Go 编译/测试/Vet 与前端构建验证。
 
 - **CI 验证与修复**：首轮 CI run `45723781019` 发现规则引擎文件存在未使用的 `time` import，已删除并提交修复。最终代码提交 `8ef507a5529570a0a656f56b804ea1b6f6d42e19` 的 GitHub Actions run `45723931636` 两个 Job 均 success：Go 格式检查、PostgreSQL 集成测试、`go vet ./...`、前端依赖安装和生产构建全部通过。CI 证明编译与自动化测试通过，不替代真实 Telegram 测试群联调。
+
+
+### 群组规则执行记录查询（第十四批补充）
+- **后端**：新增 `ListGroupRuleEvents`，仅按当前租户与群组查询最近执行记录；新增 `GET /api/v1/groups/{groupID}/rule-events?limit=50`，limit 范围 1–100。
+- **前端**：新增 `src/pages/GroupRuleEventsPage.tsx`，使用官方 shadcn/ui Table、Badge、Card、Button 展示执行时间、动作、状态、目标用户/消息和执行详情；规则配置页增加“执行记录”入口，并修正旧版“规则尚未自动执行”提示。
+- **测试**：扩展 PostgreSQL 集成测试，覆盖规则创建/列表、规则事件查询和跨租户不可见；HTTP 测试覆盖执行记录路由在服务未配置时返回 503。
+- **文档**：更新 API 与开发计划，明确执行记录 API、当前自动规则能力和未实现边界。
