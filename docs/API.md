@@ -81,6 +81,12 @@ Authorization: Bearer <token>
 
 返回当前租户已登记的 Bot 列表，不包含 Token 或密文。
 
+### 查询已发现群组
+
+`GET /api/v1/groups`
+
+返回当前租户的群组、超级群组和频道列表；服务端按当前用户的 tenant_id 过滤，不接受客户端指定租户。
+
 ### 启用/停用 Bot
 
 `PATCH /api/v1/bots/{botID}/status`
@@ -121,7 +127,7 @@ openssl rand -base64 32
 
 发现的 group、supergroup、channel 会写入 `telegram_groups`，并通过每个 Bot 独立的 update offset 避免成功处理的更新重复消费。worker 会随 Bot 启停状态协调，并在 API 收到终止信号时停止。
 
-群组发现是事件驱动的：Bot 需要先加入目标群组/频道并收到 Telegram 更新。当前尚未提供群组列表 API/前端，群组数据目前落库供后续管理模块使用。
+群组发现是事件驱动的：Bot 需要先加入目标群组/频道并收到 Telegram 更新。当前提供 `GET /api/v1/groups` 查询当前租户已发现的群组，响应字段包含群组 ID、Chat ID、标题、类型、来源 Bot 和最近发现时间。
 
 ### 当前边界
 
