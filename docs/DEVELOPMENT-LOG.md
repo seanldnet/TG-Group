@@ -186,3 +186,6 @@
 - **测试**：新增 chat_member JSON 解析单测；PostgreSQL 集成测试覆盖成员查询与跨租户隔离；HTTP 测试覆盖成员 API 在服务未配置时返回 503。
 - **数据边界**：成员表是增量采集，不会自动回填 Bot 加入前的完整成员名单。Telegram 的 `chat_member` 更新要求 Bot 在群内具备管理员身份，且显式订阅该 update 类型。尚未实现全量成员同步、成员处罚、权限主动刷新和真实 Telegram 群组联调。
 - **验证状态**：代码、迁移、前端和文档已提交 `main`；本批 GitHub Actions CI 尚待运行结果，当前不标记为测试通过。
+
+
+- **CI 验证补充**：GitHub Actions run `45713735190`（代码提交 `decbbbd7a6566283eb274683fe87a98f6eae14eb`）两个 Job 均为 success：Go 格式检查、Go/PostgreSQL 测试、`go vet ./...` 全部通过；前端依赖安装与生产构建通过。成员列表 API 与前端页面已通过云端构建验证。真实 Telegram 群成员更新仍需测试群组联调。
