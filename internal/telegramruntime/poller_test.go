@@ -57,3 +57,16 @@ func TestSenderDisplayName(t *testing.T) {
 	}
 	for _,test:=range tests{t.Run(test.name,func(t *testing.T){if got:=senderDisplayName(test.sender);got!=test.want{t.Fatalf("senderDisplayName() = %q, want %q",got,test.want)}})}
 }
+
+func TestChatMemberUpdateDecoding(t *testing.T) {
+	raw := `{"update_id":12,"chat_member":{"chat":{"id":-100123,"type":"supergroup","title":"Test"},"date":1700000000,"old_chat_member":{"user":{"id":42,"is_bot":false,"first_name":"Ada"},"status":"left"},"new_chat_member":{"user":{"id":42,"is_bot":false,"first_name":"Ada","username":"ada"},"status":"administrator","can_delete_messages":true,"can_restrict_members":true}}}`
+	var item update
+	if err := json.Unmarshal([]byte(raw), &item); err != nil { t.Fatalf("decode chat_member update: %v", err) }
+	if got := chatFromUpdate(item); got == nil || got.ID != -100123 { t.Fatalf("chatFromUpdate() = %#v", got) }
+	if item.ChatMember == nil { t.Fatal("chat_member update was not decoded") }
+	member := item.ChatMember.NewChatMember
+	if member.User.ID != 42 || member.Status != "administrator" || !member.CanDeleteMessages || !member.CanRestrictMembers {
+		t.Fatalf("unexpected member update: %+v", member)
+	}
+	if item.ChatMember.Date != 1700000000 { t.Fatalf("date = %d", item.ChatMember.Date) }
+}
