@@ -1,0 +1,41 @@
+name: Bootstrap official shadcn/ui
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    if: github.event.head_commit.message == 'ci: bootstrap official shadcn ui'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install frontend dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Initialize using the official shadcn CLI
+        run: pnpm dlx shadcn@latest init --yes
+      - name: Add official shadcn components
+        run: pnpm dlx shadcn@latest add button card input label badge separator skeleton sonner dialog dropdown-menu form select switch table tabs textarea tooltip --yes
+      - name: Verify frontend production build
+        run: pnpm build
+      - name: Commit generated official components
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(ui): initialize official shadcn components"
+            git push origin HEAD:main
+          fi
