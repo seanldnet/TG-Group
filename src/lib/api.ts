@@ -276,3 +276,24 @@ export function deleteGroupRule(groupID: string, ruleID: string) {
     { method: "DELETE", headers: authenticatedHeaders() },
   )
 }
+
+
+export type TelegramGroupRuleEvent = {
+  id: number
+  group_id: string
+  rule_id: string
+  telegram_update_id: number
+  telegram_message_id: number
+  telegram_user_id: number
+  action: string
+  status: "succeeded" | "skipped" | "failed"
+  detail: string
+  created_at: string
+}
+
+export function listGroupRuleEvents(groupID: string, limit = 50) {
+  return request<{ items: TelegramGroupRuleEvent[] }>(
+    `/api/v1/groups/${encodeURIComponent(groupID)}/rule-events?limit=${limit}`,
+    { headers: authenticatedHeaders() },
+  )
+}
