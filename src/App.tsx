@@ -13,7 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
+import LoginPage from "@/pages/LoginPage"\nimport RegisterPage from "@/pages/RegisterPage"\nimport DashboardPage from "@/pages/DashboardPage"\n\nimport { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -108,7 +108,7 @@ function FeatureCard({ feature }: { feature: Feature }) {
   )
 }
 
-export default function App() {
+function HomePage() {
   return (
     <main className="min-h-svh overflow-hidden bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b border-border/70 bg-background/90 backdrop-blur-xl">
@@ -131,12 +131,14 @@ export default function App() {
             <a className="transition-colors hover:text-foreground" href="#roadmap">开发进度</a>
           </nav>
 
-          <Button asChild size="sm">
-            <a href="#features">
-              了解平台
-              <ArrowRight className="ml-1 size-4" />
-            </a>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="ghost" size="sm">
+              <a href="/login">登录</a>
+            </Button>
+            <Button asChild size="sm">
+              <a href="/register">注册账号</a>
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -158,13 +160,13 @@ export default function App() {
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <Button asChild size="lg">
-                <a href="#features">
-                  查看功能介绍
+                <a href="/register">
+                  创建账号
                   <ArrowRight className="ml-2 size-4" />
                 </a>
               </Button>
               <Button asChild variant="outline" size="lg">
-                <a href="#roadmap">查看开发进度</a>
+                <a href="#features">了解功能</a>
               </Button>
             </div>
             <div className="mt-10 flex flex-wrap items-center gap-x-7 gap-y-3 text-sm text-muted-foreground">
@@ -339,4 +341,13 @@ export default function App() {
       </footer>
     </main>
   )
+}
+
+
+export default function App() {
+  const pathname = window.location.pathname
+  if (pathname === "/login") return <LoginPage />
+  if (pathname === "/register") return <RegisterPage />
+  if (pathname === "/dashboard") return <DashboardPage />
+  return <HomePage />
 }
