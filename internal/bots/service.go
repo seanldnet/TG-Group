@@ -101,6 +101,7 @@ type telegramChatMemberResult struct {
  CanPinMessages bool `json:"can_pin_messages"`
  CanManageTopics bool `json:"can_manage_topics"`
 }
+type telegramChatDefaults struct { Permissions map[string]any `json:"permissions"` }
 type telegramAPIEnvelope struct {
  OK bool `json:"ok"`
  Description string `json:"description"`
@@ -110,6 +111,7 @@ var ErrInsufficientBotRights = errors.New("bot must be an administrator with can
 var ErrTargetIsAdministrator = errors.New("target user is an administrator or creator")
 var ErrInvalidMemberAction = errors.New("invalid member action or duration")
 var ErrTelegramOperation = errors.New("Telegram rejected the member operation")
+var ErrGroupPermissionsUnavailable = errors.New("group default permissions are unavailable; refusing to grant permissions")
 
 func (s *Service) groupBotContext(ctx context.Context, tenantID, groupID string) (string, int64, int64, error) {
  var botID string
@@ -171,8 +173,11 @@ func (s *Service) ModerateGroupMember(ctx context.Context,tenantID,actorUserID,g
   payload["use_independent_chat_permissions"]=true
   payload["until_date"]=time.Now().Add(time.Duration(durationMinutes)*time.Minute).Unix()
  case "unmute":
+  var defaults telegramChatDefaults
+  if err:=s.callTelegram(ctx,token,"getChat",map[string]any{"chat_id":chatID},&defaults);err!=nil{return err}
+  if len(defaults.Permissions)==0{return ErrGroupPermissionsUnavailable}
   method="restrictChatMember"
-  payload["permissions"]=map[string]any{"can_send_messages":true,"can_send_audios":true,"can_send_documents":true,"can_send_photos":true,"can_send_videos":true,"can_send_video_notes":true,"can_send_voice_notes":true,"can_send_polls":true,"can_send_other_messages":true,"can_add_web_page_previews":true}
+  payload["permissions"]=defaults.Permissions
   payload["use_independent_chat_permissions"]=true
  }
  if err:=s.callTelegram(ctx,token,method,payload,nil);err!=nil{return err}
