@@ -147,9 +147,9 @@ export default function GroupRulesPage({ groupID }: { groupID: string }) {
           <div>
             <Badge variant="secondary" className="mb-3">群组独立配置</Badge>
             <h1 className="text-3xl font-semibold tracking-tight">规则管理</h1>
-            <p className="mt-2 text-sm text-muted-foreground">为当前群组建立关键词、反垃圾、反广告及成员通知规则。配置保存后暂不会自动执行。</p>
+            <p className="mt-2 text-sm text-muted-foreground">为当前群组建立关键词、反垃圾、反广告及成员通知规则。启用后将由后台 Telegram 消息处理器按优先级执行。</p>
           </div>
-          <Button variant="outline" onClick={() => void refresh()}><RefreshCw className="mr-2 size-4" />刷新规则</Button>
+          <div className="flex flex-wrap gap-2"><Button asChild variant="outline"><a href={`/dashboard/groups/${groupID}/rule-events`}>执行记录</a></Button><Button variant="outline" onClick={() => void refresh()}><RefreshCw className="mr-2 size-4" />刷新规则</Button></div>
         </div>
 
         {error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p>}
@@ -158,7 +158,7 @@ export default function GroupRulesPage({ groupID }: { groupID: string }) {
           <Card>
             <CardHeader>
               <CardTitle>已配置规则</CardTitle>
-              <CardDescription>共 {items.length} 条，优先级数值越小越先执行（执行引擎尚未启用）。</CardDescription>
+              <CardDescription>共 {items.length} 条，优先级数值越小越先执行。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {loading ? <p className="py-8 text-center text-sm text-muted-foreground">正在加载...</p> : items.length === 0 ? (
