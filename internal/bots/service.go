@@ -86,54 +86,66 @@ func (s *Service) Add(ctx context.Context,tenantID,userID,token string)(Bot,erro
 	identity,err:=s.verify(ctx,token);if err!=nil{return Bot{},err}
 	ciphertext,nonce,err:=s.encrypt(token);if err!=nil{return Bot{},err}
 	fingerprint:=sha256.Sum256([]byte(token))
+	tx,err:=s.pool.Begin(ctx);if err!=nil{return Bot{},fmt.Errorf("begin Bot registration: %w",err)}
+	defer tx.Rollback(ctx)
 	var b Bot
-	err=s.pool.QueryRow(ctx,`INSERT INTO telegram_bots(tenant_id,created_by,telegram_bot_id,username,first_name,token_ciphertext,token_nonce,token_fingerprint)
+	err=tx.QueryRow(ctx,`INSERT INTO telegram_bots(tenant_id,created_by,telegram_bot_id,username,first_name,token_ciphertext,token_nonce,token_fingerprint)
 		VALUES($1,$2,$3,$4,$5,$6,$7,$8)
 		RETURNING id::text,telegram_bot_id,username,first_name,status,verified_at,created_at`,
 		tenantID,userID,identity.ID,identity.Username,identity.FirstName,ciphertext,nonce,fingerprint[:]).Scan(&b.ID,&b.TelegramBotID,&b.Username,&b.FirstName,&b.Status,&b.VerifiedAt,&b.CreatedAt)
 	if err!=nil{if isUniqueViolation(err){return Bot{},ErrTokenTaken};return Bot{},fmt.Errorf("save Telegram bot: %w",err)}
+	if err:=recordBotAudit(ctx,tx,tenantID,userID,"bot.add",b.ID);err!=nil{return Bot{},err}
+	if err:=tx.Commit(ctx);err!=nil{return Bot{},fmt.Errorf("commit Bot registration: %w",err)}
 	return b,nil
 }
-
-func (s *Service) SetStatus(ctx context.Context,tenantID,botID,status string)(Bot,error){
+func (s *Service) SetStatus(ctx context.Context,tenantID,actorUserID,botID,status string)(Bot,error){
 	if status!="active" && status!="disabled"{return Bot{},ErrInvalidStatus}
+	tx,err:=s.pool.Begin(ctx);if err!=nil{return Bot{},fmt.Errorf("begin Bot status update: %w",err)}
+	defer tx.Rollback(ctx)
 	var b Bot
-	err:=s.pool.QueryRow(ctx,`UPDATE telegram_bots SET status=$3,updated_at=now()
+	err=tx.QueryRow(ctx,`UPDATE telegram_bots SET status=$4,updated_at=now()
 		WHERE tenant_id=$1 AND id=$2 RETURNING id::text,telegram_bot_id,username,first_name,status,verified_at,created_at`,tenantID,botID,status).
 		Scan(&b.ID,&b.TelegramBotID,&b.Username,&b.FirstName,&b.Status,&b.VerifiedAt,&b.CreatedAt)
 	if errors.Is(err,pgx.ErrNoRows){return Bot{},ErrNotFound}
 	if err!=nil{return Bot{},fmt.Errorf("update bot status: %w",err)}
+	if err:=recordBotAudit(ctx,tx,tenantID,actorUserID,"bot.status."+status,botID);err!=nil{return Bot{},err}
+	if err:=tx.Commit(ctx);err!=nil{return Bot{},fmt.Errorf("commit Bot status update: %w",err)}
 	return b,nil
 }
-
-func (s *Service) Remove(ctx context.Context,tenantID,botID string)error{
-	tag,err:=s.pool.Exec(ctx,"DELETE FROM telegram_bots WHERE tenant_id=$1 AND id=$2",tenantID,botID)
+func (s *Service) Remove(ctx context.Context,tenantID,actorUserID,botID string)error{
+	tx,err:=s.pool.Begin(ctx);if err!=nil{return fmt.Errorf("begin Bot removal: %w",err)}
+	defer tx.Rollback(ctx)
+	tag,err:=tx.Exec(ctx,"DELETE FROM telegram_bots WHERE tenant_id=$1 AND id=$2",tenantID,botID)
 	if err!=nil{return fmt.Errorf("remove bot: %w",err)}
 	if tag.RowsAffected()==0{return ErrNotFound}
+	if err:=recordBotAudit(ctx,tx,tenantID,actorUserID,"bot.remove",botID);err!=nil{return err}
+	if err:=tx.Commit(ctx);err!=nil{return fmt.Errorf("commit Bot removal: %w",err)}
 	return nil
 }
-
-func (s *Service) RotateToken(ctx context.Context,tenantID,botID,token string)(Bot,error){
+func (s *Service) RotateToken(ctx context.Context,tenantID,actorUserID,botID,token string)(Bot,error){
 	token=strings.TrimSpace(token)
 	if len(token)<20 || len(token)>256 || strings.ContainsAny(token," \r\n\t"){return Bot{},ErrInvalidToken}
 	identity,err:=s.verify(ctx,token);if err!=nil{return Bot{},err}
 	ciphertext,nonce,err:=s.encrypt(token);if err!=nil{return Bot{},err}
 	fingerprint:=sha256.Sum256([]byte(token))
+	tx,err:=s.pool.Begin(ctx);if err!=nil{return Bot{},fmt.Errorf("begin Bot token rotation: %w",err)}
+	defer tx.Rollback(ctx)
 	var currentID int64
-	err=s.pool.QueryRow(ctx,"SELECT telegram_bot_id FROM telegram_bots WHERE tenant_id=$1 AND id=$2",tenantID,botID).Scan(&currentID)
+	err=tx.QueryRow(ctx,"SELECT telegram_bot_id FROM telegram_bots WHERE tenant_id=$1 AND id=$2 FOR UPDATE",tenantID,botID).Scan(&currentID)
 	if errors.Is(err,pgx.ErrNoRows){return Bot{},ErrNotFound};if err!=nil{return Bot{},err}
 	if identity.ID!=currentID{return Bot{},ErrIdentityChanged}
 	var b Bot
-	err=s.pool.QueryRow(ctx,`UPDATE telegram_bots SET token_ciphertext=$3,token_nonce=$4,token_fingerprint=$5,
+	err=tx.QueryRow(ctx,`UPDATE telegram_bots SET token_ciphertext=$3,token_nonce=$4,token_fingerprint=$5,
 		username=$6,first_name=$7,verified_at=now(),updated_at=now()
 		WHERE tenant_id=$1 AND id=$2
 		RETURNING id::text,telegram_bot_id,username,first_name,status,verified_at,created_at`,
 		tenantID,botID,ciphertext,nonce,fingerprint[:],identity.Username,identity.FirstName).
 		Scan(&b.ID,&b.TelegramBotID,&b.Username,&b.FirstName,&b.Status,&b.VerifiedAt,&b.CreatedAt)
 	if err!=nil{if isUniqueViolation(err){return Bot{},ErrTokenTaken};return Bot{},fmt.Errorf("rotate bot token: %w",err)}
+	if err:=recordBotAudit(ctx,tx,tenantID,actorUserID,"bot.token.rotate",botID);err!=nil{return Bot{},err}
+	if err:=tx.Commit(ctx);err!=nil{return Bot{},fmt.Errorf("commit Bot token rotation: %w",err)}
 	return b,nil
 }
-
 func (s *Service) verify(ctx context.Context,token string)(telegramUser,error){
 	endpoint:=s.apiBaseURL+"/bot"+url.PathEscape(token)+"/getMe"
 	req,err:=http.NewRequestWithContext(ctx,http.MethodGet,endpoint,nil);if err!=nil{return telegramUser{},err}
@@ -170,3 +182,10 @@ func isUniqueViolation(err error)bool{
 	return errors.As(err,&pgErr)&&pgErr.SQLState()=="23505"
 }
 
+
+func recordBotAudit(ctx context.Context,tx pgx.Tx,tenantID,actorUserID,action,resourceID string)error{
+	_,err:=tx.Exec(ctx,`INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id)
+		VALUES($1,$2,$3,'telegram_bot',$4)`,tenantID,actorUserID,action,resourceID)
+	if err!=nil{return fmt.Errorf("write Bot audit record: %w",err)}
+	return nil
+}
