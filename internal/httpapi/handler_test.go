@@ -64,3 +64,21 @@ func TestAuthEndpointsRequireDatabase(t *testing.T) {
 		}
 	}
 }
+
+func TestBotEndpointsRequireConfiguredServices(t *testing.T) {
+	handler := NewHandler(slog.Default(), nil, nil)
+	for _, route := range []struct{ method, path string }{
+		{http.MethodGet, "/api/v1/bots"},
+		{http.MethodPost, "/api/v1/bots"},
+		{http.MethodPatch, "/api/v1/bots/00000000-0000-0000-0000-000000000000/status"},
+		{http.MethodPut, "/api/v1/bots/00000000-0000-0000-0000-000000000000/token"},
+		{http.MethodDelete, "/api/v1/bots/00000000-0000-0000-0000-000000000000"},
+	} {
+		request := httptest.NewRequest(route.method, route.path, strings.NewReader(`{}`))
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusServiceUnavailable {
+			t.Errorf("%s %s status = %d, want %d", route.method, route.path, response.Code, http.StatusServiceUnavailable)
+		}
+	}
+}
