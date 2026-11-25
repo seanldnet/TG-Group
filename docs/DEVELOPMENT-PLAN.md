@@ -18,7 +18,7 @@
 - [ ] Telegram 注册管理 Bot、refresh token、密码找回、邮箱验证、登录限流和 Telegram ID 绑定。
 - [x] 完成 Telegram Bot Token 验证、AES-256-GCM 加密存储、租户范围查询、启停、同 Bot 身份 Token 轮换与解绑 API。
 - [x] 完成网站 Bot 管理页面：列表、添加、启停、轮换、解绑，使用官方 shadcn/ui 组件（前端 CI build 已通过）。
-- [ ] 建立 Telegram Bot 长轮询/Webhook 运行时、群组自动发现和 Bot 管理员权限检测。
+- [x] 建立 Telegram Bot getUpdates 长轮询运行时、群组自动发现和网站群组列表；消息事件日志 API 与页面已实现。Bot 管理员权限检测、Webhook 模式仍待完成。
 - [ ] 建立统一规则/权限/审计模型。
 - [ ] 按需求矩阵逐项实现群管功能，并完成网站与 Telegram 双端配置。
 - [ ] 接入 USDT、EPUSDT、GMPay 支付适配器并完成沙箱/真实联调。
@@ -102,3 +102,12 @@
 - Bot 管理状态和 Telegram 真实权限状态仍是两回事；需要后续调用 getChatMember/getChatAdministrators 等接口完成权限检测。
 - Telegram 同一 Bot 的 getUpdates 与 webhook 不能同时工作；当前未实现 webhook 切换与 webhook 清理流程。
 - 群组自动发现需要真实 Bot Token、Bot 加入目标群组以及 Telegram 实际投递相应更新；CI 单元测试不能替代真实 Bot 联调。
+
+
+## 最近增量：群消息日志
+- [x] 监听群组 message、edited_message、channel_post 更新。
+- [x] 记录发送者 Telegram ID、用户名、显示名称、消息类型、文本/Caption 和时间。
+- [x] 新增租户隔离的 `GET /api/v1/groups/{groupID}/events`。
+- [x] 网站群组列表提供消息日志入口，并新增日志表格页。
+- [ ] 消息日志游标分页、搜索、导出和可配置保留期限。
+- [ ] Bot 管理员权限检查及真实 Telegram 群组端到端验收。
