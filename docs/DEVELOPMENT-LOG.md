@@ -113,3 +113,11 @@
 - **文档**：更新 docs/API.md、docs/LOCAL-TESTING.md，记录 API、加密密钥和未完成的 Bot 运行时边界。
 - **安全/功能边界**：目前仅完成 Bot 资产登记与管理；尚未实现长轮询/Webhook worker、群组自动发现、Bot 管理员权限检查或群管消息处理。平台侧 active/disabled 状态暂不等于实际 Telegram 收发状态。
 - **验证状态**：变更已推送 main，GitHub Actions CI 正在执行；待确认 Go 集成测试、Vet 和前端构建结果后再更新为通过。
+
+
+### Telegram Bot 管理前端（第七批）
+- **新增**：src/pages/BotsPage.tsx，使用已由 shadcn/ui 官方 CLI 生成的 Dialog、Input、Label、Button、Badge、Card、Table 组件，提供 Bot 列表、添加 Token、启停、轮换和解绑操作。
+- **修改**：src/lib/api.ts 增加 Bot API 类型与请求方法；src/App.tsx 增加 /dashboard/bots 路由；Dashboard 工作台增加 Bot 管理入口。
+- **界面安全**：Token 输入框使用 password 类型；API 响应不含 Token；列表不展示密钥。解绑前要求用户确认。
+- **CI 发现并修复**：前端首次构建发现 authenticatedHeaders 返回值推断类型不满足 HeadersInit；明确标注 Record<string,string> 后，GitHub Actions run 45704609255 的前端 build 已通过。
+- **后端验证**：GitHub Actions run 45704549842 中 Go 集成测试与 go vet 已通过，覆盖 Bot 生命周期、密文不落明文和跨租户查询隔离。之后补充了停用 Bot 禁止运行时读取 Token 的保护及对应测试，更新后的完整 CI 仍在执行。
