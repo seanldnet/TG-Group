@@ -5,8 +5,8 @@
 ## 当前状态（2026-11-25）
 - [x] 新建空仓库并确认默认分支为 main。
 - [x] 建立产品需求基线：`docs/REQUIREMENTS.md`。
-- [x] 建立前端工程骨架（React + TypeScript + Vite）基础文件。
-- [ ] 运行 shadcn/ui 官方 CLI 初始化配置并添加官方组件（当前受执行环境无法访问 npm/GitHub 网络限制，尚未运行及验证）。
+- [x] 建立前端工程骨架（React + TypeScript + Vite）基础文件。\n- [x] 使用官方 shadcn/ui Button、Badge、Card 组件实现产品介绍首页；前端生产构建已通过。
+- [x] 通过云端 Node/pnpm 环境执行 shadcn/ui 官方 CLI，生成 components.json 和 16 个官方组件源码，并提交 pnpm-lock.yaml。
 - [x] 确认后端语言为 Go（Golang）。
 - [x] Go 后端采用标准库 `net/http`，不引入第三方 Web 框架；建立基础服务入口、配置和健康检查。
 - [x] 建立 PostgreSQL pgx 连接池、Ping、版本化迁移执行器与身份/租户基础 schema（尚未完成 Redis 和后台任务）。
@@ -20,7 +20,7 @@
 - [ ] 接入 CAP 官方新版并完成端到端验证。
 - [ ] 实现赞助商管理与双端展示/统计。
 - [ ] 实现用户自配置 AI Provider、模型发现、审核管线和成本记录。
-- [ ] 建立完整自动化测试、集成测试和双端验收。
+- [ ] Go/PostgreSQL 注册会话集成测试与前端生产构建已纳入 CI；完整业务测试和双端验收仍待完成。
 - [ ] 建立云端 CI 构建与预构建镜像发布。
 - [ ] 完成 Docker Compose 一键部署、自动端口分配和首次初始化。
 
