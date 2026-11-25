@@ -149,3 +149,9 @@
 - **文案修正**：Bot 管理页面说明更新为后台长轮询运行时已启动，不再显示“尚未启动消息收发 worker”。
 - **测试**：HTTP handler 测试覆盖未配置 Bot 服务时群组列表 API 返回 503；poller 单元测试覆盖群组类型识别。
 - **验证状态**：代码与文档已提交 main；GitHub Actions Go/PostgreSQL 测试和前端构建正在运行，尚未将本批标记为 CI 通过。真实 Telegram 群组联调仍需部署环境中的有效 Bot Token。
+
+
+### 群组离开/封禁状态追踪
+- **更新解析**：读取 my_chat_member.new_chat_member.status；Bot 离开群组时将群组状态更新为 left，被封禁时更新为 kicked，重新加入后恢复 active。
+- **测试**：新增会员状态转换单元测试，覆盖 member、administrator、left、kicked。
+- **验证**：已写入 main；Go CI 对本次最新代码仍在执行，等待最终结果。
