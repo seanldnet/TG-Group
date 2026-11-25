@@ -63,6 +63,27 @@ type telegramMessage struct {
 	Animation json.RawMessage `json:"animation"`
 	Voice json.RawMessage `json:"voice"`
 	Audio json.RawMessage `json:"audio"`
+	NewChatMembers []telegramSender `json:"new_chat_members"`
+	LeftChatMember *telegramSender `json:"left_chat_member"`
+}
+
+type telegramChatMember struct {
+	User telegramSender `json:"user"`
+	Status string `json:"status"`
+	IsAnonymous bool `json:"is_anonymous"`
+	CanManageChat bool `json:"can_manage_chat"`
+	CanDeleteMessages bool `json:"can_delete_messages"`
+	CanRestrictMembers bool `json:"can_restrict_members"`
+	CanInviteUsers bool `json:"can_invite_users"`
+	CanPinMessages bool `json:"can_pin_messages"`
+	CanManageTopics bool `json:"can_manage_topics"`
+}
+
+type telegramChatMemberUpdate struct {
+	Chat chat `json:"chat"`
+	Date int64 `json:"date"`
+	OldChatMember telegramChatMember `json:"old_chat_member"`
+	NewChatMember telegramChatMember `json:"new_chat_member"`
 }
 
 type update struct {
@@ -74,6 +95,7 @@ type update struct {
 		Chat chat `json:"chat"`
 		NewChatMember struct { Status string `json:"status"` } `json:"new_chat_member"`
 	} `json:"my_chat_member"`
+	ChatMember *telegramChatMemberUpdate `json:"chat_member"`
 }
 
 type updatesResponse struct {
@@ -158,7 +180,7 @@ func (p *Poller) runBot(ctx context.Context,bot managedBot) {
 }
 
 func (p *Poller) getUpdates(ctx context.Context,token string,offset int64)([]update,error) {
-	query:=url.Values{"timeout":{"25"},"allowed_updates":{`["message","edited_message","channel_post","my_chat_member"]`}}
+	query:=url.Values{"timeout":{"25"},"allowed_updates":{`["message","edited_message","channel_post","my_chat_member","chat_member"]`}}
 	if offset>0{query.Set("offset",strconv.FormatInt(offset,10))}
 	endpoint:="https://api.telegram.org/bot"+token+"/getUpdates?"+query.Encode()
 	req,err:=http.NewRequestWithContext(ctx,http.MethodGet,endpoint,nil);if err!=nil{return nil,err}
@@ -184,6 +206,7 @@ func messageFromUpdate(item update) *telegramMessage {
 func chatFromUpdate(item update) *chat {
 	if message:=messageFromUpdate(item);message!=nil{return &message.Chat}
 	if item.MyChatMember!=nil{return &item.MyChatMember.Chat}
+	if item.ChatMember!=nil{return &item.ChatMember.Chat}
 	return nil
 }
 
@@ -221,6 +244,35 @@ func groupStatus(item update) string {
 	}
 }
 
+
+func (p *Poller) upsertGroupMember(ctx context.Context, bot managedBot, groupID string, member telegramChatMember, joinedAt time.Time) error {
+	if member.User.ID == 0 { return nil }
+	var joined any
+	if !joinedAt.IsZero() { joined = joinedAt }
+	_, err := p.pool.Exec(ctx, `INSERT INTO telegram_group_members(
+		tenant_id,bot_id,group_id,telegram_user_id,username,first_name,last_name,is_bot,status,
+		is_anonymous,can_manage_chat,can_delete_messages,can_restrict_members,can_invite_users,
+		can_pin_messages,can_manage_topics,joined_at,last_seen_at,updated_at)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
+			CASE WHEN $9 IN ('member','administrator','creator') THEN COALESCE($17,now()) ELSE NULL END,now(),now())
+		ON CONFLICT(group_id,telegram_user_id) DO UPDATE SET
+		username=EXCLUDED.username,first_name=EXCLUDED.first_name,last_name=EXCLUDED.last_name,
+		is_bot=EXCLUDED.is_bot,status=EXCLUDED.status,is_anonymous=EXCLUDED.is_anonymous,
+		can_manage_chat=EXCLUDED.can_manage_chat,can_delete_messages=EXCLUDED.can_delete_messages,
+		can_restrict_members=EXCLUDED.can_restrict_members,can_invite_users=EXCLUDED.can_invite_users,
+		can_pin_messages=EXCLUDED.can_pin_messages,can_manage_topics=EXCLUDED.can_manage_topics,
+		joined_at=CASE
+			WHEN EXCLUDED.status IN ('member','administrator','creator') AND telegram_group_members.status IN ('left','kicked') THEN EXCLUDED.joined_at
+			ELSE COALESCE(telegram_group_members.joined_at,EXCLUDED.joined_at)
+		END,
+		last_seen_at=now(),updated_at=now()`,
+		bot.tenantID,bot.id,groupID,member.User.ID,member.User.Username,member.User.FirstName,member.User.LastName,
+		member.User.IsBot,member.Status,member.IsAnonymous,member.CanManageChat,member.CanDeleteMessages,
+		member.CanRestrictMembers,member.CanInviteUsers,member.CanPinMessages,member.CanManageTopics,joined)
+	if err != nil { return fmt.Errorf("upsert Telegram group member: %w", err) }
+	return nil
+}
+
 func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update)error {
 	value:=chatFromUpdate(item)
 	if !isManagedChat(value){return nil}
@@ -233,8 +285,21 @@ func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update)er
 		RETURNING id::text`,
 		bot.tenantID,bot.id,value.ID,value.Title,value.Username,value.Type,value.IsForum,groupStatus(item)).Scan(&groupID)
 	if err!=nil{return fmt.Errorf("upsert Telegram group: %w",err)}
+	if item.ChatMember != nil {
+		member := item.ChatMember.NewChatMember
+		joinedAt := time.Time{}
+		if item.ChatMember.Date > 0 { joinedAt = time.Unix(item.ChatMember.Date, 0).UTC() }
+		if err := p.upsertGroupMember(ctx, bot, groupID, member, joinedAt); err != nil { return err }
+	}
 	message:=messageFromUpdate(item)
-	if message==nil || message.MessageID==0{return nil}
+	if message==nil { return nil }
+	for _, member := range message.NewChatMembers {
+		if err := p.upsertGroupMember(ctx, bot, groupID, telegramChatMember{User:member, Status:"member"}, time.Unix(message.Date,0).UTC()); err != nil { return err }
+	}
+	if message.LeftChatMember != nil {
+		if err := p.upsertGroupMember(ctx, bot, groupID, telegramChatMember{User:*message.LeftChatMember, Status:"left"}, time.Time{}); err != nil { return err }
+	}
+	if message.MessageID==0{return nil}
 	var senderID any
 	var username,displayName string
 	if message.From!=nil{senderID=message.From.ID;username=message.From.Username;displayName=senderDisplayName(message.From)}
