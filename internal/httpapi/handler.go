@@ -35,6 +35,7 @@ func NewHandler(logger *slog.Logger, authService *auth.Service, botService *bots
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/members",h.listGroupMembers)
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/permissions",h.groupBotPermissions)
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/rules",h.listGroupRules)
+	mux.HandleFunc("GET /api/v1/groups/{groupID}/rule-events",h.listGroupRuleEvents)
 	mux.HandleFunc("POST /api/v1/groups/{groupID}/rules",h.createGroupRule)
 	mux.HandleFunc("PUT /api/v1/groups/{groupID}/rules/{ruleID}",h.updateGroupRule)
 	mux.HandleFunc("DELETE /api/v1/groups/{groupID}/rules/{ruleID}",h.deleteGroupRule)
@@ -206,6 +207,20 @@ type groupRuleRequest struct {
  Priority int `json:"priority"`
  Config json.RawMessage `json:"config"`
 }
+func (h *Handler) listGroupRuleEvents(w http.ResponseWriter,r *http.Request){
+ if !h.botServicesReady(w){return}
+ user,ok:=h.currentUser(w,r);if !ok{return}
+ limit:=50
+ if raw:=r.URL.Query().Get("limit");raw!=""{
+  value,err:=strconv.Atoi(raw)
+  if err!=nil || value<1 || value>100{writeError(w,http.StatusBadRequest,"limit must be between 1 and 100");return}
+  limit=value
+ }
+ result,err:=h.bots.ListGroupRuleEvents(r.Context(),user.TenantID,r.PathValue("groupID"),limit)
+ if err!=nil{h.logger.Error("list Telegram group rule events","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return}
+ writeJSON(w,http.StatusOK,map[string]any{"items":result})
+}
+
 func (h *Handler) listGroupRules(w http.ResponseWriter,r *http.Request){
  if !h.botServicesReady(w){return}
  user,ok:=h.currentUser(w,r);if !ok{return}
