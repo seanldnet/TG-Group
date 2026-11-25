@@ -51,14 +51,14 @@ func TestBotLifecycleAndTenantIsolationPostgres(t *testing.T) {
 
 	otherBots,err:=service.List(ctx,other.User.TenantID)
 	if err!=nil || len(otherBots)!=0{t.Fatalf("other tenant bot list = %v, %v",otherBots,err)}
-	disabled,err:=service.SetStatus(ctx,owner.User.TenantID,created.ID,"disabled")
+	disabled,err:=service.SetStatus(ctx,owner.User.TenantID,owner.User.ID,created.ID,"disabled")
 	if err!=nil || disabled.Status!="disabled"{t.Fatalf("disable bot = %+v, %v",disabled,err)}
 	if _,err:=service.GetToken(ctx,owner.User.TenantID,created.ID);err!=ErrBotDisabled{t.Fatalf("disabled Bot token lookup error = %v",err)}
-	if _,err:=service.RotateToken(ctx,owner.User.TenantID,created.ID,"222:token-two-abcdefghijklmnop");err!=nil{t.Fatalf("rotate token: %v",err)}
+	if _,err:=service.RotateToken(ctx,owner.User.TenantID,owner.User.ID,created.ID,"222:token-two-abcdefghijklmnop");err!=nil{t.Fatalf("rotate token: %v",err)}
 	if _,err:=service.SetStatus(ctx,owner.User.TenantID,created.ID,"active");err!=nil{t.Fatalf("re-enable bot: %v",err)}
 	recovered,err=service.GetToken(ctx,owner.User.TenantID,created.ID)
 	if err!=nil || recovered!="222:token-two-abcdefghijklmnop"{t.Fatalf("rotated token = %q, %v",recovered,err)}
-	if err:=service.Remove(ctx,owner.User.TenantID,created.ID);err!=nil{t.Fatalf("remove bot: %v",err)}
+	if err:=service.Remove(ctx,owner.User.TenantID,owner.User.ID,created.ID);err!=nil{t.Fatalf("remove bot: %v",err)}
 }
 
 func encodeKey(key []byte)string{return base64.StdEncoding.EncodeToString(key)}
