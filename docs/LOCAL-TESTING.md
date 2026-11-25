@@ -29,10 +29,10 @@ Redis 当前仅提供开发基础设施，Go 服务尚未接入 Redis 功能。
 
 ```bash
 go mod tidy
-BOT_TOKEN_ENCRYPTION_KEY="$(openssl rand -base64 32)" DATABASE_URL="postgres://tg_group:tg_group_dev@127.0.0.1:5432/tg_group?sslmode=disable" go run ./cmd/api
+BOT_TOKEN_ENCRYPTION_KEY="<填入首次生成并持久保存的 Base64 密钥>" DATABASE_URL="postgres://tg_group:tg_group_dev@127.0.0.1:5432/tg_group?sslmode=disable" go run ./cmd/api
 ```
 
-首次启动会自动执行 PostgreSQL 迁移。API 默认监听 `http://127.0.0.1:8080`。
+首次启动会自动执行 PostgreSQL 迁移。Bot 加密密钥只生成一次并妥善保存，服务重启必须继续使用同一密钥；不要每次启动重新生成。可用 `openssl rand -base64 32` 生成。API 默认监听 `http://127.0.0.1:8080`。
 
 ## 启动前端
 
