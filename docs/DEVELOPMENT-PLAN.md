@@ -16,7 +16,8 @@
 - [ ] 补齐 refresh token、密码找回、邮箱验证、登录限流、Telegram ID 绑定、角色授权及跨租户资源访问测试。
 - [x] 网站首页、注册页、登录页和账号工作台已连接第一版 Go 认证 API。
 - [ ] Telegram 注册管理 Bot、refresh token、密码找回、邮箱验证、登录限流和 Telegram ID 绑定。
-- [x] 完成 Telegram Bot Token 验证、AES-256-GCM 加密存储、租户范围查询、启停、同 Bot 身份 Token 轮换与解绑 API。\n- [x] 完成网站 Bot 管理页面：列表、添加、启停、轮换、解绑，使用官方 shadcn/ui 组件（前端 CI build 已通过）。
+- [x] 完成 Telegram Bot Token 验证、AES-256-GCM 加密存储、租户范围查询、启停、同 Bot 身份 Token 轮换与解绑 API。
+- [x] 完成网站 Bot 管理页面：列表、添加、启停、轮换、解绑，使用官方 shadcn/ui 组件（前端 CI build 已通过）。
 - [ ] 建立 Telegram Bot 长轮询/Webhook 运行时、群组自动发现和 Bot 管理员权限检测。
 - [ ] 建立统一规则/权限/审计模型。
 - [ ] 按需求矩阵逐项实现群管功能，并完成网站与 Telegram 双端配置。
