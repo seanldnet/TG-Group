@@ -29,6 +29,7 @@ func NewHandler(logger *slog.Logger, authService *auth.Service, botService *bots
 	mux.HandleFunc("POST /api/v1/auth/logout",h.logout)
 	mux.HandleFunc("GET /api/v1/auth/me",h.me)
 	mux.HandleFunc("GET /api/v1/bots",h.listBots)
+	mux.HandleFunc("GET /api/v1/groups",h.listGroups)
 	mux.HandleFunc("POST /api/v1/bots",h.addBot)
 	mux.HandleFunc("PATCH /api/v1/bots/{botID}/status",h.setBotStatus)
 	mux.HandleFunc("PUT /api/v1/bots/{botID}/token",h.rotateBotToken)
@@ -149,6 +150,14 @@ func (h *Handler) currentUser(w http.ResponseWriter,r *http.Request)(auth.User,b
 	user,err:=h.auth.Authenticate(r.Context(),bearerToken(r))
 	if err!=nil { writeError(w,http.StatusUnauthorized,"unauthorized");return auth.User{},false }
 	return user,true
+}
+
+func (h *Handler) listGroups(w http.ResponseWriter,r *http.Request){
+	if !h.botServicesReady(w){return}
+	user,ok:=h.currentUser(w,r);if !ok{return}
+	result,err:=h.bots.ListGroups(r.Context(),user.TenantID)
+	if err!=nil{h.logger.Error("list Telegram groups","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":result})
 }
 
 func (h *Handler) listBots(w http.ResponseWriter,r *http.Request){
