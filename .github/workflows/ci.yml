@@ -13,6 +13,22 @@ jobs:
   backend:
     name: Go test and vet
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tg_group
+          POSTGRES_PASSWORD: tg_group_test
+          POSTGRES_DB: tg_group_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tg_group -d tg_group_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://tg_group:tg_group_test@localhost:5432/tg_group_test?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -23,6 +39,6 @@ jobs:
       - name: Format Go sources
         run: gofmt -w $(find . -name '*.go' -not -path './vendor/*')
       - name: Test
-        run: go test ./...
+        run: go test -v ./...
       - name: Vet
         run: go vet ./...
