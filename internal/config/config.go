@@ -10,6 +10,7 @@ type Config struct {
 	HTTPAddr    string
 	Environment string
 	DatabaseURL string
+	BotTokenEncryptionKey string
 }
 
 func Load() (Config, error) {
@@ -25,5 +26,6 @@ func Load() (Config, error) {
 		HTTPAddr: fmt.Sprintf(":%d", portNumber),
 		Environment: environment,
 		DatabaseURL: os.Getenv("DATABASE_URL"),
+		BotTokenEncryptionKey: os.Getenv("BOT_TOKEN_ENCRYPTION_KEY"),
 	}, nil
 }
