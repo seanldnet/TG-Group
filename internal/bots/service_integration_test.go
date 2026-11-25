@@ -30,7 +30,7 @@ func TestBotLifecycleAndTenantIsolationPostgres(t *testing.T) {
 
 	telegramID:=suffix
 	server:=httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
-		if r.URL.Path!="/bot111:token-one/getMe" && r.URL.Path!="/bot222:token-two/getMe"{http.NotFound(w,r);return}
+		if r.URL.Path!="/bot111:token-one-abcdefghijklmnop/getMe" && r.URL.Path!="/bot222:token-two-abcdefghijklmnop/getMe"{http.NotFound(w,r);return}
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok":true,"result":map[string]any{"id":telegramID,"is_bot":true,"first_name":"Integration Bot","username":"integration_test_bot"}})
 	}))
 	defer server.Close()
@@ -39,23 +39,23 @@ func TestBotLifecycleAndTenantIsolationPostgres(t *testing.T) {
 	service,err:=NewService(db.Pool,encodeKey(key));if err!=nil{t.Fatalf("create service: %v",err)}
 	service.apiBaseURL=server.URL
 
-	created,err:=service.Add(ctx,owner.User.TenantID,owner.User.ID,"111:token-one")
+	created,err:=service.Add(ctx,owner.User.TenantID,owner.User.ID,"111:token-one-abcdefghijklmnop")
 	if err!=nil{t.Fatalf("add bot: %v",err)}
 	if created.TelegramBotID!=telegramID || created.Username!="integration_test_bot" || created.Status!="active"{t.Fatalf("unexpected bot response: %+v",created)}
 	var stored []byte
 	if err:=db.Pool.QueryRow(ctx,"SELECT token_ciphertext FROM telegram_bots WHERE id=$1",created.ID).Scan(&stored);err!=nil{t.Fatal(err)}
-	if string(stored)=="111:token-one"{t.Fatal("bot token was stored in plaintext")}
+	if string(stored)=="111:token-one-abcdefghijklmnop"{t.Fatal("bot token was stored in plaintext")}
 	recovered,err:=service.GetToken(ctx,owner.User.TenantID,created.ID)
-	if err!=nil || recovered!="111:token-one"{t.Fatalf("GetToken = %q, %v",recovered,err)}
+	if err!=nil || recovered!="111:token-one-abcdefghijklmnop"{t.Fatalf("GetToken = %q, %v",recovered,err)}
 	if _,err:=service.GetToken(ctx,other.User.TenantID,created.ID);err!=ErrNotFound{t.Fatalf("cross-tenant token lookup error = %v",err)}
 
 	otherBots,err:=service.List(ctx,other.User.TenantID)
 	if err!=nil || len(otherBots)!=0{t.Fatalf("other tenant bot list = %v, %v",otherBots,err)}
 	disabled,err:=service.SetStatus(ctx,owner.User.TenantID,created.ID,"disabled")
 	if err!=nil || disabled.Status!="disabled"{t.Fatalf("disable bot = %+v, %v",disabled,err)}
-	if _,err:=service.RotateToken(ctx,owner.User.TenantID,created.ID,"222:token-two");err!=nil{t.Fatalf("rotate token: %v",err)}
+	if _,err:=service.RotateToken(ctx,owner.User.TenantID,created.ID,"222:token-two-abcdefghijklmnop");err!=nil{t.Fatalf("rotate token: %v",err)}
 	recovered,err=service.GetToken(ctx,owner.User.TenantID,created.ID)
-	if err!=nil || recovered!="222:token-two"{t.Fatalf("rotated token = %q, %v",recovered,err)}
+	if err!=nil || recovered!="222:token-two-abcdefghijklmnop"{t.Fatalf("rotated token = %q, %v",recovered,err)}
 	if err:=service.Remove(ctx,owner.User.TenantID,created.ID);err!=nil{t.Fatalf("remove bot: %v",err)}
 }
 
