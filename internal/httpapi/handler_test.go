@@ -70,6 +70,7 @@ func TestBotEndpointsRequireConfiguredServices(t *testing.T) {
 	for _, route := range []struct{ method, path string }{
 		{http.MethodGet, "/api/v1/bots"},
 		{http.MethodGet, "/api/v1/groups"},
+		{http.MethodGet, "/api/v1/groups/00000000-0000-0000-0000-000000000000/events"},
 		{http.MethodPost, "/api/v1/bots"},
 		{http.MethodPatch, "/api/v1/bots/00000000-0000-0000-0000-000000000000/status"},
 		{http.MethodPut, "/api/v1/bots/00000000-0000-0000-0000-000000000000/token"},
