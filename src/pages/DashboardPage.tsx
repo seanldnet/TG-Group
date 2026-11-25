@@ -89,7 +89,7 @@ export default function DashboardPage() {
             欢迎回来，{user.display_name || user.email}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            账号已通过身份认证。Bot 与群组管理模块正在持续开发。
+            账号已通过身份认证。可在工作台管理 Bot，并查看自动发现的 Telegram 群组。
           </p>
         </div>
 
@@ -139,11 +139,14 @@ export default function DashboardPage() {
               </Button>
               <div className="flex items-center gap-3 rounded-lg border border-border/70 p-3">
                 <UsersRound className="size-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">群组管理</p>
-                  <p className="text-xs text-muted-foreground">群组发现与规则配置开发中</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">Telegram 群组</p>
+                  <p className="text-xs text-muted-foreground">查看 Bot 自动发现的群组、超级群组和频道</p>
                 </div>
               </div>
+              <Button asChild variant="outline" className="w-full">
+                <a href="/dashboard/groups">查看群组列表</a>
+              </Button>
             </CardContent>
           </Card>
         </div>
