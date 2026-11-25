@@ -77,3 +77,14 @@
 - **CI 修复**：上一轮格式检查失败原因是部分 Go 源码未 gofmt；CI 改为执行 gofmt、go mod tidy，再执行 go test 和 go vet。新一轮云端任务已启动，当前等待结果。
 - **安全边界**：当前尚未实现 refresh token、密码找回、邮箱验证、登录限流、Telegram ID 绑定和业务角色授权；认证代码尚未完成 PostgreSQL 集成测试，不能宣称端到端认证已验收。
 - **前端**：仍只有工程占位入口；shadcn/ui 官方 CLI 尚未执行，不能开始编写页面 UI 以免违反官方组件约束。
+
+
+### shadcn/ui 官方组件落地与首页页面（第四批）
+- **官方 CLI 实际执行**：通过 GitHub Actions 的 Node 22 / pnpm 10 环境运行 `pnpm dlx shadcn@latest init --base radix --preset nova --yes`，并运行官方 `add` 命令添加基础组件；不是手工复制或仿写组件。
+- **官方生成文件**：`components.json`、`pnpm-lock.yaml`、`src/components/ui/` 下的 Badge、Button、Card、Dialog、DropdownMenu、Input、Label、Select、Separator、Skeleton、Sonner、Switch、Table、Tabs、Textarea、Tooltip。
+- **路径修正**：首次 CLI 生成时发现根 `tsconfig.json` 缺少 paths，导致官方文件落在错误的 `@/` 目录；已将 `@/* -> ./src/*` 同步到根 tsconfig，并重新通过官方 CLI 生成到 `src/components/ui/`，错误目录已清理。
+- **首页实现**：`src/App.tsx` 已改为 TG-Group 产品介绍首页，包含首屏、功能模块、产品原则、开发状态和 GitHub 入口；基础按钮、徽标和卡片全部导入官方 shadcn/ui 组件。页面明确标注产品示意与建设中状态，不把未接入的 Bot/群组数据伪装成真实数据。
+- **构建验证**：官方组件生成后的 CLI 工作流完成 `pnpm build`；首页提交后的 CI 前端 job（Node 22、pnpm install --frozen-lockfile、`pnpm build`）已通过。
+- **后端验证**：Go + PostgreSQL 集成测试已通过，覆盖注册、邮箱重复、登录、token 认证和退出撤销；`go vet ./...` 通过。
+- **CI 调整**：`.github/workflows/ci.yml` 现包含 Go/PostgreSQL 后端测试与前端生产构建两个 job。
+- **下一步**：实现前端注册/登录页面并接通当前认证 API；随后补充 refresh token、密码找回、邮箱验证、登录限流和 Telegram ID 绑定。
