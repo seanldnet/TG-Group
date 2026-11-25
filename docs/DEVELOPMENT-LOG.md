@@ -121,3 +121,10 @@
 - **界面安全**：Token 输入框使用 password 类型；API 响应不含 Token；列表不展示密钥。解绑前要求用户确认。
 - **CI 发现并修复**：前端首次构建发现 authenticatedHeaders 返回值推断类型不满足 HeadersInit；明确标注 Record<string,string> 后，GitHub Actions run 45704609255 的前端 build 已通过。
 - **后端验证**：GitHub Actions run 45704549842 中 Go 集成测试与 go vet 已通过，覆盖 Bot 生命周期、密文不落明文和跨租户查询隔离。之后补充了停用 Bot 禁止运行时读取 Token 的保护及对应测试，更新后的完整 CI 仍在执行。
+
+
+### Bot 操作审计与停用保护补强
+- **修改**：Bot 添加、启停、Token 轮换、解绑均在同一 PostgreSQL 事务内写入 audit_logs；任一审计写入失败，业务事务回滚，避免操作成功但没有审计记录。
+- **修改**：内部 GetToken 仅允许 active 状态的 Bot 读取明文 Token；disabled 状态无法被运行时取出 Token。Telegram 返回 429 或 5xx 时映射为服务暂不可用，不误报 Token 无效。
+- **测试**：PostgreSQL 集成测试补充停用状态禁止读取 Token、五类 Bot 生命周期审计记录数量校验；HTTP 测试补充 Bot 服务未配置时各管理路由返回 503。
+- **验证状态**：前端构建在 run 45704923354 已通过；本轮 Go 集成测试与 Vet 正在执行，最终以最新 main 对应 CI 结果为准。
