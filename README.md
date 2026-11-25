@@ -25,8 +25,8 @@ pnpm dev
 
 ## 项目文档
 
-- [首页介绍文案](docs/HOMEPAGE-CONTENT.md)\n- [产品需求基线](docs/REQUIREMENTS.md)
+- [首页介绍文案](docs/HOMEPAGE-CONTENT.md)\n- [当前 API 文档](docs/API.md)\n- [产品需求基线](docs/REQUIREMENTS.md)
 - [开发计划](docs/DEVELOPMENT-PLAN.md)
 - [开发日志](docs/DEVELOPMENT-LOG.md)
 
-后端使用 Go 标准库 net/http；PostgreSQL 使用 pgx/v5。设置 DATABASE_URL 后，服务启动时会连接数据库并执行尚未应用的迁移；不设置时以 API-only 模式运行。
+后端使用 Go 标准库 net/http；PostgreSQL 使用 pgx/v5。设置 DATABASE_URL 后，服务启动时会连接数据库并执行尚未应用的迁移；不设置时以 API-only 模式运行。认证 API：POST /api/v1/auth/register、POST /api/v1/auth/login、GET /api/v1/auth/me、POST /api/v1/auth/logout；详见 docs/API.md。
