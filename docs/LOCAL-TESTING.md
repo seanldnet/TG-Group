@@ -52,6 +52,10 @@ TG_GROUP_API_PROXY="http://127.0.0.1:8080" pnpm dev
 3. 注册成功后自动进入 `/dashboard`。
 4. 工作台调用 `GET /api/v1/auth/me` 展示当前账号。
 5. 退出登录后会话撤销，可重新访问 `/login` 登录。\n6. 配置 `BOT_TOKEN_ENCRYPTION_KEY` 后，可使用 Bot 管理 API 验证并登记 Telegram Bot Token。
+7. 将 Bot 添加到测试群组，发送一条消息或触发 Bot 成员状态更新；运行中的 API 会通过 getUpdates 长轮询发现群组并写入 `telegram_groups`。
+8. 可在 PostgreSQL 中检查发现结果：`SELECT telegram_chat_id,title,chat_type,last_seen_at FROM telegram_groups ORDER BY last_seen_at DESC;`
+
+注意：当前运行时使用 getUpdates 长轮询。若 Bot 已配置 Telegram webhook，getUpdates 会与 webhook 冲突；本版本尚未提供 webhook 自动切换，请先在测试 Bot 上清理 webhook 后再验证长轮询。不要对生产 Bot 执行清理操作，除非已确认其 webhook 迁移计划。
 
 也可以直接检查：
 
