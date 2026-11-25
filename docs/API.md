@@ -123,7 +123,7 @@ openssl rand -base64 32
 
 ### 群组自动发现运行时
 
-服务配置了有效的 `BOT_TOKEN_ENCRYPTION_KEY` 后，API 进程会为平台状态为 `active` 的 Bot 启动独立 Telegram `getUpdates` 长轮询 worker。当前监听更新类型包括 message、edited_message、channel_post 和 my_chat_member。
+服务配置了有效的 `BOT_TOKEN_ENCRYPTION_KEY` 后，API 进程会为平台状态为 `active` 的 Bot 启动独立 Telegram `getUpdates` 长轮询 worker。当前监听更新类型包括 message、edited_message、channel_post、my_chat_member 和 chat_member。
 
 发现的 group、supergroup、channel 会写入 `telegram_groups`，并通过每个 Bot 独立的 update offset 避免成功处理的更新重复消费。worker 会随 Bot 启停状态协调，并在 API 收到终止信号时停止。
 
@@ -137,11 +137,20 @@ openssl rand -base64 32
 
 当前保存消息文本/Caption 和发送者资料，不下载或保存媒体文件本体。消息事件没有自动清理策略，删除对应 Bot/群组时通过外键级联删除。部署者应将群消息日志视为用户内容数据，限制数据库和管理后台访问，并在正式上线前确定保留期限及隐私告知。
 
+
+### 群成员列表
+
+`GET /api/v1/groups/{groupID}/members?limit=100`
+
+返回当前租户指定群组最近活动的成员资料，`limit` 可选，范围为 1–200，默认 100。包含 Telegram 用户 ID、用户名、显示名称、Bot 标识、成员状态、管理员权限快照、加入时间和最近活动时间。查询同时按当前租户和 groupID 过滤。
+
+成员资料通过 Telegram `chat_member` 更新以及普通消息中的 `new_chat_members` / `left_chat_member` 事件增量维护。Telegram 仅向满足条件的 Bot 投递成员状态更新：Bot 必须在群内具备管理员身份，且 `chat_member` 必须列入 `allowed_updates`。因此本列表是 Bot 加入并开始接收更新后的增量记录，不会自动回填 Bot 加入前的完整历史成员名单。
+
 ### 当前边界
 
 - 长轮询当前记录 message、edited_message、channel_post 更新中的发送者和消息内容；频道帖子可能没有普通用户发送者，因此 Telegram 用户 ID 为空。Telegram Bot 的群组隐私模式会限制其可接收的普通群消息；若需要记录群内全部普通消息，需要按 Telegram 官方规则关闭该 Bot 的群组隐私模式，或将 Bot 设为群管理员，并确保群组授予相应权限。
 - 图片、文件、视频、贴纸、语音等只记录消息类型及 Caption，不保存媒体文件。
-- 尚未实现消息全文搜索、分页游标、导出、自动保留期限、Webhook 模式、Bot 群管理员权限检测或群管规则执行。
+- 尚未实现消息全文搜索、分页游标、导出、自动保留期限、Webhook 模式、Bot 群管理员权限检测或群管规则执行。成员列表当前为增量采集，尚未实现全量成员同步、成员处罚和管理员权限主动刷新。
 - Bot 的 active/disabled 是平台侧管理状态；后台 worker 会按该状态启动/停止长轮询，但不代表 Telegram 已授予 Bot 管理员权限。
 
 ## 通用错误
