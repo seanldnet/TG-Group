@@ -241,7 +241,7 @@ export default function BotsPage() {
         </Card>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setToken("") }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{dialogMode === "add" ? "添加 Telegram Bot" : "轮换 Bot Token"}</DialogTitle>
