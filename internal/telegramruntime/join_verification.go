@@ -7,10 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net/http"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type chatPermissions struct {
@@ -207,5 +205,3 @@ func (p *Poller) expireJoinVerificationChallenges(ctx context.Context, bot manag
 	}
 }
 
-var _ = http.MethodPost
-var _ = time.Second
