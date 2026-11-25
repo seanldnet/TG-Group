@@ -149,3 +149,24 @@ export function listGroups() {
     headers: authenticatedHeaders(),
   })
 }
+
+
+export type TelegramGroupMessageEvent = {
+  id: number
+  group_id: string
+  telegram_message_id: number
+  telegram_user_id: number
+  sender_username: string
+  sender_display_name: string
+  message_type: string
+  message_text: string
+  telegram_sent_at: string | null
+  received_at: string
+}
+
+export function listGroupEvents(groupID: string, limit = 50) {
+  return request<{ items: TelegramGroupMessageEvent[] }>(
+    `/api/v1/groups/${encodeURIComponent(groupID)}/events?limit=${limit}`,
+    { headers: authenticatedHeaders() },
+  )
+}
