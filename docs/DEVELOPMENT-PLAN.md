@@ -10,9 +10,9 @@
 - [x] 确认后端语言为 Go（Golang）。
 - [x] Go 后端采用标准库 `net/http`，不引入第三方 Web 框架；建立基础服务入口、配置和健康检查。
 - [x] 建立 PostgreSQL pgx 连接池、Ping、版本化迁移执行器与身份/租户基础 schema（尚未完成 Redis 和后台任务）。
-- [ ] 建立 PostgreSQL / Redis 开发与测试环境（连接配置与迁移代码已提交，尚无 Compose 测试环境）。
+- [x] 增加 PostgreSQL 16 / Redis 7 本地开发 Compose 配置与启动文档（Compose 本身尚未在当前执行环境启动验证；Redis 暂未接入 Go 服务）。
 - [x] 完成邮箱注册/登录、bcrypt 密码哈希、30 天 Bearer 会话、当前用户查询和退出撤销 API；租户/用户状态参与会话鉴权。\n- [ ] 补齐 refresh token、密码找回、邮箱验证、登录限流、Telegram ID 绑定、角色授权及 PostgreSQL 集成/租户隔离测试。
-- [ ] 网站注册/登录后端 API 已有第一版；前端页面与 Telegram 注册管理 Bot 尚未实现。
+- [x] 网站首页、注册页、登录页和账号工作台已连接第一版 Go 认证 API。\n- [ ] Telegram 注册管理 Bot、refresh token、密码找回、邮箱验证、登录限流和 Telegram ID 绑定。
 - [ ] 建立用户 Bot Token 绑定、Bot 状态与群组发现。
 - [ ] 建立统一规则/权限/审计模型。
 - [ ] 按需求矩阵逐项实现群管功能，并完成网站与 Telegram 双端配置。
