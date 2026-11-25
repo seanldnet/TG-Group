@@ -10,22 +10,29 @@ import (
 	"time"
 
 	"github.com/seanldnet/tg-group/internal/auth"
+	"github.com/seanldnet/tg-group/internal/bots"
 )
 
 type Handler struct {
 	logger *slog.Logger
 	auth *auth.Service
+	bots *bots.Service
 }
 
-func NewHandler(logger *slog.Logger, authService *auth.Service) http.Handler {
+func NewHandler(logger *slog.Logger, authService *auth.Service, botService *bots.Service) http.Handler {
 	if logger == nil { logger = slog.Default() }
-	h := &Handler{logger:logger,auth:authService}
+	h := &Handler{logger:logger,auth:authService,bots:botService}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz",h.health)
 	mux.HandleFunc("POST /api/v1/auth/register",h.register)
 	mux.HandleFunc("POST /api/v1/auth/login",h.login)
 	mux.HandleFunc("POST /api/v1/auth/logout",h.logout)
 	mux.HandleFunc("GET /api/v1/auth/me",h.me)
+	mux.HandleFunc("GET /api/v1/bots",h.listBots)
+	mux.HandleFunc("POST /api/v1/bots",h.addBot)
+	mux.HandleFunc("PATCH /api/v1/bots/{botID}/status",h.setBotStatus)
+	mux.HandleFunc("PUT /api/v1/bots/{botID}/token",h.rotateBotToken)
+	mux.HandleFunc("DELETE /api/v1/bots/{botID}",h.removeBot)
 	return mux
 }
 
@@ -125,4 +132,78 @@ func writeJSON(w http.ResponseWriter,status int,value any) {
 
 func writeError(w http.ResponseWriter,status int,message string) {
 	writeJSON(w,status,map[string]string{"error":message})
+}
+
+type addBotRequest struct { Token string `json:"token"` }
+type botStatusRequest struct { Status string `json:"status"` }
+
+func (h *Handler) botServicesReady(w http.ResponseWriter) bool {
+	if h.auth == nil || h.bots == nil {
+		writeError(w,http.StatusServiceUnavailable,"Bot management unavailable: configure DATABASE_URL and BOT_TOKEN_ENCRYPTION_KEY")
+		return false
+	}
+	return true
+}
+
+func (h *Handler) currentUser(w http.ResponseWriter,r *http.Request)(auth.User,bool){
+	user,err:=h.auth.Authenticate(r.Context(),bearerToken(r))
+	if err!=nil { writeError(w,http.StatusUnauthorized,"unauthorized");return auth.User{},false }
+	return user,true
+}
+
+func (h *Handler) listBots(w http.ResponseWriter,r *http.Request){
+	if !h.botServicesReady(w){return}
+	user,ok:=h.currentUser(w,r);if !ok{return}
+	result,err:=h.bots.List(r.Context(),user.TenantID)
+	if err!=nil{h.logger.Error("list Telegram bots","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":result})
+}
+
+func (h *Handler) addBot(w http.ResponseWriter,r *http.Request){
+	if !h.botServicesReady(w){return}
+	user,ok:=h.currentUser(w,r);if !ok{return}
+	var input addBotRequest
+	if !decodeJSON(w,r,&input){return}
+	result,err:=h.bots.Add(r.Context(),user.TenantID,user.ID,input.Token)
+	if err!=nil{h.writeBotError(w,err);return}
+	writeJSON(w,http.StatusCreated,result)
+}
+
+func (h *Handler) setBotStatus(w http.ResponseWriter,r *http.Request){
+	if !h.botServicesReady(w){return}
+	user,ok:=h.currentUser(w,r);if !ok{return}
+	var input botStatusRequest
+	if !decodeJSON(w,r,&input){return}
+	result,err:=h.bots.SetStatus(r.Context(),user.TenantID,r.PathValue("botID"),input.Status)
+	if err!=nil{h.writeBotError(w,err);return}
+	writeJSON(w,http.StatusOK,result)
+}
+
+func (h *Handler) rotateBotToken(w http.ResponseWriter,r *http.Request){
+	if !h.botServicesReady(w){return}
+	user,ok:=h.currentUser(w,r);if !ok{return}
+	var input addBotRequest
+	if !decodeJSON(w,r,&input){return}
+	result,err:=h.bots.RotateToken(r.Context(),user.TenantID,r.PathValue("botID"),input.Token)
+	if err!=nil{h.writeBotError(w,err);return}
+	writeJSON(w,http.StatusOK,result)
+}
+
+func (h *Handler) removeBot(w http.ResponseWriter,r *http.Request){
+	if !h.botServicesReady(w){return}
+	user,ok:=h.currentUser(w,r);if !ok{return}
+	if err:=h.bots.Remove(r.Context(),user.TenantID,r.PathValue("botID"));err!=nil{h.writeBotError(w,err);return}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) writeBotError(w http.ResponseWriter,err error){
+	switch{
+	case errors.Is(err,bots.ErrInvalidToken):writeError(w,http.StatusUnprocessableEntity,"Telegram rejected this bot token")
+	case errors.Is(err,bots.ErrTokenTaken):writeError(w,http.StatusConflict,"this Telegram bot is already registered")
+	case errors.Is(err,bots.ErrNotFound):writeError(w,http.StatusNotFound,"Bot not found")
+	case errors.Is(err,bots.ErrInvalidStatus):writeError(w,http.StatusBadRequest,"status must be active or disabled")
+	case errors.Is(err,bots.ErrIdentityChanged):writeError(w,http.StatusConflict,"replacement token must belong to the same Telegram bot")
+	case errors.Is(err,bots.ErrTelegramUnavailable):writeError(w,http.StatusBadGateway,"Telegram verification is temporarily unavailable")
+	default:h.logger.Error("Telegram bot operation failed","error",err);writeError(w,http.StatusInternalServerError,"internal server error")
+	}
 }
