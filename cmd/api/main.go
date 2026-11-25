@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/seanldnet/tg-group/internal/auth"
+	"github.com/seanldnet/tg-group/internal/bots"
 	"github.com/seanldnet/tg-group/internal/config"
 	"github.com/seanldnet/tg-group/internal/database"
 	"github.com/seanldnet/tg-group/internal/httpapi"
@@ -35,8 +36,17 @@ func main() {
 	}
 
 	var authService *auth.Service
-	if db != nil { authService = auth.NewService(db.Pool) }
-	handler := httpapi.NewHandler(logger, authService)
+	var botService *bots.Service
+	if db != nil {
+		authService = auth.NewService(db.Pool)
+		if cfg.BotTokenEncryptionKey != "" {
+			botService, err = bots.NewService(db.Pool, cfg.BotTokenEncryptionKey)
+			if err != nil { logger.Error("configure Telegram bot token encryption", "error", err); os.Exit(1) }
+		} else {
+			logger.Warn("BOT_TOKEN_ENCRYPTION_KEY is empty; Telegram Bot management is disabled")
+		}
+	}
+	handler := httpapi.NewHandler(logger, authService, botService)
 	server := &http.Server{
 		Addr: cfg.HTTPAddr, Handler: handler,
 		ReadHeaderTimeout: 5*time.Second, IdleTimeout: 60*time.Second,
