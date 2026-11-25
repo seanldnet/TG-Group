@@ -49,7 +49,7 @@ func TestUnknownRouteReturnsNotFound(t *testing.T) {
 }
 
 func TestAuthEndpointsRequireDatabase(t *testing.T) {
-	handler := NewHandler(slog.Default(), nil)
+	handler := NewHandler(slog.Default(), nil, nil)
 	for _, route := range []struct{ method, path string }{
 		{http.MethodPost, "/api/v1/auth/register"},
 		{http.MethodPost, "/api/v1/auth/login"},
