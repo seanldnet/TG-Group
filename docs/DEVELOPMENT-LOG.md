@@ -160,3 +160,14 @@
 ### Telegram worker 关闭顺序修复
 - **修改**：API 收到终止信号后，除关闭 HTTP server 外，还等待 Telegram polling manager 取消并回收各 Bot worker，再允许 PostgreSQL 连接池关闭；避免 worker 在数据库已关闭后仍执行收尾操作。
 - **测试状态**：本次变更已推送 main，GitHub Actions CI 正在执行。
+
+
+### Telegram 群消息事件日志（第十批）
+- **数据库**：新增 `internal/database/migrations/000004_telegram_message_events.up.sql`，建立租户、Bot、群组关联的消息事件表；记录 update/message ID、发送者 Telegram ID/用户名/显示名称、消息类型、文本/Caption、Telegram 发送时间与平台接收时间，并为群组时间线和发送者查询建立索引；增加对应 down SQL。
+- **运行时**：扩展 Telegram Update 解析，处理 message、edited_message、channel_post；群组事件先 upsert 群组，再幂等写入消息日志，数据库写入失败不推进 update offset。
+- **内容边界**：文字与 Caption 最多保存 4096 字符；图片/文件/视频/贴纸/语音等只保存类型和 Caption，不下载媒体文件。当前没有自动保留期限，删除 Bot/群组时外键级联清理日志。
+- **后端 API**：新增 `GET /api/v1/groups/{groupID}/events?limit=50`，limit 允许 1–100，SQL 按当前租户与群组 ID 双重过滤。
+- **前端**：新增 GroupEventsPage，群组列表增加“消息日志”入口；展示发送者、Telegram 用户 ID、消息类型、内容和时间，组件继续使用官方 shadcn/ui。
+- **测试**：新增消息类型/发送者名称解析单测；PostgreSQL 集成测试覆盖消息日志查询和跨租户隔离；HTTP 测试覆盖服务未配置时日志接口返回 503。
+- **文档**：更新 API、开发计划和本地测试说明，明确消息内容存储范围及尚未实现的保留期限/搜索/分页/导出。
+- **验证状态**：所有代码与文档已写入 main；尚未取得本批最新 GitHub Actions 最终结果，因此暂不标记 CI 通过。真实 Telegram 消息收发仍需测试 Bot 和测试群组联调。
