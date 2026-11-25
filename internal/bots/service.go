@@ -1,14 +1,12 @@
 package bots
 
 import (
-	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,6 +26,7 @@ var (
 	ErrNotFound = errors.New("bot not found")
 	ErrInvalidStatus = errors.New("invalid bot status")
 	ErrIdentityChanged = errors.New("replacement token belongs to a different Telegram bot")
+	ErrTelegramUnavailable = errors.New("Telegram verification service is unavailable")
 )
 
 type Service struct {
@@ -136,7 +135,7 @@ func (s *Service) RotateToken(ctx context.Context,tenantID,botID,token string)(B
 func (s *Service) verify(ctx context.Context,token string)(telegramUser,error){
 	endpoint:="https://api.telegram.org/bot"+url.PathEscape(token)+"/getMe"
 	req,err:=http.NewRequestWithContext(ctx,http.MethodGet,endpoint,nil);if err!=nil{return telegramUser{},err}
-	response,err:=s.client.Do(req);if err!=nil{return telegramUser{},fmt.Errorf("verify Telegram bot token: %w",err)}
+	response,err:=s.client.Do(req);if err!=nil{return telegramUser{},ErrTelegramUnavailable}
 	defer response.Body.Close()
 	body,err:=io.ReadAll(io.LimitReader(response.Body,1<<20));if err!=nil{return telegramUser{},err}
 	var result telegramResponse
@@ -156,7 +155,3 @@ func isUniqueViolation(err error)bool{
 	return errors.As(err,&pgErr)&&pgErr.SQLState()=="23505"
 }
 
-// Keep bytes imported in this package's compile-time contract for future
-// authenticated token decryption tests without exposing plaintext tokens.
-var _ = bytes.Equal
-var _ = hex.EncodeToString
