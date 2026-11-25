@@ -95,3 +95,10 @@
 - 支付服务商接口地址/协议版本/沙箱账号需后续提供或核实。
 - Telegram Bot API 对部分管理能力有固有限制，需按具体功能核实。
 - AI 服务商模型发现与视觉/文件能力存在差异，必须 provider-specific 验证。
+
+
+### Telegram Bot 运行时当前边界
+- 当前服务启动时会为平台状态为 active 的 Bot 启动独立长轮询 worker，并将 Telegram 更新中的群组/超级群/频道信息写入 telegram_groups。
+- Bot 管理状态和 Telegram 真实权限状态仍是两回事；需要后续调用 getChatMember/getChatAdministrators 等接口完成权限检测。
+- Telegram 同一 Bot 的 getUpdates 与 webhook 不能同时工作；当前未实现 webhook 切换与 webhook 清理流程。
+- 群组自动发现需要真实 Bot Token、Bot 加入目标群组以及 Telegram 实际投递相应更新；CI 单元测试不能替代真实 Bot 联调。
