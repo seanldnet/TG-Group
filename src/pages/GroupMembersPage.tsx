@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { ArrowLeft, RefreshCw, UsersRound } from "lucide-react"
 
-import { listGroupMembers, type TelegramGroupMember } from "@/lib/api"
+import { getGroupBotPermissions, listGroupMembers, moderateGroupMember, type TelegramGroupBotPermissions, type TelegramGroupMember } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -37,13 +37,16 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState("")
+  const [permissions, setPermissions] = useState<TelegramGroupBotPermissions | null>(null)
+  const [actingUserID, setActingUserID] = useState<number | null>(null)
 
   const refresh = useCallback(async (manual = false) => {
     setError("")
     if (manual) setRefreshing(true)
     try {
-      const response = await listGroupMembers(groupID, 200)
+      const [response, permissionResult] = await Promise.all([listGroupMembers(groupID, 200), getGroupBotPermissions(groupID)])
       setItems(response.items)
+      setPermissions(permissionResult)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "加载群成员失败")
     } finally {
@@ -56,6 +59,23 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
     void refresh()
   }, [refresh])
 
+  const performAction = async (member: TelegramGroupMember, action: "ban" | "unban" | "mute" | "unmute") => {
+    const labels = { ban: "封禁", unban: "解封", mute: "禁言", unmute: "解除禁言" }
+    const name = [member.first_name, member.last_name].filter(Boolean).join(" ") || String(member.telegram_user_id)
+    if (!window.confirm("确认对 " + name + " 执行" + labels[action] + "操作？")) return
+    let duration = 0
+    if (action === "mute") {
+      const raw = window.prompt("请输入禁言时长（分钟，1-525600）", "60")
+      if (raw === null) return
+      duration = Number(raw)
+      if (!Number.isInteger(duration) || duration < 1 || duration > 525600) { setError("禁言时长必须是 1 到 525600 之间的整数分钟"); return }
+    }
+    setActingUserID(member.telegram_user_id)
+    setError("")
+    try { await moderateGroupMember(groupID, member.telegram_user_id, action, duration); await refresh() }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "成员操作失败") }
+    finally { setActingUserID(null) }
+  }
   return (
     <main className="min-h-svh bg-muted/25">
       <header className="border-b border-border/70 bg-background">
@@ -81,6 +101,18 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
           </Button>
         </div>
 
+        {permissions && (
+          <Card>
+            <CardHeader><CardTitle className="text-base">Bot 群组权限（实时检测）</CardTitle><CardDescription>Bot 当前身份：{permissions.bot_status}</CardDescription></CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              <Badge variant={permissions.can_restrict_members ? "default" : "destructive"}>成员限制：{permissions.can_restrict_members ? "具备" : "缺失"}</Badge>
+              <Badge variant={permissions.can_delete_messages ? "secondary" : "outline"}>删除消息：{permissions.can_delete_messages ? "具备" : "缺失"}</Badge>
+              <Badge variant={permissions.can_invite_users ? "secondary" : "outline"}>邀请成员：{permissions.can_invite_users ? "具备" : "缺失"}</Badge>
+              <Badge variant={permissions.can_manage_topics ? "secondary" : "outline"}>管理话题：{permissions.can_manage_topics ? "具备" : "缺失"}</Badge>
+            </CardContent>
+          </Card>
+        )}
+        {permissions && (!["administrator", "creator"].includes(permissions.bot_status) || !permissions.can_restrict_members) && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">Bot 需要群管理员身份及限制成员权限才能执行处罚。</p>}
         {error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p>}
 
         <Card>
@@ -113,6 +145,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
                     <TableHead>权限</TableHead>
                     <TableHead>加入时间</TableHead>
                     <TableHead>最近活动</TableHead>
+                    <TableHead>管理操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -135,6 +168,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
                         <TableCell className="text-xs text-muted-foreground">{permissions.length ? permissions.join(" · ") : "—"}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{member.joined_at ? new Date(member.joined_at).toLocaleString() : "—"}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{new Date(member.last_seen_at).toLocaleString()}</TableCell>
+                        <TableCell><div className="flex flex-wrap gap-1">{member.status === "kicked" ? <Button size="sm" variant="outline" disabled={actingUserID === member.telegram_user_id || !permissions?.can_restrict_members} onClick={() => void performAction(member, "unban")}>解封</Button> : member.status === "restricted" ? <Button size="sm" variant="outline" disabled={actingUserID === member.telegram_user_id || !permissions?.can_restrict_members} onClick={() => void performAction(member, "unmute")}>解除禁言</Button> : member.status === "member" ? <><Button size="sm" variant="outline" disabled={actingUserID === member.telegram_user_id || !permissions?.can_restrict_members} onClick={() => void performAction(member, "mute")}>禁言</Button><Button size="sm" variant="destructive" disabled={actingUserID === member.telegram_user_id || !permissions?.can_restrict_members} onClick={() => void performAction(member, "ban")}>封禁</Button></> : <span className="text-xs text-muted-foreground">不可操作</span>}</div></TableCell>
                       </TableRow>
                     )
                   })}
