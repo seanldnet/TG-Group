@@ -59,6 +59,19 @@ type Group struct {
 	LastSeenAt time.Time `json:"last_seen_at"`
 }
 
+type GroupMessageEvent struct {
+	ID int64 `json:"id"`
+	GroupID string `json:"group_id"`
+	TelegramMessageID int64 `json:"telegram_message_id"`
+	TelegramUserID int64 `json:"telegram_user_id"`
+	SenderUsername string `json:"sender_username"`
+	SenderDisplayName string `json:"sender_display_name"`
+	MessageType string `json:"message_type"`
+	MessageText string `json:"message_text"`
+	TelegramSentAt *time.Time `json:"telegram_sent_at"`
+	ReceivedAt time.Time `json:"received_at"`
+}
+
 type telegramUser struct {
 	ID int64 `json:"id"`
 	IsBot bool `json:"is_bot"`
@@ -99,6 +112,20 @@ func (s *Service) ListGroups(ctx context.Context,tenantID string)([]Group,error)
 	defer rows.Close()
 	result:=make([]Group,0)
 	for rows.Next(){var group Group;if err:=rows.Scan(&group.ID,&group.BotID,&group.TelegramChatID,&group.Title,&group.Username,&group.ChatType,&group.IsForum,&group.Status,&group.LastSeenAt);err!=nil{return nil,err};result=append(result,group)}
+	return result,rows.Err()
+}
+
+func (s *Service) ListGroupEvents(ctx context.Context,tenantID,groupID string,limit int)([]GroupMessageEvent,error){
+	if limit<1 || limit>100{limit=50}
+	rows,err:=s.pool.Query(ctx,`SELECT id,group_id::text,telegram_message_id,COALESCE(telegram_user_id,0),
+		sender_username,sender_display_name,message_type,message_text,telegram_sent_at,received_at
+		FROM telegram_message_events WHERE tenant_id=$1 AND group_id=$2
+		ORDER BY received_at DESC,id DESC LIMIT $3`,tenantID,groupID,limit)
+	if err!=nil{return nil,fmt.Errorf("list Telegram group events: %w",err)}
+	defer rows.Close()
+	result:=make([]GroupMessageEvent,0)
+	for rows.Next(){var event GroupMessageEvent;if err:=rows.Scan(&event.ID,&event.GroupID,&event.TelegramMessageID,&event.TelegramUserID,
+		&event.SenderUsername,&event.SenderDisplayName,&event.MessageType,&event.MessageText,&event.TelegramSentAt,&event.ReceivedAt);err!=nil{return nil,err};result=append(result,event)}
 	return result,rows.Err()
 }
 
