@@ -99,3 +99,17 @@
 - **新增**：`compose.dev.yml` 提供 PostgreSQL 16 与 Redis 7 本地依赖；`Makefile` 提供常用开发命令；`docs/LOCAL-TESTING.md` 说明本地启动与测试流程。Redis 目前仅作为开发依赖，尚未由 Go 服务使用。
 - **验证**：前端 CI job 已完成 `pnpm install --frozen-lockfile` 和 `pnpm build`，通过。Go/PostgreSQL 集成测试、`go vet ./...` 与前端 `pnpm build` 均在 GitHub Actions run `45633604003` 中通过；该 run 同时验证了注册/登录页面的 TypeScript 编译与生产构建。
 - **安全边界**：前端 token 当前存储于 sessionStorage，属于第一版开发实现；后续应评估改为 HttpOnly Secure Cookie，并补充 CSRF 防护、限流、邮箱验证与 refresh token。
+
+
+## 2026-11-26
+
+### Telegram Bot Token 管理 API（第六批，首个可管理闭环）
+- **新增迁移**：migrations/000002_telegram_bots.up.sql 与 internal/database/migrations/000002_telegram_bots.up.sql，创建租户归属的 Bot 登记表，Bot Telegram ID 与 Token 指纹全局唯一；保存 AES-GCM 密文与 nonce，不保存 Token 明文。
+- **新增服务**：internal/bots/service.go，调用 Telegram Bot API getMe 验证 Token，实现加密保存、租户范围列表、启停状态、同一 Bot 身份的 Token 轮换、解绑及供内部运行时读取的租户范围解密接口。
+- **新增 API**：GET/POST /api/v1/bots、PATCH /api/v1/bots/{botID}/status、PUT /api/v1/bots/{botID}/token、DELETE /api/v1/bots/{botID}；均要求 Bearer 会话并以当前用户 tenant_id 作为数据边界。API 响应不返回 Token。
+- **配置**：新增 BOT_TOKEN_ENCRYPTION_KEY，必须为 Base64 编码的 32 字节密钥。未配置时 Bot 管理关闭；密钥必须持久保存，不能每次重启重新生成。
+- **数据库迁移并发保护**：迁移执行器增加 PostgreSQL advisory lock，避免多个实例/测试并行启动时同时执行同一迁移。
+- **测试**：新增 AES-GCM 密文篡改检测、密钥格式单元测试，以及 PostgreSQL Bot 添加/列表/启停/轮换/解绑和跨租户隔离集成测试（依赖 CI 提供 TEST_DATABASE_URL）。
+- **文档**：更新 docs/API.md、docs/LOCAL-TESTING.md，记录 API、加密密钥和未完成的 Bot 运行时边界。
+- **安全/功能边界**：目前仅完成 Bot 资产登记与管理；尚未实现长轮询/Webhook worker、群组自动发现、Bot 管理员权限检查或群管消息处理。平台侧 active/disabled 状态暂不等于实际 Telegram 收发状态。
+- **验证状态**：变更已推送 main，GitHub Actions CI 正在执行；待确认 Go 集成测试、Vet 和前端构建结果后再更新为通过。
