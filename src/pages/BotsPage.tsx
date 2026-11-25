@@ -156,7 +156,7 @@ export default function BotsPage() {
             <Badge variant="secondary" className="mb-3">资源管理</Badge>
             <h1 className="text-3xl font-semibold tracking-tight">Telegram Bot</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              添加 BotFather Token 后，平台会向 Telegram 验证身份，并加密保存 Token。此处的启停状态是平台登记状态，当前尚未启动消息收发 worker。
+              添加 BotFather Token 后，平台会向 Telegram 验证身份，并加密保存 Token。启用的 Bot 会由后台长轮询 worker 接收更新，并自动发现其所在群组。
             </p>
           </div>
           <Button onClick={openAddDialog}>
