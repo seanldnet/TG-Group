@@ -47,6 +47,18 @@ type Bot struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type Group struct {
+	ID string `json:"id"`
+	BotID string `json:"bot_id"`
+	TelegramChatID int64 `json:"telegram_chat_id"`
+	Title string `json:"title"`
+	Username string `json:"username"`
+	ChatType string `json:"chat_type"`
+	IsForum bool `json:"is_forum"`
+	Status string `json:"status"`
+	LastSeenAt time.Time `json:"last_seen_at"`
+}
+
 type telegramUser struct {
 	ID int64 `json:"id"`
 	IsBot bool `json:"is_bot"`
@@ -77,6 +89,16 @@ func (s *Service) List(ctx context.Context, tenantID string) ([]Bot,error) {
 	defer rows.Close()
 	result:=make([]Bot,0)
 	for rows.Next(){var b Bot;if err:=rows.Scan(&b.ID,&b.TelegramBotID,&b.Username,&b.FirstName,&b.Status,&b.VerifiedAt,&b.CreatedAt);err!=nil{return nil,err};result=append(result,b)}
+	return result,rows.Err()
+}
+
+func (s *Service) ListGroups(ctx context.Context,tenantID string)([]Group,error){
+	rows,err:=s.pool.Query(ctx,`SELECT id::text,bot_id::text,telegram_chat_id,title,username,chat_type,is_forum,status,last_seen_at
+		FROM telegram_groups WHERE tenant_id=$1 ORDER BY last_seen_at DESC`,tenantID)
+	if err!=nil{return nil,fmt.Errorf("list Telegram groups: %w",err)}
+	defer rows.Close()
+	result:=make([]Group,0)
+	for rows.Next(){var group Group;if err:=rows.Scan(&group.ID,&group.BotID,&group.TelegramChatID,&group.Title,&group.Username,&group.ChatType,&group.IsForum,&group.Status,&group.LastSeenAt);err!=nil{return nil,err};result=append(result,group)}
 	return result,rows.Err()
 }
 
