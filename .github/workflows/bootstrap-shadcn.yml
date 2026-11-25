@@ -36,5 +36,7 @@ jobs:
           git add -A
           if ! git diff --cached --quiet; then
             git commit -m "chore(ui): initialize official shadcn components"
-            git fetch origin main\n            git rebase origin/main\n            git push origin HEAD:main
+            git fetch origin main
+            git rebase origin/main
+            git push origin HEAD:main
           fi
