@@ -69,13 +69,11 @@ func (s *Service) Register(ctx context.Context, email, password, displayName, us
 		return Session{}, fmt.Errorf("create tenant: %w", err)
 	}
 	err = tx.QueryRow(ctx, `INSERT INTO users(tenant_id,email,password_hash,display_name)
-		VALUES($1,$2,$3,$4) RETURNING id::text,created_at`, tenantID, email, string(hash), displayName).Scan(&userID, new(time.Time))
+		VALUES($1,$2,$3,$4) RETURNING id::text,created_at`, tenantID, email, string(hash), displayName).Scan(&userID, &createdAt)
 	if err != nil {
 		if isUniqueViolation(err) { return Session{}, ErrEmailTaken }
 		return Session{}, fmt.Errorf("create user: %w", err)
 	}
-	var createdAt time.Time
-	if err := tx.QueryRow(ctx, "SELECT created_at FROM users WHERE id=$1", userID).Scan(&createdAt); err != nil { return Session{}, err }
 	if _, err := tx.Exec(ctx, `INSERT INTO user_sessions(user_id,token_hash,expires_at,user_agent,ip_address)
 		VALUES($1,$2,$3,$4,NULLIF($5,'')::inet)`, userID, tokenHash, expires, userAgent, ip); err != nil {
 		return Session{}, fmt.Errorf("create session: %w", err)
@@ -91,12 +89,12 @@ func (s *Service) Register(ctx context.Context, email, password, displayName, us
 func (s *Service) Login(ctx context.Context, email, password, userAgent, remoteAddr string) (Session, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
 	var user User
-	var passwordHash, status string
-	err := s.pool.QueryRow(ctx, `SELECT id::text,tenant_id::text,email,display_name,role,password_hash,status,created_at
-		FROM users WHERE email=$1`, email).Scan(&user.ID,&user.TenantID,&user.Email,&user.DisplayName,&user.Role,&passwordHash,&status,&user.CreatedAt)
+	var passwordHash, status, tenantStatus string
+	err := s.pool.QueryRow(ctx, `SELECT u.id::text,u.tenant_id::text,u.email,u.display_name,u.role,u.password_hash,u.status,u.created_at,t.status
+		FROM users u JOIN tenants t ON t.id=u.tenant_id WHERE u.email=$1`, email).Scan(&user.ID,&user.TenantID,&user.Email,&user.DisplayName,&user.Role,&passwordHash,&status,&user.CreatedAt,&tenantStatus)
 	if err != nil { return Session{}, ErrInvalidCredentials }
 	if bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password)) != nil { return Session{}, ErrInvalidCredentials }
-	if status != "active" { return Session{}, ErrAccountInactive }
+	if status != "active" || tenantStatus != "active" { return Session{}, ErrAccountInactive }
 	token, tokenHash, err := newToken()
 	if err != nil { return Session{}, err }
 	expires := time.Now().UTC().Add(sessionLifetime)
