@@ -129,11 +129,20 @@ openssl rand -base64 32
 
 群组发现是事件驱动的：Bot 需要先加入目标群组/频道并收到 Telegram 更新。当前提供 `GET /api/v1/groups` 查询当前租户已发现的群组，响应字段包含群组 ID、Chat ID、标题、类型、来源 Bot 和最近发现时间；当收到 Bot 被移出群组或封禁的 my_chat_member 更新时，状态会标记为 left 或 kicked。
 
+### 群消息事件日志
+
+`GET /api/v1/groups/{groupID}/events?limit=50`
+
+返回指定群组最近的消息事件，`limit` 可选，范围为 1–100，默认 50。响应包含 Telegram 用户 ID、发送者用户名/名称、消息类型、文本或媒体说明文字、Telegram 发送时间和平台接收时间。查询必须携带 Bearer token，SQL 同时按当前租户和 groupID 过滤；其他租户无法读取该群日志。
+
+当前保存消息文本/Caption 和发送者资料，不下载或保存媒体文件本体。消息事件没有自动清理策略，删除对应 Bot/群组时通过外键级联删除。部署者应将群消息日志视为用户内容数据，限制数据库和管理后台访问，并在正式上线前确定保留期限及隐私告知。
+
 ### 当前边界
 
-- 已完成 Token 验证、加密存储、租户范围列表/状态/轮换/解绑 API。
-- 尚未启动 Telegram 长轮询或 Webhook 接收器，也未完成 Bot 群组自动发现和权限检测。
-- Bot 的 active/disabled 是平台侧管理状态；尚未建立运行时 worker，因此不代表 Bot 已开始或停止接收消息。
+- 长轮询当前记录 message、edited_message、channel_post 更新中的发送者和消息内容；频道帖子可能没有普通用户发送者，因此 Telegram 用户 ID 为空。
+- 图片、文件、视频、贴纸、语音等只记录消息类型及 Caption，不保存媒体文件。
+- 尚未实现消息全文搜索、分页游标、导出、自动保留期限、Webhook 模式、Bot 群管理员权限检测或群管规则执行。
+- Bot 的 active/disabled 是平台侧管理状态；后台 worker 会按该状态启动/停止长轮询，但不代表 Telegram 已授予 Bot 管理员权限。
 
 ## 通用错误
 
