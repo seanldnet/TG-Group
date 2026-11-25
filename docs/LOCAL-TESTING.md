@@ -102,4 +102,10 @@ docker compose -f compose.dev.yml down -v
 5. 应看到用户 ID、用户名、成员状态、权限快照、加入时间和最近活动时间。成员采集从 Bot 开始收到更新后增量建立，不回填历史成员。
 6. 可在 PostgreSQL 检查：`SELECT telegram_user_id,username,status,can_delete_messages,can_restrict_members,joined_at,last_seen_at FROM telegram_group_members ORDER BY last_seen_at DESC LIMIT 50;`
 
-请使用测试群组和测试账号验证；当前页面只展示成员数据，尚未开放禁言、踢出或封禁操作。
+请使用测试群组和测试账号验证。成员管理页会实时读取 Bot 权限；确保 Bot 是管理员并授予“封禁用户/限制成员”权限后，再对普通测试成员执行限时禁言、解除禁言、封禁和解封。页面会要求确认操作，禁言时需要输入分钟数。不要对生产群组或真实用户测试处罚动作。
+
+可直接验证：
+- `GET /api/v1/groups/{groupID}/permissions`
+- `POST /api/v1/groups/{groupID}/members/{userID}/action`，请求体示例：`{"action":"mute","duration_minutes":30}`
+
+支持 action：`ban`、`unban`、`mute`、`unmute`。执行后检查 Telegram 群内实际状态、本地 `telegram_group_members.status` 和 `audit_logs`。Telegram API 操作与本地数据库并非分布式事务，若数据库在 Telegram 执行成功后发生故障，需要人工核对 Telegram 状态。
