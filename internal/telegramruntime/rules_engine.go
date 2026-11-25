@@ -45,11 +45,15 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 	if len(message.NewChatMembers)>0 {
 		for _, member := range message.NewChatMembers {
 			for _, rule := range rules {
-				if rule.Type!="welcome" { continue }
-				var cfg struct{Text string `json:"text"`}
-				if json.Unmarshal(rule.Config,&cfg)!=nil { continue }
-				text:=renderNotice(cfg.Text,member,message.Chat.Title)
-				p.executeRuleNotice(ctx,bot,groupID,item.UpdateID,message.MessageID,member.ID,rule,"welcome",text,token)
+				switch rule.Type {
+				case "welcome":
+					var cfg struct{Text string `json:"text"`}
+					if json.Unmarshal(rule.Config,&cfg)!=nil { continue }
+					text:=renderNotice(cfg.Text,member,message.Chat.Title)
+					p.executeRuleNotice(ctx,bot,groupID,item.UpdateID,message.MessageID,member.ID,rule,"welcome",text,token)
+				case "join_verification":
+					p.startJoinVerification(ctx,bot,groupID,member,rule,token)
+				}
 			}
 		}
 	}
