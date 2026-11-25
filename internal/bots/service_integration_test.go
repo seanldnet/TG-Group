@@ -55,10 +55,13 @@ func TestBotLifecycleAndTenantIsolationPostgres(t *testing.T) {
 	if err!=nil || disabled.Status!="disabled"{t.Fatalf("disable bot = %+v, %v",disabled,err)}
 	if _,err:=service.GetToken(ctx,owner.User.TenantID,created.ID);err!=ErrBotDisabled{t.Fatalf("disabled Bot token lookup error = %v",err)}
 	if _,err:=service.RotateToken(ctx,owner.User.TenantID,owner.User.ID,created.ID,"222:token-two-abcdefghijklmnop");err!=nil{t.Fatalf("rotate token: %v",err)}
-	if _,err:=service.SetStatus(ctx,owner.User.TenantID,created.ID,"active");err!=nil{t.Fatalf("re-enable bot: %v",err)}
+	if _,err:=service.SetStatus(ctx,owner.User.TenantID,owner.User.ID,created.ID,"active");err!=nil{t.Fatalf("re-enable bot: %v",err)}
 	recovered,err=service.GetToken(ctx,owner.User.TenantID,created.ID)
 	if err!=nil || recovered!="222:token-two-abcdefghijklmnop"{t.Fatalf("rotated token = %q, %v",recovered,err)}
 	if err:=service.Remove(ctx,owner.User.TenantID,owner.User.ID,created.ID);err!=nil{t.Fatalf("remove bot: %v",err)}
+	var auditCount int
+	if err:=db.Pool.QueryRow(ctx,"SELECT count(*) FROM audit_logs WHERE tenant_id=$1 AND actor_user_id=$2 AND resource_type='telegram_bot'",owner.User.TenantID,owner.User.ID).Scan(&auditCount);err!=nil{t.Fatal(err)}
+	if auditCount!=5{t.Fatalf("Bot audit records = %d, want 5",auditCount)}
 }
 
 func encodeKey(key []byte)string{return base64.StdEncoding.EncodeToString(key)}
