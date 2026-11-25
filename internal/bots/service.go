@@ -59,6 +59,27 @@ type Group struct {
 	LastSeenAt time.Time `json:"last_seen_at"`
 }
 
+
+type GroupMember struct {
+	ID int64 `json:"id"`
+	GroupID string `json:"group_id"`
+	TelegramUserID int64 `json:"telegram_user_id"`
+	Username string `json:"username"`
+	FirstName string `json:"first_name"`
+	LastName string `json:"last_name"`
+	IsBot bool `json:"is_bot"`
+	Status string `json:"status"`
+	IsAnonymous bool `json:"is_anonymous"`
+	CanManageChat bool `json:"can_manage_chat"`
+	CanDeleteMessages bool `json:"can_delete_messages"`
+	CanRestrictMembers bool `json:"can_restrict_members"`
+	CanInviteUsers bool `json:"can_invite_users"`
+	CanPinMessages bool `json:"can_pin_messages"`
+	CanManageTopics bool `json:"can_manage_topics"`
+	JoinedAt *time.Time `json:"joined_at"`
+	LastSeenAt time.Time `json:"last_seen_at"`
+}
+
 type GroupMessageEvent struct {
 	ID int64 `json:"id"`
 	GroupID string `json:"group_id"`
@@ -113,6 +134,36 @@ func (s *Service) ListGroups(ctx context.Context,tenantID string)([]Group,error)
 	result:=make([]Group,0)
 	for rows.Next(){var group Group;if err:=rows.Scan(&group.ID,&group.BotID,&group.TelegramChatID,&group.Title,&group.Username,&group.ChatType,&group.IsForum,&group.Status,&group.LastSeenAt);err!=nil{return nil,err};result=append(result,group)}
 	return result,rows.Err()
+}
+
+
+func (s *Service) ListGroupMembers(ctx context.Context, tenantID, groupID string, limit int) ([]GroupMember, error) {
+	if limit < 1 || limit > 200 {
+		limit = 100
+	}
+	rows, err := s.pool.Query(ctx, `SELECT id,group_id::text,telegram_user_id,username,first_name,last_name,is_bot,status,
+		is_anonymous,can_manage_chat,can_delete_messages,can_restrict_members,can_invite_users,can_pin_messages,
+		can_manage_topics,joined_at,last_seen_at
+		FROM telegram_group_members
+		WHERE tenant_id=$1 AND group_id=$2
+		ORDER BY CASE WHEN status IN ('creator','administrator') THEN 0 WHEN status='member' THEN 1 ELSE 2 END,
+		last_seen_at DESC, id DESC LIMIT $3`, tenantID, groupID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list Telegram group members: %w", err)
+	}
+	defer rows.Close()
+	result := make([]GroupMember, 0)
+	for rows.Next() {
+		var member GroupMember
+		if err := rows.Scan(&member.ID,&member.GroupID,&member.TelegramUserID,&member.Username,&member.FirstName,
+			&member.LastName,&member.IsBot,&member.Status,&member.IsAnonymous,&member.CanManageChat,
+			&member.CanDeleteMessages,&member.CanRestrictMembers,&member.CanInviteUsers,&member.CanPinMessages,
+			&member.CanManageTopics,&member.JoinedAt,&member.LastSeenAt); err != nil {
+			return nil, err
+		}
+		result = append(result, member)
+	}
+	return result, rows.Err()
 }
 
 func (s *Service) ListGroupEvents(ctx context.Context,tenantID,groupID string,limit int)([]GroupMessageEvent,error){
