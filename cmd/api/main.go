@@ -15,6 +15,7 @@ import (
 	"github.com/seanldnet/tg-group/internal/config"
 	"github.com/seanldnet/tg-group/internal/database"
 	"github.com/seanldnet/tg-group/internal/httpapi"
+	"github.com/seanldnet/tg-group/internal/telegramruntime"
 )
 
 func main() {
@@ -37,11 +38,13 @@ func main() {
 
 	var authService *auth.Service
 	var botService *bots.Service
+	var botPoller *telegramruntime.Poller
 	if db != nil {
 		authService = auth.NewService(db.Pool)
 		if cfg.BotTokenEncryptionKey != "" {
 			botService, err = bots.NewService(db.Pool, cfg.BotTokenEncryptionKey)
 			if err != nil { logger.Error("configure Telegram bot token encryption", "error", err); os.Exit(1) }
+			botPoller = telegramruntime.NewPoller(db.Pool, botService, logger)
 		} else {
 			logger.Warn("BOT_TOKEN_ENCRYPTION_KEY is empty; Telegram Bot management is disabled")
 		}
@@ -58,6 +61,10 @@ func main() {
 	}()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if botPoller != nil {
+		go botPoller.Run(ctx)
+		logger.Info("Telegram Bot long-polling manager started")
+	}
 	select {
 	case err := <-serverErrors:
 		if !errors.Is(err, http.ErrServerClosed) { logger.Error("HTTP server stopped unexpectedly", "error", err); os.Exit(1) }
