@@ -5,8 +5,8 @@
 ## 当前状态（2026-11-25）
 - [x] 新建空仓库并确认默认分支为 main。
 - [x] 建立产品需求基线：`docs/REQUIREMENTS.md`。
-- [ ] 建立前端工程骨架（React + TypeScript + Vite）。
-- [ ] 接入 shadcn/ui 官方 CLI 与官方组件配置。
+- [x] 建立前端工程骨架（React + TypeScript + Vite）基础文件。
+- [ ] 运行 shadcn/ui 官方 CLI 初始化配置并添加官方组件（当前受执行环境无法访问 npm/GitHub 网络限制，尚未运行及验证）。
 - [ ] 确认并建立后端技术栈与服务边界。
 - [ ] 建立 PostgreSQL / Redis 开发与测试环境。
 - [ ] 建立认证、租户隔离、账号绑定和套餐领域模型。
