@@ -155,3 +155,8 @@
 - **更新解析**：读取 my_chat_member.new_chat_member.status；Bot 离开群组时将群组状态更新为 left，被封禁时更新为 kicked，重新加入后恢复 active。
 - **测试**：新增会员状态转换单元测试，覆盖 member、administrator、left、kicked。
 - **验证**：已写入 main；Go CI 对本次最新代码仍在执行，等待最终结果。
+
+
+### Telegram worker 关闭顺序修复
+- **修改**：API 收到终止信号后，除关闭 HTTP server 外，还等待 Telegram polling manager 取消并回收各 Bot worker，再允许 PostgreSQL 连接池关闭；避免 worker 在数据库已关闭后仍执行收尾操作。
+- **测试状态**：本次变更已推送 main，GitHub Actions CI 正在执行。
