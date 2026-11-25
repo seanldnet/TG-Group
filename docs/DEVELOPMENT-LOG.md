@@ -215,3 +215,5 @@
 - **前端**：新增 `src/pages/GroupRulesPage.tsx`，使用仓库中官方 shadcn/ui Input、Label、Select、Switch、Textarea、Card、Badge、Button；群组列表增加规则入口。
 - **测试**：新增规则类型与配置字段校验单元测试；HTTP handler 增加规则服务未配置时的 503 路由覆盖。尚待 CI 执行。
 - **明确边界**：本批仅完成规则配置持久化和管理界面；消息事件接入执行引擎、Telegram 删除消息、欢迎/离群消息发送、命中日志及规则操作审计仍未实现。页面已明确提示保存不代表自动执行。
+
+- **CI 验证补充**：GitHub Actions run `45722797061`（commit `2bc5405c21939da5c2aa088f41e48477ebcb5e5b`）Go 格式检查、`go test ./...`、`go vet ./...` 与前端依赖安装/生产构建均通过。该结果验证当前配置管理代码可编译和既有测试通过，不代表真实 Telegram 自动规则执行已验收。
