@@ -27,6 +27,7 @@ var (
 	ErrInvalidStatus = errors.New("invalid bot status")
 	ErrIdentityChanged = errors.New("replacement token belongs to a different Telegram bot")
 	ErrTelegramUnavailable = errors.New("Telegram verification service is unavailable")
+	ErrBotDisabled = errors.New("Telegram bot is disabled")
 )
 
 type Service struct {
@@ -140,15 +141,18 @@ func (s *Service) verify(ctx context.Context,token string)(telegramUser,error){
 	defer response.Body.Close()
 	body,err:=io.ReadAll(io.LimitReader(response.Body,1<<20));if err!=nil{return telegramUser{},err}
 	var result telegramResponse
+	if response.StatusCode==http.StatusTooManyRequests || response.StatusCode>=http.StatusInternalServerError{return telegramUser{},ErrTelegramUnavailable}
 	if response.StatusCode!=http.StatusOK || json.Unmarshal(body,&result)!=nil || !result.OK || !result.Result.IsBot || result.Result.ID==0{return telegramUser{},ErrInvalidToken}
 	return result.Result,nil
 }
 
 func (s *Service) GetToken(ctx context.Context,tenantID,botID string)(string,error){
 	var ciphertext,nonce []byte
-	err:=s.pool.QueryRow(ctx,"SELECT token_ciphertext,token_nonce FROM telegram_bots WHERE tenant_id=$1 AND id=$2",tenantID,botID).Scan(&ciphertext,&nonce)
+	var status string
+	err:=s.pool.QueryRow(ctx,"SELECT token_ciphertext,token_nonce,status FROM telegram_bots WHERE tenant_id=$1 AND id=$2",tenantID,botID).Scan(&ciphertext,&nonce,&status)
 	if errors.Is(err,pgx.ErrNoRows){return "",ErrNotFound}
 	if err!=nil{return "",fmt.Errorf("load encrypted Telegram bot token: %w",err)}
+	if status!="active"{return "",ErrBotDisabled}
 	plaintext,err:=s.aead.Open(nil,nonce,ciphertext,[]byte("tg-group/telegram-bot-token/v1"))
 	if err!=nil{return "",errors.New("stored Telegram bot token could not be decrypted")}
 	return string(plaintext),nil
