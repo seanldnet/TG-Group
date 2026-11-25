@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,6 +31,7 @@ func NewHandler(logger *slog.Logger, authService *auth.Service, botService *bots
 	mux.HandleFunc("GET /api/v1/auth/me",h.me)
 	mux.HandleFunc("GET /api/v1/bots",h.listBots)
 	mux.HandleFunc("GET /api/v1/groups",h.listGroups)
+	mux.HandleFunc("GET /api/v1/groups/{groupID}/events",h.listGroupEvents)
 	mux.HandleFunc("POST /api/v1/bots",h.addBot)
 	mux.HandleFunc("PATCH /api/v1/bots/{botID}/status",h.setBotStatus)
 	mux.HandleFunc("PUT /api/v1/bots/{botID}/token",h.rotateBotToken)
@@ -157,6 +159,20 @@ func (h *Handler) listGroups(w http.ResponseWriter,r *http.Request){
 	user,ok:=h.currentUser(w,r);if !ok{return}
 	result,err:=h.bots.ListGroups(r.Context(),user.TenantID)
 	if err!=nil{h.logger.Error("list Telegram groups","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":result})
+}
+
+func (h *Handler) listGroupEvents(w http.ResponseWriter,r *http.Request){
+	if !h.botServicesReady(w){return}
+	user,ok:=h.currentUser(w,r);if !ok{return}
+	limit:=50
+	if raw:=r.URL.Query().Get("limit");raw!=""{
+		value,err:=strconv.Atoi(raw)
+		if err!=nil || value<1 || value>100{writeError(w,http.StatusBadRequest,"limit must be between 1 and 100");return}
+		limit=value
+	}
+	result,err:=h.bots.ListGroupEvents(r.Context(),user.TenantID,r.PathValue("groupID"),limit)
+	if err!=nil{h.logger.Error("list Telegram group message events","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return}
 	writeJSON(w,http.StatusOK,map[string]any{"items":result})
 }
 
