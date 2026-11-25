@@ -25,6 +25,7 @@ const ruleTypes = [
   { value: "anti_ad", label: "反广告", config: { patterns: ["t.me/"], action: "delete" } },
   { value: "welcome", label: "入群欢迎", config: { text: "欢迎加入本群！" } },
   { value: "leave_notice", label: "离群通知", config: { text: "有成员离开了群组" } },
+  { value: "join_verification", label: "入群验证（数学题）", config: { challenge_type: "math", timeout_seconds: 120, failure_action: "kick" } },
 ] as const
 
 type RuleType = TelegramGroupRule["rule_type"]
