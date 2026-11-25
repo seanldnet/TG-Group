@@ -139,3 +139,13 @@
 - **测试**：新增 poller 单元测试，覆盖私聊过滤、普通群/超级群/频道识别和 update chat 提取。
 - **功能边界**：本批采用 Telegram getUpdates 长轮询模式；尚未实现 Webhook 模式切换、群组列表管理 API/前端、管理员权限检测、成员事件处理与群管规则执行。Bot 必须被添加到群组/频道并产生受支持的更新，才能被发现；频道更新还取决于 Bot 的权限与 Telegram 投递行为。
 - **验证状态**：源码和文档已提交 main；等待 GitHub Actions 对 Go 编译、单元/集成测试、Vet 与前端构建执行结果。未进行真实 Telegram Token 联调，不能宣称真实群组接收已验收。
+
+
+### 群组查询 API 与网站列表页（第九批）
+- **后端**：新增 `GET /api/v1/groups`，从 telegram_groups 查询当前用户租户的群组资产；SQL 强制 tenant_id 过滤，不接受客户端指定租户。
+- **前端 API**：src/lib/api.ts 增加 TelegramGroup 类型和 listGroups 请求方法。
+- **前端页面**：新增 src/pages/GroupsPage.tsx，基于已由官方 shadcn/ui CLI 生成的 Card、Badge、Button、Table 展示群组标题、Chat ID、类型、来源 Bot 和最近发现时间；增加空状态与刷新。
+- **工作台导航**：/dashboard 增加群组列表入口；新增 /dashboard/groups 路由。
+- **文案修正**：Bot 管理页面说明更新为后台长轮询运行时已启动，不再显示“尚未启动消息收发 worker”。
+- **测试**：HTTP handler 测试覆盖未配置 Bot 服务时群组列表 API 返回 503；poller 单元测试覆盖群组类型识别。
+- **验证状态**：代码与文档已提交 main；GitHub Actions Go/PostgreSQL 测试和前端构建正在运行，尚未将本批标记为 CI 通过。真实 Telegram 群组联调仍需部署环境中的有效 Bot Token。
