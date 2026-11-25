@@ -29,7 +29,7 @@ Redis 当前仅提供开发基础设施，Go 服务尚未接入 Redis 功能。
 
 ```bash
 go mod tidy
-DATABASE_URL="postgres://tg_group:tg_group_dev@127.0.0.1:5432/tg_group?sslmode=disable" go run ./cmd/api
+BOT_TOKEN_ENCRYPTION_KEY="$(openssl rand -base64 32)" DATABASE_URL="postgres://tg_group:tg_group_dev@127.0.0.1:5432/tg_group?sslmode=disable" go run ./cmd/api
 ```
 
 首次启动会自动执行 PostgreSQL 迁移。API 默认监听 `http://127.0.0.1:8080`。
@@ -51,7 +51,7 @@ TG_GROUP_API_PROXY="http://127.0.0.1:8080" pnpm dev
 2. 注册：`/register`，提交称呼、邮箱和至少 10 个字符的密码。
 3. 注册成功后自动进入 `/dashboard`。
 4. 工作台调用 `GET /api/v1/auth/me` 展示当前账号。
-5. 退出登录后会话撤销，可重新访问 `/login` 登录。
+5. 退出登录后会话撤销，可重新访问 `/login` 登录。\n6. 配置 `BOT_TOKEN_ENCRYPTION_KEY` 后，可使用 Bot 管理 API 验证并登记 Telegram Bot Token。
 
 也可以直接检查：
 
@@ -59,7 +59,7 @@ TG_GROUP_API_PROXY="http://127.0.0.1:8080" pnpm dev
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
 - `GET /api/v1/auth/me`
-- `POST /api/v1/auth/logout`
+- `POST /api/v1/auth/logout`\n- `GET /api/v1/bots`\n- `POST /api/v1/bots`\n- `PATCH /api/v1/bots/{botID}/status`\n- `PUT /api/v1/bots/{botID}/token`\n- `DELETE /api/v1/bots/{botID}`
 
 API 请求和响应格式见 [API 文档](API.md)。
 
