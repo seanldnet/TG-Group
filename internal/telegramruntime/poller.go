@@ -240,7 +240,7 @@ func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update)er
 	if message.From!=nil{senderID=message.From.ID;username=message.From.Username;displayName=senderDisplayName(message.From)}
 	content:=message.Text
 	if content==""{content=message.Caption}
-	if len(content)>4096{content=content[:4096]}
+	if runeCount:=[]rune(content);len(runeCount)>4096{content=string(runeCount[:4096])}
 	var sentAt any
 	if message.Date>0{sentAt=time.Unix(message.Date,0).UTC()}
 	_,err=p.pool.Exec(ctx,`INSERT INTO telegram_message_events(
