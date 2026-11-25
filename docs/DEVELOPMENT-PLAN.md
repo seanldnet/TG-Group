@@ -1,6 +1,6 @@
 # TG-Group 开发计划
 
-> 本计划从需求基线拆解实施顺序。阶段状态以实际代码、构建和测试证据为准。后端语言已确认使用 Go；具体 HTTP 框架/库仍需架构评估。CI 镜像仓库等未确认事项不得擅自定案。
+> 本计划从需求基线拆解实施顺序。阶段状态以实际代码、构建和测试证据为准。后端使用 Go 标准库 net/http 与 pgx/v5；CI 镜像仓库等未确认事项不得擅自定案。
 
 ## 当前状态（2026-11-25）
 - [x] 新建空仓库并确认默认分支为 main。
@@ -13,7 +13,7 @@
 - [x] 建立 PostgreSQL pgx 连接池、Ping、版本化迁移执行器与身份/租户基础 schema（尚未完成 Redis 和后台任务）。
 - [x] 增加 PostgreSQL 16 / Redis 7 本地开发 Compose 配置与启动文档（Compose 本身尚未在当前执行环境启动验证；Redis 暂未接入 Go 服务）。
 - [x] 完成邮箱注册/登录、bcrypt 密码哈希、30 天 Bearer 会话、当前用户查询和退出撤销 API；租户/用户状态参与会话鉴权。
-- [ ] 补齐 refresh token、密码找回、邮箱验证、登录限流、Telegram ID 绑定、角色授权及 PostgreSQL 集成/租户隔离测试。
+- [ ] 补齐 refresh token、密码找回、邮箱验证、登录限流、Telegram ID 绑定、角色授权及跨租户资源访问测试。
 - [x] 网站首页、注册页、登录页和账号工作台已连接第一版 Go 认证 API。
 - [ ] Telegram 注册管理 Bot、refresh token、密码找回、邮箱验证、登录限流和 Telegram ID 绑定。
 - [ ] 建立用户 Bot Token 绑定、Bot 状态与群组发现。
