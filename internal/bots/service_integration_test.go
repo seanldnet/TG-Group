@@ -43,6 +43,15 @@ func TestBotLifecycleAndTenantIsolationPostgres(t *testing.T) {
 	if err!=nil{t.Fatalf("add bot: %v",err)}
 	if created.TelegramBotID!=telegramID || created.Username!="integration_test_bot" || created.Status!="active"{t.Fatalf("unexpected bot response: %+v",created)}
 	var stored []byte
+	if err:=db.Pool.QueryRow(ctx,"SELECT token_ciphertext FROM telegram_bots WHERE id=$1",created.ID).Scan(&stored);err!=nil{t.Fatal(err)}
+	if string(stored)=="111:token-one-abcdefghijklmnop"{t.Fatal("bot token was stored in plaintext")}
+	recovered,err:=service.GetToken(ctx,owner.User.TenantID,created.ID)
+	if err!=nil || recovered!="111:token-one-abcdefghijklmnop"{t.Fatalf("GetToken = %q, %v",recovered,err)}
+	if _,err:=service.GetToken(ctx,other.User.TenantID,created.ID);err!=ErrNotFound{t.Fatalf("cross-tenant token lookup error = %v",err)}
+
+	var groupID string
+	if err:=db.Pool.QueryRow(ctx,`INSERT INTO telegram_groups(tenant_id,bot_id,telegram_chat_id,title,chat_type)
+		VALUES($1,$2,$3,'Integration Group','supergroup') RETURNING id::text`,owner.User.TenantID,created.ID,-telegramID).Scan(&groupID);err!=nil{t.Fatalf("create test group: %v",err)}
 	rule,err:=service.CreateGroupRule(ctx,owner.User.TenantID,groupID,GroupRuleInput{
 		RuleType:"keyword_filter",Name:"integration keyword",Enabled:true,Priority:10,
 		Config:json.RawMessage(`{"words":["integration"],"action":"delete"}`),
@@ -62,15 +71,6 @@ func TestBotLifecycleAndTenantIsolationPostgres(t *testing.T) {
 	}
 	otherRuleEvents,err:=service.ListGroupRuleEvents(ctx,other.User.TenantID,groupID,50)
 	if err!=nil || len(otherRuleEvents)!=0{t.Fatalf("cross-tenant rule events = %+v, %v",otherRuleEvents,err)}
-	if err:=db.Pool.QueryRow(ctx,"SELECT token_ciphertext FROM telegram_bots WHERE id=$1",created.ID).Scan(&stored);err!=nil{t.Fatal(err)}
-	if string(stored)=="111:token-one-abcdefghijklmnop"{t.Fatal("bot token was stored in plaintext")}
-	recovered,err:=service.GetToken(ctx,owner.User.TenantID,created.ID)
-	if err!=nil || recovered!="111:token-one-abcdefghijklmnop"{t.Fatalf("GetToken = %q, %v",recovered,err)}
-	if _,err:=service.GetToken(ctx,other.User.TenantID,created.ID);err!=ErrNotFound{t.Fatalf("cross-tenant token lookup error = %v",err)}
-
-	var groupID string
-	if err:=db.Pool.QueryRow(ctx,`INSERT INTO telegram_groups(tenant_id,bot_id,telegram_chat_id,title,chat_type)
-		VALUES($1,$2,$3,'Integration Group','supergroup') RETURNING id::text`,owner.User.TenantID,created.ID,-telegramID).Scan(&groupID);err!=nil{t.Fatalf("create test group: %v",err)}
 	if _,err:=db.Pool.Exec(ctx,`INSERT INTO telegram_message_events(
 		tenant_id,bot_id,group_id,telegram_update_id,telegram_message_id,telegram_user_id,
 		sender_username,sender_display_name,message_type,message_text)
