@@ -130,3 +130,12 @@
 - **验证状态**：GitHub Actions run 45705033278（commit 7e397920a656adabc7426885767d317d4988e542）Go 测试、PostgreSQL 集成测试、go vet 与前端生产构建均通过；CI 两个 job 均为 success。
 
 - **验收结果补充**：Bot 生命周期的添加、启停、Token 轮换和解绑均以事务方式写入 audit_logs；CI 已验证完整生命周期审计记录数和跨租户隔离。
+
+### Telegram 长轮询运行时与群组自动发现（第八批）
+- **新增迁移**：migrations/000003_telegram_groups.up.sql 与 internal/database/migrations/000003_telegram_groups.up.sql；为 Bot 保存 update offset，并新增按租户、Bot 隔离的群组资产表。
+- **新增运行时**：internal/telegramruntime/poller.go；API 进程启动后自动扫描 active Bot，为每个 Bot 启动独立 getUpdates 长轮询 worker；每 15 秒协调新增、停用和解绑的 Bot worker。
+- **更新处理**：订阅 message、edited_message、channel_post、my_chat_member；识别 group/supergroup/channel 并 upsert 群组资产；每条 update 成功持久化后推进 offset，数据库写入失败时不推进 offset，避免丢失群组事件。
+- **生命周期**：长轮询 worker 使用服务 context，收到 SIGINT/SIGTERM 时随 API 优雅停机；Token 不写日志，Telegram 请求错误不输出包含 Token 的 URL。
+- **测试**：新增 poller 单元测试，覆盖私聊过滤、普通群/超级群/频道识别和 update chat 提取。
+- **功能边界**：本批采用 Telegram getUpdates 长轮询模式；尚未实现 Webhook 模式切换、群组列表管理 API/前端、管理员权限检测、成员事件处理与群管规则执行。Bot 必须被添加到群组/频道并产生受支持的更新，才能被发现；频道更新还取决于 Bot 的权限与 Telegram 投递行为。
+- **验证状态**：源码和文档已提交 main；等待 GitHub Actions 对 Go 编译、单元/集成测试、Vet 与前端构建执行结果。未进行真实 Telegram Token 联调，不能宣称真实群组接收已验收。
