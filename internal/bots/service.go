@@ -141,6 +141,7 @@ func (s *Service) CheckGroupBotPermissions(ctx context.Context,tenantID,groupID 
  token,err:=s.GetToken(ctx,tenantID,botID);if err!=nil{return GroupBotPermissions{},err}
  var member telegramChatMemberResult
  if err:=s.callTelegram(ctx,token,"getChatMember",map[string]any{"chat_id":chatID,"user_id":telegramBotID},&member);err!=nil{return GroupBotPermissions{},err}
+ if member.Status=="creator" { member.CanManageChat=true; member.CanDeleteMessages=true; member.CanRestrictMembers=true; member.CanInviteUsers=true; member.CanPinMessages=true; member.CanManageTopics=true }
  return GroupBotPermissions{GroupID:groupID,BotID:botID,BotStatus:member.Status,CanManageChat:member.CanManageChat,CanDeleteMessages:member.CanDeleteMessages,CanRestrictMembers:member.CanRestrictMembers,CanInviteUsers:member.CanInviteUsers,CanPinMessages:member.CanPinMessages,CanManageTopics:member.CanManageTopics},nil
 }
 func (s *Service) ModerateGroupMember(ctx context.Context,tenantID,actorUserID,groupID string,targetUserID int64,action string,durationMinutes int)error{
@@ -171,9 +172,14 @@ func (s *Service) ModerateGroupMember(ctx context.Context,tenantID,actorUserID,g
   payload["use_independent_chat_permissions"]=true
  }
  if err:=s.callTelegram(ctx,token,method,payload,nil);err!=nil{return err}
- _,err=s.pool.Exec(ctx,`INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id)
- VALUES($1,$2,$3,'telegram_group_member',$4)`,tenantID,actorUserID,"group.member."+action,fmt.Sprintf("%s:%d",groupID,targetUserID))
- if err!=nil{return fmt.Errorf("member action succeeded but audit log failed: %w",err)}
+ status := map[string]string{"ban":"kicked","unban":"left","mute":"restricted","unmute":"member"}[action]
+ tx,err:=s.pool.Begin(ctx);if err!=nil{return fmt.Errorf("Telegram action succeeded but audit transaction could not start: %w",err)}
+ defer tx.Rollback(ctx)
+ _,err=tx.Exec(ctx,"UPDATE telegram_group_members SET status=$4,updated_at=now(),last_seen_at=now() WHERE tenant_id=$1 AND group_id=$2 AND telegram_user_id=$3",tenantID,groupID,targetUserID,status)
+ if err!=nil{return fmt.Errorf("Telegram action succeeded but member state update failed: %w",err)}
+ _,err=tx.Exec(ctx,"INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id) VALUES($1,$2,$3,'telegram_group_member',$4)",tenantID,actorUserID,"group.member."+action,fmt.Sprintf("%s:%d",groupID,targetUserID))
+ if err!=nil{return fmt.Errorf("Telegram action succeeded but audit log failed: %w",err)}
+ if err:=tx.Commit(ctx);err!=nil{return fmt.Errorf("Telegram action succeeded but audit transaction commit failed: %w",err)}
  return nil
 }
 
