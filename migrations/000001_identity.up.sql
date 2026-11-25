@@ -10,7 +10,7 @@ CREATE TABLE tenants (
 
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL UNIQUE REFERENCES tenants(id) ON DELETE RESTRICT,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
     email VARCHAR(254) NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     telegram_id BIGINT UNIQUE,
