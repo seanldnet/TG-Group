@@ -2,6 +2,7 @@ package bots
 
 import (
 	"crypto/rand"
+	"context"
 	"encoding/base64"
 	"testing"
 )
@@ -26,4 +27,19 @@ func TestTokenEncryptionAuthenticatesCiphertext(t *testing.T) {
 	if string(plain)!=token{t.Fatal("decrypted token mismatch")}
 	ciphertext[0]^=0xff
 	if _,err:=service.aead.Open(nil,nonce,ciphertext,[]byte("tg-group/telegram-bot-token/v1"));err==nil{t.Fatal("tampered ciphertext was accepted")}
+}
+
+func TestModerateGroupMemberRejectsInvalidActionsBeforeDatabaseAccess(t *testing.T) {
+ service := &Service{}
+ cases := []struct{name,action string; userID int64; duration int}{
+  {"zero user","ban",0,0},
+  {"unknown action","delete",123,0},
+  {"mute without duration","mute",123,0},
+  {"mute too long","mute",123,525601},
+  {"unban with duration","unban",123,5},
+ }
+ for _,tc:=range cases { t.Run(tc.name,func(t *testing.T){
+  err:=service.ModerateGroupMember(context.Background(),"tenant","actor","group",tc.userID,tc.action,tc.duration)
+  if err!=ErrInvalidMemberAction { t.Fatalf("error = %v, want ErrInvalidMemberAction",err) }
+ })}
 }
