@@ -80,6 +80,103 @@ type GroupMember struct {
 	LastSeenAt time.Time `json:"last_seen_at"`
 }
 
+
+type GroupBotPermissions struct {
+ GroupID string `json:"group_id"`
+ BotID string `json:"bot_id"`
+ BotStatus string `json:"bot_status"`
+ CanManageChat bool `json:"can_manage_chat"`
+ CanDeleteMessages bool `json:"can_delete_messages"`
+ CanRestrictMembers bool `json:"can_restrict_members"`
+ CanInviteUsers bool `json:"can_invite_users"`
+ CanPinMessages bool `json:"can_pin_messages"`
+ CanManageTopics bool `json:"can_manage_topics"`
+}
+type telegramChatMemberResult struct {
+ Status string `json:"status"`
+ CanManageChat bool `json:"can_manage_chat"`
+ CanDeleteMessages bool `json:"can_delete_messages"`
+ CanRestrictMembers bool `json:"can_restrict_members"`
+ CanInviteUsers bool `json:"can_invite_users"`
+ CanPinMessages bool `json:"can_pin_messages"`
+ CanManageTopics bool `json:"can_manage_topics"`
+}
+type telegramAPIEnvelope struct {
+ OK bool `json:"ok"`
+ Description string `json:"description"`
+ Result json.RawMessage `json:"result"`
+}
+var ErrInsufficientBotRights = errors.New("bot must be an administrator with can_restrict_members")
+var ErrTargetIsAdministrator = errors.New("target user is an administrator or creator")
+var ErrInvalidMemberAction = errors.New("invalid member action or duration")
+var ErrTelegramOperation = errors.New("Telegram rejected the member operation")
+
+func (s *Service) groupBotContext(ctx context.Context, tenantID, groupID string) (string, int64, int64, error) {
+ var botID string
+ var chatID, telegramBotID int64
+ err := s.pool.QueryRow(ctx, `SELECT g.bot_id::text,g.telegram_chat_id,b.telegram_bot_id
+ FROM telegram_groups g JOIN telegram_bots b ON b.id=g.bot_id AND b.tenant_id=g.tenant_id
+ WHERE g.tenant_id=$1 AND g.id=$2 AND g.status='active' AND b.status='active'`, tenantID, groupID).Scan(&botID,&chatID,&telegramBotID)
+ if errors.Is(err,pgx.ErrNoRows) { return "",0,0,ErrNotFound }
+ if err != nil { return "",0,0,fmt.Errorf("load tenant group Bot context: %w",err) }
+ return botID,chatID,telegramBotID,nil
+}
+func (s *Service) callTelegram(ctx context.Context, token, method string, payload any, result any) error {
+ body,err:=json.Marshal(payload); if err!=nil{return err}
+ endpoint:=s.apiBaseURL+"/bot"+url.PathEscape(token)+"/"+method
+ req,err:=http.NewRequestWithContext(ctx,http.MethodPost,endpoint,strings.NewReader(string(body)));if err!=nil{return err}
+ req.Header.Set("Content-Type","application/json")
+ response,err:=s.client.Do(req);if err!=nil{return ErrTelegramUnavailable}
+ defer response.Body.Close()
+ data,err:=io.ReadAll(io.LimitReader(response.Body,1<<20));if err!=nil{return err}
+ var envelope telegramAPIEnvelope
+ if err:=json.Unmarshal(data,&envelope);err!=nil{return fmt.Errorf("decode Telegram %s response: %w",method,err)}
+ if response.StatusCode==http.StatusTooManyRequests || response.StatusCode>=500{return ErrTelegramUnavailable}
+ if response.StatusCode!=http.StatusOK || !envelope.OK { return fmt.Errorf("%w: %s",ErrTelegramOperation,envelope.Description) }
+ if result!=nil { if err:=json.Unmarshal(envelope.Result,result);err!=nil{return fmt.Errorf("decode Telegram %s result: %w",method,err)} }
+ return nil
+}
+func (s *Service) CheckGroupBotPermissions(ctx context.Context,tenantID,groupID string)(GroupBotPermissions,error){
+ botID,chatID,telegramBotID,err:=s.groupBotContext(ctx,tenantID,groupID);if err!=nil{return GroupBotPermissions{},err}
+ token,err:=s.GetToken(ctx,tenantID,botID);if err!=nil{return GroupBotPermissions{},err}
+ var member telegramChatMemberResult
+ if err:=s.callTelegram(ctx,token,"getChatMember",map[string]any{"chat_id":chatID,"user_id":telegramBotID},&member);err!=nil{return GroupBotPermissions{},err}
+ return GroupBotPermissions{GroupID:groupID,BotID:botID,BotStatus:member.Status,CanManageChat:member.CanManageChat,CanDeleteMessages:member.CanDeleteMessages,CanRestrictMembers:member.CanRestrictMembers,CanInviteUsers:member.CanInviteUsers,CanPinMessages:member.CanPinMessages,CanManageTopics:member.CanManageTopics},nil
+}
+func (s *Service) ModerateGroupMember(ctx context.Context,tenantID,actorUserID,groupID string,targetUserID int64,action string,durationMinutes int)error{
+ if targetUserID<=0{return ErrInvalidMemberAction}
+ if action!="ban" && action!="unban" && action!="mute" && action!="unmute"{return ErrInvalidMemberAction}
+ if action=="mute" && (durationMinutes<1 || durationMinutes>525600){return ErrInvalidMemberAction}
+ if action!="mute" && durationMinutes!=0{return ErrInvalidMemberAction}
+ permissions,err:=s.CheckGroupBotPermissions(ctx,tenantID,groupID);if err!=nil{return err}
+ if (permissions.BotStatus!="administrator" && permissions.BotStatus!="creator") || !permissions.CanRestrictMembers{return ErrInsufficientBotRights}
+ botID,chatID,_,err:=s.groupBotContext(ctx,tenantID,groupID);if err!=nil{return err}
+ token,err:=s.GetToken(ctx,tenantID,botID);if err!=nil{return err}
+ var target telegramChatMemberResult
+ if err:=s.callTelegram(ctx,token,"getChatMember",map[string]any{"chat_id":chatID,"user_id":targetUserID},&target);err!=nil{return err}
+ if target.Status=="creator" || target.Status=="administrator"{return ErrTargetIsAdministrator}
+ method:=""
+ payload:=map[string]any{"chat_id":chatID,"user_id":targetUserID}
+ switch action {
+ case "ban": method="banChatMember"
+ case "unban": method="unbanChatMember";payload["only_if_banned"]=true
+ case "mute":
+  method="restrictChatMember"
+  payload["permissions"]=map[string]any{"can_send_messages":false,"can_send_audios":false,"can_send_documents":false,"can_send_photos":false,"can_send_videos":false,"can_send_video_notes":false,"can_send_voice_notes":false,"can_send_polls":false,"can_send_other_messages":false,"can_add_web_page_previews":false}
+  payload["use_independent_chat_permissions"]=true
+  payload["until_date"]=time.Now().Add(time.Duration(durationMinutes)*time.Minute).Unix()
+ case "unmute":
+  method="restrictChatMember"
+  payload["permissions"]=map[string]any{"can_send_messages":true,"can_send_audios":true,"can_send_documents":true,"can_send_photos":true,"can_send_videos":true,"can_send_video_notes":true,"can_send_voice_notes":true,"can_send_polls":true,"can_send_other_messages":true,"can_add_web_page_previews":true}
+  payload["use_independent_chat_permissions"]=true
+ }
+ if err:=s.callTelegram(ctx,token,method,payload,nil);err!=nil{return err}
+ _,err=s.pool.Exec(ctx,`INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id)
+ VALUES($1,$2,$3,'telegram_group_member',$4)`,tenantID,actorUserID,"group.member."+action,fmt.Sprintf("%s:%d",groupID,targetUserID))
+ if err!=nil{return fmt.Errorf("member action succeeded but audit log failed: %w",err)}
+ return nil
+}
+
 type GroupMessageEvent struct {
 	ID int64 `json:"id"`
 	GroupID string `json:"group_id"`
