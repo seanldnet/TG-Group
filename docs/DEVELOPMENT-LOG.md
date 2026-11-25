@@ -88,3 +88,14 @@
 - **后端验证**：Go + PostgreSQL 集成测试已通过，覆盖注册、邮箱重复、登录、token 认证和退出撤销；`go vet ./...` 通过。
 - **CI 调整**：`.github/workflows/ci.yml` 现包含 Go/PostgreSQL 后端测试与前端生产构建两个 job。
 - **下一步**：实现前端注册/登录页面并接通当前认证 API；随后补充 refresh token、密码找回、邮箱验证、登录限流和 Telegram ID 绑定。
+
+
+### 网站注册/登录与账号工作台（第五批）
+- **新增**：`src/lib/api.ts`，封装注册、登录、当前用户和退出登录请求；会话 token 暂存在浏览器 sessionStorage。
+- **新增**：`src/pages/LoginPage.tsx`、`src/pages/RegisterPage.tsx`，使用官方 shadcn/ui Input、Label、Button、Card、Badge 组件构建表单并连接 Go API。
+- **新增**：`src/pages/DashboardPage.tsx`，登录后查询当前用户资料，展示账号/租户信息，并支持退出登录。
+- **修改**：`src/App.tsx` 增加首页、`/login`、`/register`、`/dashboard` 路径分发；首页增加登录和注册入口。
+- **修改**：`vite.config.ts` 增加开发环境 `/api` 代理，默认转发到 `127.0.0.1:8080`，可用 `TG_GROUP_API_PROXY` 覆盖。
+- **新增**：`compose.dev.yml` 提供 PostgreSQL 16 与 Redis 7 本地依赖；`Makefile` 提供常用开发命令；`docs/LOCAL-TESTING.md` 说明本地启动与测试流程。Redis 目前仅作为开发依赖，尚未由 Go 服务使用。
+- **验证**：前端 CI job 已完成 `pnpm install --frozen-lockfile` 和 `pnpm build`，通过。Go/PostgreSQL 集成测试在此前 CI 已通过；最新全量 CI 后端 job 正在执行，待最终状态确认。
+- **安全边界**：前端 token 当前存储于 sessionStorage，属于第一版开发实现；后续应评估改为 HttpOnly Secure Cookie，并补充 CSRF 防护、限流、邮箱验证与 refresh token。
