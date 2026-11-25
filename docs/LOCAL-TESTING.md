@@ -92,3 +92,14 @@ docker compose -f compose.dev.yml down -v
 5. 可在 PostgreSQL 检查：`SELECT telegram_user_id,sender_username,message_type,message_text,telegram_sent_at FROM telegram_message_events ORDER BY received_at DESC LIMIT 20;`
 
 消息日志当前保存文字和 Caption，不保存媒体文件本体；暂未配置自动保留期限。请仅使用测试群组验证，避免把不应进入开发数据库的真实用户消息写入测试环境。
+
+## Telegram 群成员列表验证
+
+1. 将测试 Bot 设置为测试群组管理员；Telegram 只有在 Bot 满足管理员条件时才会投递 `chat_member` 更新。
+2. 确保长轮询已运行，且 `allowed_updates` 包含 `chat_member`（当前代码已配置）。
+3. 邀请一名测试账号加入群组、退出群组，再调整一名测试管理员的权限。
+4. 在网站群组列表点击对应群组的“成员”，或请求 `GET /api/v1/groups/{groupID}/members?limit=200`。
+5. 应看到用户 ID、用户名、成员状态、权限快照、加入时间和最近活动时间。成员采集从 Bot 开始收到更新后增量建立，不回填历史成员。
+6. 可在 PostgreSQL 检查：`SELECT telegram_user_id,username,status,can_delete_messages,can_restrict_members,joined_at,last_seen_at FROM telegram_group_members ORDER BY last_seen_at DESC LIMIT 50;`
+
+请使用测试群组和测试账号验证；当前页面只展示成员数据，尚未开放禁言、踢出或封禁操作。
