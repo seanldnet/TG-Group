@@ -84,7 +84,10 @@ func (p *Poller) reconcile(ctx context.Context,workers map[string]botWorker) {
 	for rows.Next(){var id,tenantID string;if err:=rows.Scan(&id,&tenantID);err!=nil{p.logger.Error("read active Telegram bot","error",err);continue};active[id]=tenantID}
 	rows.Close()
 	if err:=rows.Err();err!=nil{p.logger.Error("iterate active Telegram bots","error",err);return}
-	for id,worker:=range workers{if _,ok:=active[id];!ok{worker.cancel();<-worker.done;delete(workers,id)}}
+	for id,worker:=range workers{
+		if _,ok:=active[id];!ok{worker.cancel();<-worker.done;delete(workers,id);continue}
+		select{case <-worker.done:delete(workers,id);default:}
+	}
 	for id,tenantID:=range active{
 		if _,ok:=workers[id];ok{continue}
 		workerCtx,cancel:=context.WithCancel(ctx)
