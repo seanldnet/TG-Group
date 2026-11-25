@@ -128,16 +128,23 @@ func (p *Poller) getUpdates(ctx context.Context,token string,offset int64)([]upd
 	return result.Result,nil
 }
 
-func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update)error {
-	var value *chat
+func chatFromUpdate(item update) *chat {
 	switch {
-	case item.Message!=nil:value=&item.Message.Chat
-	case item.EditedMessage!=nil:value=&item.EditedMessage.Chat
-	case item.ChannelPost!=nil:value=&item.ChannelPost.Chat
-	case item.MyChatMember!=nil:value=&item.MyChatMember.Chat
+	case item.Message!=nil:return &item.Message.Chat
+	case item.EditedMessage!=nil:return &item.EditedMessage.Chat
+	case item.ChannelPost!=nil:return &item.ChannelPost.Chat
+	case item.MyChatMember!=nil:return &item.MyChatMember.Chat
+	default:return nil
 	}
-	if value==nil || value.ID==0{return nil}
-	if value.Type!="group" && value.Type!="supergroup" && value.Type!="channel"{return nil}
+}
+
+func isManagedChat(value *chat) bool {
+	return value!=nil && value.ID!=0 && (value.Type=="group" || value.Type=="supergroup" || value.Type=="channel")
+}
+
+func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update)error {
+	value:=chatFromUpdate(item)
+	if !isManagedChat(value){return nil}
 	_,err:=p.pool.Exec(ctx,`INSERT INTO telegram_groups(tenant_id,bot_id,telegram_chat_id,title,username,chat_type,is_forum,last_seen_at)
 		VALUES($1,$2,$3,$4,$5,$6,$7,now())
 		ON CONFLICT(bot_id,telegram_chat_id) DO UPDATE SET
