@@ -151,7 +151,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
                 <TableBody>
                   {items.map((member) => {
                     const name = [member.first_name, member.last_name].filter(Boolean).join(" ") || "未设置名称"
-                    const permissions = [
+                    const memberPermissions = [
                       member.can_delete_messages && "删消息",
                       member.can_restrict_members && "限制成员",
                       member.can_invite_users && "邀请成员",
@@ -165,7 +165,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
                         </TableCell>
                         <TableCell className="font-mono text-xs">{member.telegram_user_id}</TableCell>
                         <TableCell><Badge variant={member.status === "administrator" || member.status === "creator" ? "default" : "outline"}>{memberStatusLabel(member.status)}</Badge></TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{permissions.length ? permissions.join(" · ") : "—"}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{memberPermissions.length ? memberPermissions.join(" · ") : "—"}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{member.joined_at ? new Date(member.joined_at).toLocaleString() : "—"}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{new Date(member.last_seen_at).toLocaleString()}</TableCell>
                         <TableCell><div className="flex flex-wrap gap-1">{member.status === "kicked" ? <Button size="sm" variant="outline" disabled={actingUserID === member.telegram_user_id || !permissions?.can_restrict_members} onClick={() => void performAction(member, "unban")}>解封</Button> : member.status === "restricted" ? <Button size="sm" variant="outline" disabled={actingUserID === member.telegram_user_id || !permissions?.can_restrict_members} onClick={() => void performAction(member, "unmute")}>解除禁言</Button> : member.status === "member" ? <><Button size="sm" variant="outline" disabled={actingUserID === member.telegram_user_id || !permissions?.can_restrict_members} onClick={() => void performAction(member, "mute")}>禁言</Button><Button size="sm" variant="destructive" disabled={actingUserID === member.telegram_user_id || !permissions?.can_restrict_members} onClick={() => void performAction(member, "ban")}>封禁</Button></> : <span className="text-xs text-muted-foreground">不可操作</span>}</div></TableCell>
