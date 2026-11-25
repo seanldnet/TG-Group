@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/seanldnet/tg-group/internal/auth"
 	"github.com/seanldnet/tg-group/internal/config"
 	"github.com/seanldnet/tg-group/internal/database"
 	"github.com/seanldnet/tg-group/internal/httpapi"
@@ -33,7 +34,9 @@ func main() {
 		logger.Warn("DATABASE_URL is empty; running in API-only mode")
 	}
 
-	handler := httpapi.NewHandler(logger)
+	var authService *auth.Service
+	if db != nil { authService = auth.NewService(db.Pool) }
+	handler := httpapi.NewHandler(logger, authService)
 	server := &http.Server{
 		Addr: cfg.HTTPAddr, Handler: handler,
 		ReadHeaderTimeout: 5*time.Second, IdleTimeout: 60*time.Second,
