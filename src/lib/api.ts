@@ -232,3 +232,47 @@ export function moderateGroupMember(
     },
   )
 }
+
+
+export type TelegramGroupRule = {
+  id: string
+  group_id: string
+  rule_type: "keyword_filter" | "sensitive_word" | "anti_spam" | "anti_ad" | "welcome" | "leave_notice"
+  name: string
+  enabled: boolean
+  priority: number
+  config: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export type TelegramGroupRuleInput = Omit<TelegramGroupRule, "id" | "group_id" | "created_at" | "updated_at">
+
+export function listGroupRules(groupID: string) {
+  return request<{ items: TelegramGroupRule[] }>(
+    `/api/v1/groups/${encodeURIComponent(groupID)}/rules`,
+    { headers: authenticatedHeaders() },
+  )
+}
+
+export function createGroupRule(groupID: string, input: TelegramGroupRuleInput) {
+  return request<TelegramGroupRule>(`/api/v1/groups/${encodeURIComponent(groupID)}/rules`, {
+    method: "POST",
+    headers: authenticatedHeaders(),
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateGroupRule(groupID: string, ruleID: string, input: TelegramGroupRuleInput) {
+  return request<TelegramGroupRule>(
+    `/api/v1/groups/${encodeURIComponent(groupID)}/rules/${encodeURIComponent(ruleID)}`,
+    { method: "PUT", headers: authenticatedHeaders(), body: JSON.stringify(input) },
+  )
+}
+
+export function deleteGroupRule(groupID: string, ruleID: string) {
+  return request<void>(
+    `/api/v1/groups/${encodeURIComponent(groupID)}/rules/${encodeURIComponent(ruleID)}`,
+    { method: "DELETE", headers: authenticatedHeaders() },
+  )
+}
