@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -19,14 +20,6 @@ type executableRule struct {
 	Type string
 	Name string
 	Config json.RawMessage
-}
-
-type ruleEvent struct {
-	Message *telegramMessage
-	UpdateID int64
-	GroupID string
-	TenantID string
-	BotID string
 }
 
 func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupID string, item update, message *telegramMessage, token string) {
@@ -71,7 +64,7 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 		}
 	}
 
-	if content=="" || senderID==nil { return }
+	if content=="" || senderID==nil || message.From.IsBot { return }
 	var matched *executableRule
 	for i:=range rules {
 		rule:=&rules[i]
