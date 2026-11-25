@@ -80,7 +80,7 @@ func (s *Service) Register(ctx context.Context, email, password, displayName, us
 		return Session{}, fmt.Errorf("create session: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,ip_address)
-		VALUES($1,$2,'auth.register','user',$2,NULLIF($3,'')::inet)`, tenantID, userID, ip); err != nil {
+		VALUES($1,$2,'auth.register','user',$2::text,NULLIF($3,'')::inet)`, tenantID, userID, ip); err != nil {
 		return Session{}, fmt.Errorf("write registration audit: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil { return Session{}, fmt.Errorf("commit registration: %w", err) }
@@ -104,7 +104,7 @@ func (s *Service) Login(ctx context.Context, email, password, userAgent, remoteA
 		return Session{}, fmt.Errorf("create login session: %w", err)
 	}
 	_, _ = s.pool.Exec(ctx, `INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,ip_address)
-		VALUES($1,$2,'auth.login','user',$2,NULLIF($3,'')::inet)`, user.TenantID,user.ID,clientIP(remoteAddr))
+		VALUES($1,$2,'auth.login','user',$2::text,NULLIF($3,'')::inet)`, user.TenantID,user.ID,clientIP(remoteAddr))
 	return Session{Token:token,ExpiresAt:expires,User:user}, nil
 }
 
