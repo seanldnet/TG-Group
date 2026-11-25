@@ -205,3 +205,13 @@
 
 
 - **CI 最终验证**：GitHub Actions run `45717562198`（代码提交 `6cd32d127f78b1c70837612d7ccbdbbcf9f82b56`）Go 格式检查、`go test -v ./...`（含 PostgreSQL 集成测试）、`go vet ./...` 和前端依赖安装/生产构建均 success。此前 CI 暴露出 Bot 服务文件重复声明问题，已删除重复代码块并由本次完整 CI 验证修复。
+
+
+### 群组规则配置底座（第十三批，配置管理阶段）
+- **数据库**：新增迁移 `000006_telegram_group_rules`，在 internal embed migrations 与根目录部署迁移目录同步 up/down SQL；建立租户/群组归属、规则类型、名称、启停、优先级、JSONB 配置和索引。
+- **后端**：新增 `internal/bots/group_rules.go`，实现按租户和群组范围查询、创建、更新、删除；写入时通过当前租户查询群组，不接受客户端 tenant_id；同群同类型规则名称唯一。
+- **配置校验**：支持 keyword_filter、sensitive_word、anti_spam、anti_ad、welcome、leave_notice；按类型严格拒绝未知 JSON 字段和不合法参数。过滤动作暂时只接受 delete，避免将未经实现的处罚动作写入配置。
+- **API**：新增 GET/POST/PUT/DELETE `/api/v1/groups/{groupID}/rules` 及规则 ID 子路径；所有接口要求 Bearer 登录并以当前用户 tenant_id 为边界。
+- **前端**：新增 `src/pages/GroupRulesPage.tsx`，使用仓库中官方 shadcn/ui Input、Label、Select、Switch、Textarea、Card、Badge、Button；群组列表增加规则入口。
+- **测试**：新增规则类型与配置字段校验单元测试；HTTP handler 增加规则服务未配置时的 503 路由覆盖。尚待 CI 执行。
+- **明确边界**：本批仅完成规则配置持久化和管理界面；消息事件接入执行引擎、Telegram 删除消息、欢迎/离群消息发送、命中日志及规则操作审计仍未实现。页面已明确提示保存不代表自动执行。
