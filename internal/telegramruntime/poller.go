@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -82,8 +81,15 @@ func (p *Poller) reconcile(ctx context.Context,workers map[string]context.Cancel
 }
 
 func (p *Poller) runBot(ctx context.Context,bot managedBot) {
-	token,err:=p.botService.GetToken(ctx,bot.tenantID,bot.id)
-	if err!=nil{p.logger.Warn("Telegram Bot worker could not load token","bot_id",bot.id,"error",err);return}
+	var token string
+	for ctx.Err()==nil {
+		var err error
+		token,err=p.botService.GetToken(ctx,bot.tenantID,bot.id)
+		if err==nil { break }
+		p.logger.Warn("Telegram Bot worker could not load token; retrying","bot_id",bot.id,"error",err)
+		select{case <-ctx.Done():return;case <-time.After(10*time.Second):}
+	}
+	if ctx.Err()!=nil{return}
 	var offset int64
 	if err:=p.pool.QueryRow(ctx,"SELECT next_update_offset FROM telegram_bots WHERE tenant_id=$1 AND id=$2 AND status='active'",bot.tenantID,bot.id).Scan(&offset);err!=nil{return}
 	for ctx.Err()==nil {
@@ -142,5 +148,3 @@ func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update)er
 	return nil
 }
 
-// Prevent accidental copying of a Poller after its worker map has been created by Run.
-var _ sync.Locker
