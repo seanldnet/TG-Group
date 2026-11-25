@@ -148,3 +148,35 @@ func (s *Service) DeleteGroupRule(ctx context.Context, tenantID, groupID, ruleID
 	if tag.RowsAffected()==0 { return ErrNotFound }
 	return nil
 }
+
+type GroupRuleEvent struct {
+	ID int64 `json:"id"`
+	GroupID string `json:"group_id"`
+	RuleID string `json:"rule_id"`
+	TelegramUpdateID int64 `json:"telegram_update_id"`
+	TelegramMessageID int64 `json:"telegram_message_id"`
+	TelegramUserID int64 `json:"telegram_user_id"`
+	Action string `json:"action"`
+	Status string `json:"status"`
+	Detail string `json:"detail"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (s *Service) ListGroupRuleEvents(ctx context.Context, tenantID, groupID string, limit int) ([]GroupRuleEvent, error) {
+	if limit < 1 || limit > 100 { limit = 50 }
+	rows, err := s.pool.Query(ctx, `SELECT e.id,e.group_id::text,COALESCE(e.rule_id::text,''),e.telegram_update_id,
+		COALESCE(e.telegram_message_id,0),COALESCE(e.telegram_user_id,0),e.action,e.status,e.detail,e.created_at
+		FROM telegram_group_rule_events e JOIN telegram_groups g ON g.id=e.group_id AND g.tenant_id=e.tenant_id
+		WHERE e.tenant_id=$1 AND e.group_id=$2 ORDER BY e.created_at DESC,e.id DESC LIMIT $3`,
+		tenantID, groupID, limit)
+	if err != nil { return nil, fmt.Errorf("list group rule events: %w", err) }
+	defer rows.Close()
+	result := make([]GroupRuleEvent, 0)
+	for rows.Next() {
+		var item GroupRuleEvent
+		if err := rows.Scan(&item.ID,&item.GroupID,&item.RuleID,&item.TelegramUpdateID,&item.TelegramMessageID,
+			&item.TelegramUserID,&item.Action,&item.Status,&item.Detail,&item.CreatedAt); err != nil { return nil, err }
+		result = append(result,item)
+	}
+	return result, rows.Err()
+}
