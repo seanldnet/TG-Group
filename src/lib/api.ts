@@ -170,3 +170,30 @@ export function listGroupEvents(groupID: string, limit = 50) {
     { headers: authenticatedHeaders() },
   )
 }
+
+export type TelegramGroupMember = {
+  id: number
+  group_id: string
+  telegram_user_id: number
+  username: string
+  first_name: string
+  last_name: string
+  is_bot: boolean
+  status: "member" | "administrator" | "creator" | "restricted" | "left" | "kicked"
+  is_anonymous: boolean
+  can_manage_chat: boolean
+  can_delete_messages: boolean
+  can_restrict_members: boolean
+  can_invite_users: boolean
+  can_pin_messages: boolean
+  can_manage_topics: boolean
+  joined_at: string | null
+  last_seen_at: string
+}
+
+export function listGroupMembers(groupID: string, limit = 200) {
+  return request<{ items: TelegramGroupMember[] }>(
+    `/api/v1/groups/${encodeURIComponent(groupID)}/members?limit=${limit}`,
+    { headers: authenticatedHeaders() },
+  )
+}
