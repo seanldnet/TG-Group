@@ -176,3 +176,13 @@
 - **日志内容安全修正**：消息文本上限按 Unicode 字符截断，避免按 UTF-8 字节截断导致多字节字符损坏；仍限制单条日志文本最大 4096 个字符。
 - **Telegram 可见性说明**：API 文档补充 Bot 群组隐私模式限制；若需要完整群消息日志，需按 Telegram 官方规则关闭隐私模式或授予 Bot 群管理员权限，不能仅凭 Bot 已加入群组就假设能收到全部普通消息。
 - **CI 验证结果**：GitHub Actions run `45709322432`（代码提交 `8a0e5c400e1b3db12d7f6e4780f1da3d44a55679`）的 Go/PostgreSQL `go test ./...`、`go vet ./...` 和前端 `pnpm build` 均已通过；消息日志集成测试和跨租户隔离测试包含在该次 Go 测试中。该 CI run 的清理步骤正在结束，核心验证步骤均 success。
+
+
+### Telegram 群成员增量采集与网站列表（第十一批）
+- **数据库**：新增迁移 `000005_telegram_group_members`，在 `internal/database/migrations/` 与根目录 `migrations/` 同步提供 up/down SQL。成员按群组和 Telegram 用户唯一，保存用户资料、成员状态、管理员权限快照、加入时间与最近活动时间。
+- **Telegram 运行时**：`allowed_updates` 增加 `chat_member`；解析成员身份变化，并处理消息中的 `new_chat_members` 与 `left_chat_member`。成员写入使用群组/用户唯一键 upsert，重复更新不会产生重复成员记录；只有更新持久化成功后才推进 Bot offset。
+- **服务/API**：新增 `ListGroupMembers` 与 `GET /api/v1/groups/{groupID}/members?limit=100`，limit 范围 1–200；查询同时按当前租户和群组 ID 过滤。
+- **网站**：新增 `src/pages/GroupMembersPage.tsx`，使用现有 shadcn/ui 官方 Badge、Button、Card、Table 组件；群组列表增加“成员”入口。
+- **测试**：新增 chat_member JSON 解析单测；PostgreSQL 集成测试覆盖成员查询与跨租户隔离；HTTP 测试覆盖成员 API 在服务未配置时返回 503。
+- **数据边界**：成员表是增量采集，不会自动回填 Bot 加入前的完整成员名单。Telegram 的 `chat_member` 更新要求 Bot 在群内具备管理员身份，且显式订阅该 update 类型。尚未实现全量成员同步、成员处罚、权限主动刷新和真实 Telegram 群组联调。
+- **验证状态**：代码、迁移、前端和文档已提交 `main`；本批 GitHub Actions CI 尚待运行结果，当前不标记为测试通过。
