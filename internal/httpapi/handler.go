@@ -34,6 +34,10 @@ func NewHandler(logger *slog.Logger, authService *auth.Service, botService *bots
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/events",h.listGroupEvents)
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/members",h.listGroupMembers)
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/permissions",h.groupBotPermissions)
+	mux.HandleFunc("GET /api/v1/groups/{groupID}/rules",h.listGroupRules)
+	mux.HandleFunc("POST /api/v1/groups/{groupID}/rules",h.createGroupRule)
+	mux.HandleFunc("PUT /api/v1/groups/{groupID}/rules/{ruleID}",h.updateGroupRule)
+	mux.HandleFunc("DELETE /api/v1/groups/{groupID}/rules/{ruleID}",h.deleteGroupRule)
 	mux.HandleFunc("POST /api/v1/groups/{groupID}/members/{userID}/action",h.moderateGroupMember)
 	mux.HandleFunc("POST /api/v1/bots",h.addBot)
 	mux.HandleFunc("PATCH /api/v1/bots/{botID}/status",h.setBotStatus)
@@ -194,6 +198,53 @@ func (h *Handler) listGroupMembers(w http.ResponseWriter,r *http.Request){
 	writeJSON(w,http.StatusOK,map[string]any{"items":result})
 }
 
+
+type groupRuleRequest struct {
+ RuleType string `json:"rule_type"`
+ Name string `json:"name"`
+ Enabled bool `json:"enabled"`
+ Priority int `json:"priority"`
+ Config json.RawMessage `json:"config"`
+}
+func (h *Handler) listGroupRules(w http.ResponseWriter,r *http.Request){
+ if !h.botServicesReady(w){return}
+ user,ok:=h.currentUser(w,r);if !ok{return}
+ result,err:=h.bots.ListGroupRules(r.Context(),user.TenantID,r.PathValue("groupID"))
+ if err!=nil{h.logger.Error("list Telegram group rules","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return}
+ writeJSON(w,http.StatusOK,map[string]any{"items":result})
+}
+func (h *Handler) createGroupRule(w http.ResponseWriter,r *http.Request){
+ if !h.botServicesReady(w){return}
+ user,ok:=h.currentUser(w,r);if !ok{return}
+ var input groupRuleRequest
+ if !decodeJSON(w,r,&input){return}
+ result,err:=h.bots.CreateGroupRule(r.Context(),user.TenantID,r.PathValue("groupID"),bots.GroupRuleInput{RuleType:input.RuleType,Name:input.Name,Enabled:input.Enabled,Priority:input.Priority,Config:input.Config})
+ if err!=nil{h.writeGroupRuleError(w,err);return}
+ writeJSON(w,http.StatusCreated,result)
+}
+func (h *Handler) updateGroupRule(w http.ResponseWriter,r *http.Request){
+ if !h.botServicesReady(w){return}
+ user,ok:=h.currentUser(w,r);if !ok{return}
+ var input groupRuleRequest
+ if !decodeJSON(w,r,&input){return}
+ result,err:=h.bots.UpdateGroupRule(r.Context(),user.TenantID,r.PathValue("groupID"),r.PathValue("ruleID"),bots.GroupRuleInput{RuleType:input.RuleType,Name:input.Name,Enabled:input.Enabled,Priority:input.Priority,Config:input.Config})
+ if err!=nil{h.writeGroupRuleError(w,err);return}
+ writeJSON(w,http.StatusOK,result)
+}
+func (h *Handler) deleteGroupRule(w http.ResponseWriter,r *http.Request){
+ if !h.botServicesReady(w){return}
+ user,ok:=h.currentUser(w,r);if !ok{return}
+ if err:=h.bots.DeleteGroupRule(r.Context(),user.TenantID,r.PathValue("groupID"),r.PathValue("ruleID"));err!=nil{h.writeGroupRuleError(w,err);return}
+ w.WriteHeader(http.StatusNoContent)
+}
+func (h *Handler) writeGroupRuleError(w http.ResponseWriter,err error){
+ switch{
+ case errors.Is(err,bots.ErrInvalidGroupRule):writeError(w,http.StatusBadRequest,"invalid rule type, name, priority or configuration")
+ case errors.Is(err,bots.ErrGroupRuleConflict):writeError(w,http.StatusConflict,"a rule with this type and name already exists in the group")
+ case errors.Is(err,bots.ErrNotFound):writeError(w,http.StatusNotFound,"group or rule not found")
+ default:h.logger.Error("Telegram group rule operation failed","error",err);writeError(w,http.StatusInternalServerError,"internal server error")
+ }
+}
 
 type memberActionRequest struct {
  Action string `json:"action"`
