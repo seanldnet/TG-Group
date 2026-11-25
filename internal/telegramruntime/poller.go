@@ -46,7 +46,10 @@ type update struct {
 	Message *struct { Chat chat `json:"chat"` } `json:"message"`
 	EditedMessage *struct { Chat chat `json:"chat"` } `json:"edited_message"`
 	ChannelPost *struct { Chat chat `json:"chat"` } `json:"channel_post"`
-	MyChatMember *struct { Chat chat `json:"chat"` } `json:"my_chat_member"`
+	MyChatMember *struct {
+		Chat chat `json:"chat"`
+		NewChatMember struct { Status string `json:"status"` } `json:"new_chat_member"`
+	} `json:"my_chat_member"`
 }
 
 type updatesResponse struct {
@@ -159,15 +162,24 @@ func isManagedChat(value *chat) bool {
 	return value!=nil && value.ID!=0 && (value.Type=="group" || value.Type=="supergroup" || value.Type=="channel")
 }
 
+func groupStatus(item update) string {
+	if item.MyChatMember==nil{return "active"}
+	switch item.MyChatMember.NewChatMember.Status {
+	case "left":return "left"
+	case "kicked":return "kicked"
+	default:return "active"
+	}
+}
+
 func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update)error {
 	value:=chatFromUpdate(item)
 	if !isManagedChat(value){return nil}
-	_,err:=p.pool.Exec(ctx,`INSERT INTO telegram_groups(tenant_id,bot_id,telegram_chat_id,title,username,chat_type,is_forum,last_seen_at)
-		VALUES($1,$2,$3,$4,$5,$6,$7,now())
+	_,err:=p.pool.Exec(ctx,`INSERT INTO telegram_groups(tenant_id,bot_id,telegram_chat_id,title,username,chat_type,is_forum,status,last_seen_at)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,now())
 		ON CONFLICT(bot_id,telegram_chat_id) DO UPDATE SET
 		title=EXCLUDED.title,username=EXCLUDED.username,chat_type=EXCLUDED.chat_type,
-		is_forum=EXCLUDED.is_forum,status='active',last_seen_at=now(),updated_at=now()`,
-		bot.tenantID,bot.id,value.ID,value.Title,value.Username,value.Type,value.IsForum)
+		is_forum=EXCLUDED.is_forum,status=EXCLUDED.status,last_seen_at=now(),updated_at=now()`,
+		bot.tenantID,bot.id,value.ID,value.Title,value.Username,value.Type,value.IsForum,groupStatus(item))
 	if err!=nil{return fmt.Errorf("upsert Telegram group: %w",err)}
 	return nil
 }
