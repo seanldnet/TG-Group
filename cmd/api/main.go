@@ -61,8 +61,13 @@ func main() {
 	}()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	var pollerDone chan struct{}
 	if botPoller != nil {
-		go botPoller.Run(ctx)
+		pollerDone = make(chan struct{})
+		go func() {
+			defer close(pollerDone)
+			botPoller.Run(ctx)
+		}()
 		logger.Info("Telegram Bot long-polling manager started")
 	}
 	select {
@@ -72,6 +77,13 @@ func main() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil { logger.Error("graceful shutdown failed", "error", err); os.Exit(1) }
+		if pollerDone != nil {
+			select {
+			case <-pollerDone:
+			case <-shutdownCtx.Done():
+				logger.Warn("Telegram Bot workers did not stop before shutdown deadline")
+			}
+		}
 		logger.Info("HTTP server stopped")
 	}
 }
