@@ -69,6 +69,7 @@ func TestBotEndpointsRequireConfiguredServices(t *testing.T) {
 	handler := NewHandler(slog.Default(), nil, nil)
 	for _, route := range []struct{ method, path string }{
 		{http.MethodGet, "/api/v1/bots"},
+		{http.MethodGet, "/api/v1/groups"},
 		{http.MethodPost, "/api/v1/bots"},
 		{http.MethodPatch, "/api/v1/bots/00000000-0000-0000-0000-000000000000/status"},
 		{http.MethodPut, "/api/v1/bots/00000000-0000-0000-0000-000000000000/token"},
