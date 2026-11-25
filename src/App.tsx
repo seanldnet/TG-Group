@@ -13,7 +13,11 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
-import LoginPage from "@/pages/LoginPage"\nimport RegisterPage from "@/pages/RegisterPage"\nimport DashboardPage from "@/pages/DashboardPage"\n\nimport { Badge } from "@/components/ui/badge"
+import LoginPage from "@/pages/LoginPage"
+import RegisterPage from "@/pages/RegisterPage"
+import DashboardPage from "@/pages/DashboardPage"
+
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
