@@ -59,6 +59,68 @@ Authorization: Bearer <token>
 
 携带 Bearer token，将当前会话标记为撤销。成功返回 `204`。
 
+## Telegram Bot 管理
+
+所有 Bot 接口均要求 Bearer 登录认证，并按当前用户所属租户过滤数据。
+
+### 添加并验证 Bot
+
+`POST /api/v1/bots`
+
+请求：
+
+```json
+{ "token": "从 @BotFather 获取的 Bot Token" }
+```
+
+服务端调用 Telegram Bot API 的 `getMe` 验证 Token，验证成功后使用 AES-256-GCM 加密保存。数据库保存 Token 指纹用于唯一性检查；响应不会返回 Token 明文。
+
+### 查询 Bot
+
+`GET /api/v1/bots`
+
+返回当前租户已登记的 Bot 列表，不包含 Token 或密文。
+
+### 启用/停用 Bot
+
+`PATCH /api/v1/bots/{botID}/status`
+
+请求：
+
+```json
+{ "status": "active" }
+```
+
+状态只允许 `active` 或 `disabled`。
+
+### 轮换 Token
+
+`PUT /api/v1/bots/{botID}/token`
+
+请求格式与添加 Bot 相同。新 Token 必须通过 Telegram 验证，且必须属于同一个 Telegram Bot 身份。
+
+### 解绑 Bot
+
+`DELETE /api/v1/bots/{botID}`
+
+删除当前租户对应 Bot 记录及已保存密文。
+
+### Bot Token 加密配置
+
+启动 API 前设置 `BOT_TOKEN_ENCRYPTION_KEY`。值必须是 Base64 编码的 32 字节随机密钥，可使用：
+
+```bash
+openssl rand -base64 32
+```
+
+生产环境应将密钥保存在密钥管理系统或受保护的环境变量中，并做好独立备份；更换密钥前必须先规划数据重新加密，否则旧密文将无法解密。未配置密钥时 Bot 管理 API 返回 `503`。
+
+### 当前边界
+
+- 已完成 Token 验证、加密存储、租户范围列表/状态/轮换/解绑 API。
+- 尚未启动 Telegram 长轮询或 Webhook 接收器，也未完成 Bot 群组自动发现和权限检测。
+- Bot 的 active/disabled 是平台侧管理状态；尚未建立运行时 worker，因此不代表 Bot 已开始或停止接收消息。
+
 ## 通用错误
 
 错误响应格式：
