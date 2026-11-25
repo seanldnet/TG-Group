@@ -57,6 +57,18 @@ func TestBotLifecycleAndTenantIsolationPostgres(t *testing.T) {
 		sender_username,sender_display_name,message_type,message_text)
 		VALUES($1,$2,$3,9001,77,12345,'alice','Alice Example','text','hello group')`,
 		owner.User.TenantID,created.ID,groupID);err!=nil{t.Fatalf("create message event: %v",err)}
+
+	if _,err:=db.Pool.Exec(ctx,`INSERT INTO telegram_group_members(
+		tenant_id,bot_id,group_id,telegram_user_id,username,first_name,status,can_delete_messages,joined_at)
+		VALUES($1,$2,$3,54321,'member_one','Member One','administrator',true,now())`,
+		owner.User.TenantID,created.ID,groupID);err!=nil{t.Fatalf("create group member: %v",err)}
+	members,err:=service.ListGroupMembers(ctx,owner.User.TenantID,groupID,100)
+	if err!=nil || len(members)!=1{t.Fatalf("owner group members = %+v, %v",members,err)}
+	if members[0].TelegramUserID!=54321 || members[0].Status!="administrator" || !members[0].CanDeleteMessages {
+		t.Fatalf("unexpected group member: %+v",members[0])
+	}
+	otherMembers,err:=service.ListGroupMembers(ctx,other.User.TenantID,groupID,100)
+	if err!=nil || len(otherMembers)!=0{t.Fatalf("cross-tenant group members = %+v, %v",otherMembers,err)}
 	events,err:=service.ListGroupEvents(ctx,owner.User.TenantID,groupID,50)
 	if err!=nil || len(events)!=1{t.Fatalf("owner group events = %+v, %v",events,err)}
 	if events[0].TelegramUserID!=12345 || events[0].MessageText!="hello group" || events[0].SenderUsername!="alice"{t.Fatalf("unexpected message event: %+v",events[0])}
