@@ -89,7 +89,7 @@ export type TelegramBot = {
   created_at: string
 }
 
-function authenticatedHeaders() {
+function authenticatedHeaders(): Record<string, string> {
   const token = getToken()
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
