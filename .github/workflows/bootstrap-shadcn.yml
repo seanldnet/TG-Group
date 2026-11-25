@@ -23,8 +23,8 @@ jobs:
           node-version: 22
       - name: Install frontend dependencies
         run: pnpm install --no-frozen-lockfile
-      - name: Initialize using the official shadcn CLI
-        run: pnpm dlx shadcn@latest init --base radix --preset nova --yes
+      - name: Remove components generated before source alias resolution
+        run: rm -rf '@/components' '@/lib'
       - name: Add official shadcn components
         run: pnpm dlx shadcn@latest add button card input label badge separator skeleton sonner dialog dropdown-menu form select switch table tabs textarea tooltip --yes
       - name: Verify frontend production build
