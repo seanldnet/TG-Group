@@ -117,6 +117,7 @@ export default function GroupsPage() {
                     <TableHead>类型</TableHead>
                     <TableHead>来源 Bot</TableHead>
                     <TableHead>最近发现</TableHead>
+                    <TableHead>操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -130,6 +131,7 @@ export default function GroupsPage() {
                       <TableCell><Badge variant="outline">{groupTypeLabel(group.chat_type)}</Badge>{group.is_forum && <Badge className="ml-1" variant="secondary">话题</Badge>}</TableCell>
                       <TableCell className="font-mono text-xs">{group.bot_id.slice(0, 8)}…</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{new Date(group.last_seen_at).toLocaleString()}</TableCell>
+                      <TableCell><a className="text-sm text-primary hover:underline" href={`/dashboard/groups/${group.id}/events`}>消息日志</a></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
