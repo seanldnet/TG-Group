@@ -136,4 +136,4 @@ openssl rand -base64 32
 - 认证 API 需要设置 `DATABASE_URL` 并完成启动迁移。
 - 当前 token 是 30 天有效期的随机不透明 Bearer token；数据库只保存 SHA-256 摘要，不保存明文 token。
 - 暂未实现 refresh token、密码找回、邮箱验证、登录限流、Telegram ID 绑定和基于角色的业务授权。
-- API 代码已提交，但 PostgreSQL 集成测试和完整端到端验证仍待执行。
+- 注册会话与 Bot 生命周期 PostgreSQL 集成测试已纳入 GitHub Actions；Bot 管理 API 仍需真实 Telegram Token 和部署环境进行端到端验收。
