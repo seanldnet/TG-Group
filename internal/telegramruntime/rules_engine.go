@@ -110,7 +110,7 @@ func (p *Poller) reserveRuleEvent(ctx context.Context,tenantID,groupID,ruleID st
 	var eventID int64
 	err:=p.pool.QueryRow(ctx,`INSERT INTO telegram_group_rule_events(tenant_id,group_id,rule_id,telegram_update_id,telegram_message_id,telegram_user_id,action,status,detail)
 		VALUES($1,$2,$3,$4,$5,$6,$7,'skipped','processing')
-		ON CONFLICT(group_id,telegram_update_id,rule_id,action) DO NOTHING RETURNING id`,
+		ON CONFLICT DO NOTHING RETURNING id`,
 		tenantID,groupID,ruleID,updateID,messageID,userID,action).Scan(&eventID)
 	if err==pgx.ErrNoRows{return 0,false,nil}
 	if err!=nil{return 0,false,err}
