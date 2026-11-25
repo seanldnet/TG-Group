@@ -103,7 +103,7 @@ func (s *Service) SetStatus(ctx context.Context,tenantID,actorUserID,botID,statu
 	tx,err:=s.pool.Begin(ctx);if err!=nil{return Bot{},fmt.Errorf("begin Bot status update: %w",err)}
 	defer tx.Rollback(ctx)
 	var b Bot
-	err=tx.QueryRow(ctx,`UPDATE telegram_bots SET status=$4,updated_at=now()
+	err=tx.QueryRow(ctx,`UPDATE telegram_bots SET status=$3,updated_at=now()
 		WHERE tenant_id=$1 AND id=$2 RETURNING id::text,telegram_bot_id,username,first_name,status,verified_at,created_at`,tenantID,botID,status).
 		Scan(&b.ID,&b.TelegramBotID,&b.Username,&b.FirstName,&b.Status,&b.VerifiedAt,&b.CreatedAt)
 	if errors.Is(err,pgx.ErrNoRows){return Bot{},ErrNotFound}
