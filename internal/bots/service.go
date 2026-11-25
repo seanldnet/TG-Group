@@ -33,6 +33,7 @@ type Service struct {
 	pool *pgxpool.Pool
 	aead cipher.AEAD
 	client *http.Client
+	apiBaseURL string
 }
 
 type Bot struct {
@@ -65,7 +66,7 @@ func NewService(pool *pgxpool.Pool, encodedKey string) (*Service, error) {
 	if err != nil { return nil, fmt.Errorf("create bot token cipher: %w", err) }
 	aead, err := cipher.NewGCM(block)
 	if err != nil { return nil, fmt.Errorf("create bot token AEAD: %w", err) }
-	return &Service{pool:pool,aead:aead,client:&http.Client{Timeout:10*time.Second}},nil
+	return &Service{pool:pool,aead:aead,client:&http.Client{Timeout:10*time.Second},apiBaseURL:"https://api.telegram.org"},nil
 }
 
 func (s *Service) List(ctx context.Context, tenantID string) ([]Bot,error) {
@@ -128,12 +129,12 @@ func (s *Service) RotateToken(ctx context.Context,tenantID,botID,token string)(B
 		RETURNING id::text,telegram_bot_id,username,first_name,status,verified_at,created_at`,
 		tenantID,botID,ciphertext,nonce,fingerprint[:],identity.Username,identity.FirstName).
 		Scan(&b.ID,&b.TelegramBotID,&b.Username,&b.FirstName,&b.Status,&b.VerifiedAt,&b.CreatedAt)
-	if err!=nil{return Bot{},fmt.Errorf("rotate bot token: %w",err)}
+	if err!=nil{if isUniqueViolation(err){return Bot{},ErrTokenTaken};return Bot{},fmt.Errorf("rotate bot token: %w",err)}
 	return b,nil
 }
 
 func (s *Service) verify(ctx context.Context,token string)(telegramUser,error){
-	endpoint:="https://api.telegram.org/bot"+url.PathEscape(token)+"/getMe"
+	endpoint:=s.apiBaseURL+"/bot"+url.PathEscape(token)+"/getMe"
 	req,err:=http.NewRequestWithContext(ctx,http.MethodGet,endpoint,nil);if err!=nil{return telegramUser{},err}
 	response,err:=s.client.Do(req);if err!=nil{return telegramUser{},ErrTelegramUnavailable}
 	defer response.Body.Close()
@@ -141,6 +142,16 @@ func (s *Service) verify(ctx context.Context,token string)(telegramUser,error){
 	var result telegramResponse
 	if response.StatusCode!=http.StatusOK || json.Unmarshal(body,&result)!=nil || !result.OK || !result.Result.IsBot || result.Result.ID==0{return telegramUser{},ErrInvalidToken}
 	return result.Result,nil
+}
+
+func (s *Service) GetToken(ctx context.Context,tenantID,botID string)(string,error){
+	var ciphertext,nonce []byte
+	err:=s.pool.QueryRow(ctx,"SELECT token_ciphertext,token_nonce FROM telegram_bots WHERE tenant_id=$1 AND id=$2",tenantID,botID).Scan(&ciphertext,&nonce)
+	if errors.Is(err,pgx.ErrNoRows){return "",ErrNotFound}
+	if err!=nil{return "",fmt.Errorf("load encrypted Telegram bot token: %w",err)}
+	plaintext,err:=s.aead.Open(nil,nonce,ciphertext,[]byte("tg-group/telegram-bot-token/v1"))
+	if err!=nil{return "",errors.New("stored Telegram bot token could not be decrypted")}
+	return string(plaintext),nil
 }
 
 func (s *Service) encrypt(token string)([]byte,[]byte,error){
