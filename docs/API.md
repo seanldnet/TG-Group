@@ -115,6 +115,14 @@ openssl rand -base64 32
 
 生产环境应将密钥保存在密钥管理系统或受保护的环境变量中，并做好独立备份；更换密钥前必须先规划数据重新加密，否则旧密文将无法解密。未配置密钥时 Bot 管理 API 返回 `503`。
 
+### 群组自动发现运行时
+
+服务配置了有效的 `BOT_TOKEN_ENCRYPTION_KEY` 后，API 进程会为平台状态为 `active` 的 Bot 启动独立 Telegram `getUpdates` 长轮询 worker。当前监听更新类型包括 message、edited_message、channel_post 和 my_chat_member。
+
+发现的 group、supergroup、channel 会写入 `telegram_groups`，并通过每个 Bot 独立的 update offset 避免成功处理的更新重复消费。worker 会随 Bot 启停状态协调，并在 API 收到终止信号时停止。
+
+群组发现是事件驱动的：Bot 需要先加入目标群组/频道并收到 Telegram 更新。当前尚未提供群组列表 API/前端，群组数据目前落库供后续管理模块使用。
+
 ### 当前边界
 
 - 已完成 Token 验证、加密存储、租户范围列表/状态/轮换/解绑 API。
