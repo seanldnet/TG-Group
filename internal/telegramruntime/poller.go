@@ -28,6 +28,11 @@ type managedBot struct {
 	tenantID string
 }
 
+type botWorker struct {
+	cancel context.CancelFunc
+	done chan struct{}
+}
+
 type chat struct {
 	ID int64 `json:"id"`
 	Type string `json:"type"`
@@ -56,10 +61,13 @@ func NewPoller(pool *pgxpool.Pool, botService *bots.Service, logger *slog.Logger
 
 // Run continuously reconciles active Bot records and runs one isolated long-poll loop per Bot.
 func (p *Poller) Run(ctx context.Context) {
-	workers:=make(map[string]context.CancelFunc)
+	workers:=make(map[string]botWorker)
 	ticker:=time.NewTicker(15*time.Second)
 	defer ticker.Stop()
-	defer func(){for _,cancel:=range workers{cancel()}}()
+	defer func(){
+		for _,worker:=range workers{worker.cancel()}
+		for _,worker:=range workers{<-worker.done}
+	}()
 	for {
 		p.reconcile(ctx,workers)
 		select {
@@ -69,15 +77,21 @@ func (p *Poller) Run(ctx context.Context) {
 	}
 }
 
-func (p *Poller) reconcile(ctx context.Context,workers map[string]context.CancelFunc) {
+func (p *Poller) reconcile(ctx context.Context,workers map[string]botWorker) {
 	rows,err:=p.pool.Query(ctx,"SELECT id::text,tenant_id::text FROM telegram_bots WHERE status='active'")
 	if err!=nil{p.logger.Error("load active Telegram bots for polling","error",err);return}
 	active:=make(map[string]string)
 	for rows.Next(){var id,tenantID string;if err:=rows.Scan(&id,&tenantID);err!=nil{p.logger.Error("read active Telegram bot","error",err);continue};active[id]=tenantID}
 	rows.Close()
 	if err:=rows.Err();err!=nil{p.logger.Error("iterate active Telegram bots","error",err);return}
-	for id,cancel:=range workers{if _,ok:=active[id];!ok{cancel();delete(workers,id)}}
-	for id,tenantID:=range active{if _,ok:=workers[id];ok{continue};workerCtx,cancel:=context.WithCancel(ctx);workers[id]=cancel;go p.runBot(workerCtx,managedBot{id:id,tenantID:tenantID})}
+	for id,worker:=range workers{if _,ok:=active[id];!ok{worker.cancel();<-worker.done;delete(workers,id)}}
+	for id,tenantID:=range active{
+		if _,ok:=workers[id];ok{continue}
+		workerCtx,cancel:=context.WithCancel(ctx)
+		done:=make(chan struct{})
+		workers[id]=botWorker{cancel:cancel,done:done}
+		go func(bot managedBot){defer close(done);p.runBot(workerCtx,bot)}(managedBot{id:id,tenantID:tenantID})
+	}
 }
 
 func (p *Poller) runBot(ctx context.Context,bot managedBot) {
