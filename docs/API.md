@@ -139,7 +139,7 @@ openssl rand -base64 32
 
 ### 当前边界
 
-- 长轮询当前记录 message、edited_message、channel_post 更新中的发送者和消息内容；频道帖子可能没有普通用户发送者，因此 Telegram 用户 ID 为空。
+- 长轮询当前记录 message、edited_message、channel_post 更新中的发送者和消息内容；频道帖子可能没有普通用户发送者，因此 Telegram 用户 ID 为空。Telegram Bot 的群组隐私模式会限制其可接收的普通群消息；若需要记录群内全部普通消息，需要按 Telegram 官方规则关闭该 Bot 的群组隐私模式，或将 Bot 设为群管理员，并确保群组授予相应权限。
 - 图片、文件、视频、贴纸、语音等只记录消息类型及 Caption，不保存媒体文件。
 - 尚未实现消息全文搜索、分页游标、导出、自动保留期限、Webhook 模式、Bot 群管理员权限检测或群管规则执行。
 - Bot 的 active/disabled 是平台侧管理状态；后台 worker 会按该状态启动/停止长轮询，但不代表 Telegram 已授予 Bot 管理员权限。
