@@ -75,10 +75,7 @@ func (p *Poller) startJoinVerification(ctx context.Context, bot managedBot, grou
 	a, err := randomInt(1,9); if err != nil { p.logger.Error("generate join challenge", "error", err); return }
 	b, err := randomInt(1,9); if err != nil { p.logger.Error("generate join challenge", "error", err); return }
 	answer := a+b
-	options := []int64{answer}
-	wrongOne := answer+1; if wrongOne>18 { wrongOne=answer-1 }
-	wrongTwo := answer-1; if wrongTwo<2 { wrongTwo=answer+2 }
-	options=append(options,wrongOne,wrongTwo)
+	options := joinChallengeOptions(answer)
 	for i:=len(options)-1;i>0;i-- {
 		j,err:=randomInt(0,int64(i)); if err!=nil { p.logger.Error("shuffle join challenge", "error", err); return }
 		options[i],options[j]=options[j],options[i]
@@ -205,3 +202,11 @@ func (p *Poller) expireJoinVerificationChallenges(ctx context.Context, bot manag
 	}
 }
 
+
+func joinChallengeOptions(answer int64) []int64 {
+	if answer < 2 || answer > 18 { return nil }
+	wrongOne,wrongTwo:=answer+1,answer-1
+	if wrongOne>18 { wrongOne,wrongTwo=answer-1,answer-2 }
+	if wrongTwo<2 { wrongOne,wrongTwo=answer+1,answer+2 }
+	return []int64{answer,wrongOne,wrongTwo}
+}
