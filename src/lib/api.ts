@@ -130,3 +130,22 @@ export function removeBot(botID: string) {
     headers: authenticatedHeaders(),
   })
 }
+
+
+export type TelegramGroup = {
+  id: string
+  bot_id: string
+  telegram_chat_id: number
+  title: string
+  username: string
+  chat_type: "group" | "supergroup" | "channel"
+  is_forum: boolean
+  status: "active" | "left" | "kicked"
+  last_seen_at: string
+}
+
+export function listGroups() {
+  return request<{ items: TelegramGroup[] }>("/api/v1/groups", {
+    headers: authenticatedHeaders(),
+  })
+}
