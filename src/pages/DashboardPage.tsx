@@ -124,14 +124,14 @@ export default function DashboardPage() {
                 <Bot className="size-5" />
               </div>
               <CardTitle>社群资源</CardTitle>
-              <CardDescription>后续将在这里管理 Bot 与 Telegram 群组</CardDescription>
+              <CardDescription>管理已接入的 Bot，并继续配置 Telegram 群组</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3 rounded-lg border border-border/70 p-3">
                 <Bot className="size-5 text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium">Telegram Bot</p>
-                  <p className="text-xs text-muted-foreground">多 Bot 接入与 Token 管理开发中</p>
+                  <p className="text-xs text-muted-foreground">验证 Token、启停、轮换与解绑 Bot</p>\n                </div>\n                <Button asChild variant="outline" className="w-full">\n                  <a href="/dashboard/bots">进入 Bot 管理</a>\n                </Button>\n              </div>\n              <div className="flex items-center gap-3 rounded-lg border border-border/70 p-3">\n                <UsersRound className="size-5 text-muted-foreground" />\n                <div>\n                  <p className="text-sm font-medium">群组管理</p>\n                  <p className="text-xs text-muted-foreground">群组发现与规则配置开发中</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 rounded-lg border border-border/70 p-3">
