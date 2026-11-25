@@ -400,7 +400,9 @@ func recordBotAudit(ctx context.Context,tx pgx.Tx,tenantID,actorUserID,action,re
 		VALUES($1,$2,$3,'telegram_bot',$4)`,tenantID,actorUserID,action,resourceID)
 	if err!=nil{return fmt.Errorf("write Bot audit record: %w",err)}
 	return nil
-}type GroupMessageEvent struct {
+}
+
+type GroupMessageEvent struct {
 	ID int64 `json:"id"`
 	GroupID string `json:"group_id"`
 	TelegramMessageID int64 `json:"telegram_message_id"`
