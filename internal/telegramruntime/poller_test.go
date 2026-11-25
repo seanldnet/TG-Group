@@ -20,3 +20,21 @@ func TestIsManagedChat(t *testing.T) {
 	}
 	for _,test:=range tests { t.Run(test.name,func(t *testing.T){if got:=isManagedChat(test.value);got!=test.want{t.Fatalf("isManagedChat() = %v, want %v",got,test.want)}}) }
 }
+
+func TestGroupStatusFromMembershipUpdate(t *testing.T) {
+	tests:=[]struct{name,status,want string}{
+		{name:"member",status:"member",want:"active"},
+		{name:"administrator",status:"administrator",want:"active"},
+		{name:"left",status:"left",want:"left"},
+		{name:"kicked",status:"kicked",want:"kicked"},
+	}
+	for _,test:=range tests {
+		t.Run(test.name,func(t *testing.T){
+			item:=update{MyChatMember:&struct{
+				Chat chat `json:"chat"`
+				NewChatMember struct{Status string `json:"status"`} `json:"new_chat_member"`
+			}{NewChatMember:struct{Status string `json:"status"`}{Status:test.status}}}
+			if got:=groupStatus(item);got!=test.want{t.Fatalf("groupStatus() = %q, want %q",got,test.want)}
+		})
+	}
+}
