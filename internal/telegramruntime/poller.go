@@ -35,6 +35,7 @@ type botWorker struct {
 
 type chat struct {
 	ID int64 `json:"id"`
+	Permissions *chatPermissions `json:"permissions"`
 	Type string `json:"type"`
 	Title string `json:"title"`
 	Username string `json:"username"`
@@ -96,6 +97,7 @@ type update struct {
 		NewChatMember struct { Status string `json:"status"` } `json:"new_chat_member"`
 	} `json:"my_chat_member"`
 	ChatMember *telegramChatMemberUpdate `json:"chat_member"`
+	CallbackQuery *telegramCallbackQuery `json:"callback_query"`
 }
 
 type updatesResponse struct {
@@ -159,6 +161,7 @@ func (p *Poller) runBot(ctx context.Context,bot managedBot) {
 	var offset int64
 	if err:=p.pool.QueryRow(ctx,"SELECT next_update_offset FROM telegram_bots WHERE tenant_id=$1 AND id=$2 AND status='active'",bot.tenantID,bot.id).Scan(&offset);err!=nil{return}
 	for ctx.Err()==nil {
+		p.expireJoinVerificationChallenges(ctx,bot,token)
 		batch,err:=p.getUpdates(ctx,token,offset)
 		if err!=nil {
 			if ctx.Err()!=nil{return}
@@ -180,7 +183,7 @@ func (p *Poller) runBot(ctx context.Context,bot managedBot) {
 }
 
 func (p *Poller) getUpdates(ctx context.Context,token string,offset int64)([]update,error) {
-	query:=url.Values{"timeout":{"25"},"allowed_updates":{`["message","edited_message","channel_post","my_chat_member","chat_member"]`}}
+	query:=url.Values{"timeout":{"25"},"allowed_updates":{`["message","edited_message","channel_post","my_chat_member","chat_member","callback_query"]`}}
 	if offset>0{query.Set("offset",strconv.FormatInt(offset,10))}
 	endpoint:="https://api.telegram.org/bot"+token+"/getUpdates?"+query.Encode()
 	req,err:=http.NewRequestWithContext(ctx,http.MethodGet,endpoint,nil);if err!=nil{return nil,err}
@@ -207,6 +210,7 @@ func chatFromUpdate(item update) *chat {
 	if message:=messageFromUpdate(item);message!=nil{return &message.Chat}
 	if item.MyChatMember!=nil{return &item.MyChatMember.Chat}
 	if item.ChatMember!=nil{return &item.ChatMember.Chat}
+	if item.CallbackQuery!=nil && item.CallbackQuery.Message!=nil{return &item.CallbackQuery.Message.Chat}
 	return nil
 }
 
@@ -285,6 +289,10 @@ func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update,to
 		RETURNING id::text`,
 		bot.tenantID,bot.id,value.ID,value.Title,value.Username,value.Type,value.IsForum,groupStatus(item)).Scan(&groupID)
 	if err!=nil{return fmt.Errorf("upsert Telegram group: %w",err)}
+	if item.CallbackQuery != nil {
+		p.handleVerificationCallback(ctx,bot,*item.CallbackQuery,token)
+		return nil
+	}
 	if item.ChatMember != nil {
 		member := item.ChatMember.NewChatMember
 		joinedAt := time.Time{}
