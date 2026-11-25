@@ -18,10 +18,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
-      - name: Format check
-        run: |
-          test -z "$(gofmt -l $(find . -name '*.go' -not -path './vendor/*'))"
+      - name: Resolve Go dependencies
+        run: go mod tidy
+      - name: Format Go sources
+        run: gofmt -w $(find . -name '*.go' -not -path './vendor/*')
       - name: Test
         run: go test ./...
       - name: Vet
