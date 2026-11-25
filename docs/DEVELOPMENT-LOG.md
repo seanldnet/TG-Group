@@ -127,4 +127,6 @@
 - **修改**：Bot 添加、启停、Token 轮换、解绑均在同一 PostgreSQL 事务内写入 audit_logs；任一审计写入失败，业务事务回滚，避免操作成功但没有审计记录。
 - **修改**：内部 GetToken 仅允许 active 状态的 Bot 读取明文 Token；disabled 状态无法被运行时取出 Token。Telegram 返回 429 或 5xx 时映射为服务暂不可用，不误报 Token 无效。
 - **测试**：PostgreSQL 集成测试补充停用状态禁止读取 Token、五类 Bot 生命周期审计记录数量校验；HTTP 测试补充 Bot 服务未配置时各管理路由返回 503。
-- **验证状态**：前端构建在 run 45704923354 已通过；本轮 Go 集成测试与 Vet 正在执行，最终以最新 main 对应 CI 结果为准。
+- **验证状态**：GitHub Actions run 45705033278（commit 7e397920a656adabc7426885767d317d4988e542）Go 测试、PostgreSQL 集成测试、go vet 与前端生产构建均通过；CI 两个 job 均为 success。
+
+- **验收结果补充**：Bot 生命周期的添加、启停、Token 轮换和解绑均以事务方式写入 audit_logs；CI 已验证完整生命周期审计记录数和跨租户隔离。
