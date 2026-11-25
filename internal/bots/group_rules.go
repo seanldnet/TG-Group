@@ -53,6 +53,11 @@ type adRuleConfig struct {
 type noticeRuleConfig struct {
 	Text string `json:"text"`
 }
+type joinVerificationRuleConfig struct {
+	ChallengeType string `json:"challenge_type"`
+	TimeoutSeconds int `json:"timeout_seconds"`
+	FailureAction string `json:"failure_action"`
+}
 
 func ValidateGroupRule(input GroupRuleInput) error {
 	input.RuleType = strings.TrimSpace(input.RuleType)
@@ -89,6 +94,9 @@ func ValidateGroupRule(input GroupRuleInput) error {
 	case "welcome", "leave_notice":
 		var cfg noticeRuleConfig
 		if decode(&cfg) != nil || strings.TrimSpace(cfg.Text) == "" || len([]rune(cfg.Text)) > 4096 { return ErrInvalidGroupRule }
+	case "join_verification":
+		var cfg joinVerificationRuleConfig
+		if decode(&cfg) != nil || cfg.ChallengeType != "math" || cfg.TimeoutSeconds < 30 || cfg.TimeoutSeconds > 600 || (cfg.FailureAction != "restrict" && cfg.FailureAction != "kick") { return ErrInvalidGroupRule }
 	default:
 		return ErrInvalidGroupRule
 	}
