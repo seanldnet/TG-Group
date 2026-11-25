@@ -33,6 +33,8 @@ func NewHandler(logger *slog.Logger, authService *auth.Service, botService *bots
 	mux.HandleFunc("GET /api/v1/groups",h.listGroups)
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/events",h.listGroupEvents)
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/members",h.listGroupMembers)
+	mux.HandleFunc("GET /api/v1/groups/{groupID}/permissions",h.groupBotPermissions)
+	mux.HandleFunc("POST /api/v1/groups/{groupID}/members/{userID}/action",h.moderateGroupMember)
 	mux.HandleFunc("POST /api/v1/bots",h.addBot)
 	mux.HandleFunc("PATCH /api/v1/bots/{botID}/status",h.setBotStatus)
 	mux.HandleFunc("PUT /api/v1/bots/{botID}/token",h.rotateBotToken)
@@ -192,6 +194,29 @@ func (h *Handler) listGroupMembers(w http.ResponseWriter,r *http.Request){
 	writeJSON(w,http.StatusOK,map[string]any{"items":result})
 }
 
+
+type memberActionRequest struct {
+ Action string `json:"action"`
+ DurationMinutes int `json:"duration_minutes"`
+}
+func (h *Handler) groupBotPermissions(w http.ResponseWriter,r *http.Request){
+ if !h.botServicesReady(w){return}
+ user,ok:=h.currentUser(w,r);if !ok{return}
+ result,err:=h.bots.CheckGroupBotPermissions(r.Context(),user.TenantID,r.PathValue("groupID"))
+ if err!=nil{h.writeBotError(w,err);return}
+ writeJSON(w,http.StatusOK,result)
+}
+func (h *Handler) moderateGroupMember(w http.ResponseWriter,r *http.Request){
+ if !h.botServicesReady(w){return}
+ user,ok:=h.currentUser(w,r);if !ok{return}
+ targetID,err:=strconv.ParseInt(r.PathValue("userID"),10,64)
+ if err!=nil || targetID<=0{writeError(w,http.StatusBadRequest,"userID must be a positive Telegram user ID");return}
+ var input memberActionRequest
+ if !decodeJSON(w,r,&input){return}
+ if err:=h.bots.ModerateGroupMember(r.Context(),user.TenantID,user.ID,r.PathValue("groupID"),targetID,input.Action,input.DurationMinutes);err!=nil{h.writeBotError(w,err);return}
+ writeJSON(w,http.StatusOK,map[string]any{"ok":true,"action":input.Action,"telegram_user_id":targetID})
+}
+
 func (h *Handler) listBots(w http.ResponseWriter,r *http.Request){
 	if !h.botServicesReady(w){return}
 	user,ok:=h.currentUser(w,r);if !ok{return}
@@ -244,7 +269,11 @@ func (h *Handler) writeBotError(w http.ResponseWriter,err error){
 	case errors.Is(err,bots.ErrNotFound):writeError(w,http.StatusNotFound,"Bot not found")
 	case errors.Is(err,bots.ErrInvalidStatus):writeError(w,http.StatusBadRequest,"status must be active or disabled")
 	case errors.Is(err,bots.ErrIdentityChanged):writeError(w,http.StatusConflict,"replacement token must belong to the same Telegram bot")
-	case errors.Is(err,bots.ErrTelegramUnavailable):writeError(w,http.StatusBadGateway,"Telegram verification is temporarily unavailable")
+	case errors.Is(err,bots.ErrTelegramUnavailable):writeError(w,http.StatusBadGateway,"Telegram service is temporarily unavailable")
+	case errors.Is(err,bots.ErrInsufficientBotRights):writeError(w,http.StatusForbidden,"Bot must be an administrator with permission to restrict members")
+	case errors.Is(err,bots.ErrTargetIsAdministrator):writeError(w,http.StatusForbidden,"cannot moderate a group administrator or creator")
+	case errors.Is(err,bots.ErrInvalidMemberAction):writeError(w,http.StatusBadRequest,"invalid member action or duration")
+	case errors.Is(err,bots.ErrTelegramOperation):writeError(w,http.StatusUnprocessableEntity,err.Error())
 	default:h.logger.Error("Telegram bot operation failed","error",err);writeError(w,http.StatusInternalServerError,"internal server error")
 	}
 }
