@@ -1,10 +1,10 @@
 package telegramruntime
 
-import "testing"
+import ("testing"; "encoding/json")
 
 func TestChatFromUpdate(t *testing.T) {
 	group := chat{ID:-100123,Type:"supergroup",Title:"TG Group",IsForum:true}
-	item := update{Message:&struct{Chat chat `json:"chat"`}{Chat:group}}
+	item := update{Message:&telegramMessage{Chat:group}}
 	got:=chatFromUpdate(item)
 	if got==nil || got.ID!=group.ID || got.Title!=group.Title { t.Fatalf("chatFromUpdate() = %#v, want group %#v",got,group) }
 }
@@ -37,4 +37,23 @@ func TestGroupStatusFromMembershipUpdate(t *testing.T) {
 			if got:=groupStatus(item);got!=test.want{t.Fatalf("groupStatus() = %q, want %q",got,test.want)}
 		})
 	}
+}
+
+func TestMessageType(t *testing.T) {
+	tests:=[]struct{name string; message telegramMessage; want string}{
+		{name:"text",message:telegramMessage{Text:"hello"},want:"text"},
+		{name:"photo",message:telegramMessage{Photo:[]json.RawMessage{json.RawMessage("{}")}},want:"photo"},
+		{name:"document",message:telegramMessage{Document:json.RawMessage("{}")},want:"document"},
+		{name:"caption only",message:telegramMessage{Caption:"caption"},want:"other"},
+	}
+	for _,test:=range tests{t.Run(test.name,func(t *testing.T){if got:=messageType(test.message);got!=test.want{t.Fatalf("messageType() = %q, want %q",got,test.want)}})}
+}
+
+func TestSenderDisplayName(t *testing.T) {
+	tests:=[]struct{name string; sender *telegramSender; want string}{
+		{name:"full",sender:&telegramSender{FirstName:"Ada",LastName:"Lovelace"},want:"Ada Lovelace"},
+		{name:"first",sender:&telegramSender{FirstName:"Ada"},want:"Ada"},
+		{name:"nil",sender:nil,want:""},
+	}
+	for _,test:=range tests{t.Run(test.name,func(t *testing.T){if got:=senderDisplayName(test.sender);got!=test.want{t.Fatalf("senderDisplayName() = %q, want %q",got,test.want)}})}
 }
