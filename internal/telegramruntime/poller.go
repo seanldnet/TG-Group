@@ -166,7 +166,7 @@ func (p *Poller) runBot(ctx context.Context,bot managedBot) {
 			select{case <-ctx.Done():return;case <-time.After(3*time.Second):continue}
 		}
 		for _,item:=range batch {
-			if err:=p.persistUpdate(ctx,bot,item);err!=nil {
+			if err:=p.persistUpdate(ctx,bot,item,token);err!=nil {
 				p.logger.Error("persist Telegram update failed; offset will not advance","bot_id",bot.id,"update_id",item.UpdateID,"error",err)
 				break
 			}
@@ -273,7 +273,7 @@ func (p *Poller) upsertGroupMember(ctx context.Context, bot managedBot, groupID 
 	return nil
 }
 
-func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update)error {
+func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update,token string)error {
 	value:=chatFromUpdate(item)
 	if !isManagedChat(value){return nil}
 	var groupID string
@@ -308,7 +308,7 @@ func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update)er
 	if runeCount:=[]rune(content);len(runeCount)>4096{content=string(runeCount[:4096])}
 	var sentAt any
 	if message.Date>0{sentAt=time.Unix(message.Date,0).UTC()}
-	_,err=p.pool.Exec(ctx,`INSERT INTO telegram_message_events(
+	tag,err:=p.pool.Exec(ctx,`INSERT INTO telegram_message_events(
 		tenant_id,bot_id,group_id,telegram_update_id,telegram_message_id,telegram_user_id,
 		sender_username,sender_display_name,message_type,message_text,telegram_sent_at)
 		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
@@ -316,5 +316,8 @@ func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update)er
 		bot.tenantID,bot.id,groupID,item.UpdateID,message.MessageID,senderID,username,displayName,
 		messageType(*message),content,sentAt)
 	if err!=nil{return fmt.Errorf("persist Telegram message event: %w",err)}
+	if tag.RowsAffected()==1 {
+		p.processMessageRules(ctx,bot,groupID,item,message,token)
+	}
 	return nil
 }
