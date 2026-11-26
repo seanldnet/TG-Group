@@ -582,6 +582,25 @@ func (p *Poller) sendGroupRules(ctx context.Context,bot managedBot,groupID strin
 }
 
 // sendGroupRulesForCategory keeps each feature page limited to its own rule types.
+func formatJoinVerificationSummary(raw []byte) string {
+	var cfg struct {
+		ChallengeType string `json:"challenge_type"`
+		TimeoutSeconds int `json:"timeout_seconds"`
+		FailureAction string `json:"failure_action"`
+		RequiredChannels []string `json:"required_channels"`
+	}
+	if json.Unmarshal(raw,&cfg)!=nil { return "验证配置无法读取" }
+	method:="未知方式"
+	switch cfg.ChallengeType { case "math": method="数字加法选择验证" }
+	timeout:=fmt.Sprintf("%d 秒",cfg.TimeoutSeconds)
+	if cfg.TimeoutSeconds<=0 { timeout="未设置" }
+	failure:="未设置"
+	switch cfg.FailureAction { case "restrict": failure="限制发言";case "kick": failure="移出群组" }
+	channels:="未启用"
+	if len(cfg.RequiredChannels)>0 { channels=strings.Join(cfg.RequiredChannels,", ") }
+	return fmt.Sprintf("验证方式：%s；时限：%s；失败处理：%s；必需频道：%s",method,timeout,failure,channels)
+}
+
 func groupRuleCategory(ruleType string) string {
 	switch ruleType {
 	case "welcome","leave_notice": return "notices"
@@ -605,7 +624,7 @@ func (p *Poller) sendGroupRulesForCategory(ctx context.Context,bot managedBot,gr
 		"ads":{"anti_ad":true,"keyword_filter":true,"sensitive_word":true},
 		"verify":{"join_verification":true},
 	}
-	rows,err:=p.pool.Query(ctx,"SELECT id::text,name,rule_type,enabled FROM telegram_group_rules WHERE tenant_id=$1 AND group_id=$2 ORDER BY priority,created_at LIMIT 100",bot.tenantID,groupID)
+	rows,err:=p.pool.Query(ctx,"SELECT id::text,name,rule_type,enabled,config FROM telegram_group_rules WHERE tenant_id=$1 AND group_id=$2 ORDER BY priority,created_at LIMIT 100",bot.tenantID,groupID)
 	if err!=nil { p.logger.Error("load rules for Telegram group menu","group_id",groupID,"error",err);return }
 	defer rows.Close()
 	title:="群组规则管理"
@@ -614,11 +633,12 @@ func (p *Poller) sendGroupRulesForCategory(ctx context.Context,bot managedBot,gr
 	keyboard:=[][]map[string]string{}
 	count:=0
 	for rows.Next(){
-		var id,name,kind string;var enabled bool
-		if err:=rows.Scan(&id,&name,&kind,&enabled);err!=nil{p.logger.Error("read rules for Telegram group menu","error",err);return}
+		var id,name,kind string;var enabled bool;var config []byte
+		if err:=rows.Scan(&id,&name,&kind,&enabled,&config);err!=nil{p.logger.Error("read rules for Telegram group menu","error",err);return}
 		if category!="all" && !allowed[category][kind] { continue }
 		count++;state:="已停用";action:="启用";if enabled{state="运行中";action="停用"}
 		lines=append(lines,fmt.Sprintf("%d. %s（%s）- %s",count,name,kind,state))
+		if kind=="join_verification" { lines=append(lines,"   "+formatJoinVerificationSummary(config)) }
 		keyboard=append(keyboard,[]map[string]string{{"text":action+"："+name,"callback_data":"group:toggle:"+id},{"text":"编辑："+name,"callback_data":"group:ed:"+id}})
 		keyboard=append(keyboard,[]map[string]string{{"text":"删除："+name,"callback_data":"group:delete:ask:"+id+":rule"}})
 	}
@@ -634,7 +654,8 @@ func (p *Poller) sendGroupRulesForCategory(ctx context.Context,bot managedBot,gr
 	case "ads":
 		keyboard=append(keyboard,[]map[string]string{{"text":"添加广告拦截","callback_data":"group:create:anti_ad"},{"text":"添加关键词过滤","callback_data":"group:create:keyword"}})
 	case "verify":
-		lines=append(lines,"当前已开放：数学验证、验证超时、失败处理、必需频道成员核验。")
+		lines=append(lines,"当前已接通：数字加法选择验证、验证时限、失败处理、必需频道成员核验。")
+		lines=append(lines,"字母、数字字母组合、私聊验证及 CAPTCHA 尚未接通，不会显示为可用功能。")
 		keyboard=append(keyboard,[]map[string]string{{"text":"添加数学入群验证","callback_data":"group:create:verify"}})
 	case "all":
 		keyboard=append(keyboard,[]map[string]string{{"text":"添加欢迎语","callback_data":"group:create:welcome"},{"text":"离群通知","callback_data":"group:create:leave"}})
