@@ -59,10 +59,10 @@ BOT_KEY="$(read_env_value TG_GROUP_BOT_ENCRYPTION_KEY)"
 
 if command -v openssl >/dev/null 2>&1; then
   [[ -n "$DB_PASSWORD" ]] || DB_PASSWORD="$(openssl rand -hex 32)"
-  [[ -n "$BOT_KEY" ]] || BOT_KEY="$(openssl rand -base64 32 | tr -d '\\n')"
+  [[ -n "$BOT_KEY" ]] || BOT_KEY="$(openssl rand -base64 32 | tr -d '\n')"
 else
-  [[ -n "$DB_PASSWORD" ]] || DB_PASSWORD="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \\n')"
-  [[ -n "$BOT_KEY" ]] || BOT_KEY="$(head -c 32 /dev/urandom | base64 | tr -d '\\n')"
+  [[ -n "$DB_PASSWORD" ]] || DB_PASSWORD="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
+  [[ -n "$BOT_KEY" ]] || BOT_KEY="$(head -c 32 /dev/urandom | base64 | tr -d '\n')"
 fi
 
 umask 077
@@ -70,7 +70,7 @@ TMP_ENV="$(mktemp)"
 if [[ -f .env ]]; then
   grep -vE '^(TG_GROUP_DB_PASSWORD|TG_GROUP_BOT_ENCRYPTION_KEY)=' .env > "$TMP_ENV" || true
 fi
-printf 'TG_GROUP_DB_PASSWORD=%s\\nTG_GROUP_BOT_ENCRYPTION_KEY=%s\\n' "$DB_PASSWORD" "$BOT_KEY" >> "$TMP_ENV"
+printf 'TG_GROUP_DB_PASSWORD=%s\nTG_GROUP_BOT_ENCRYPTION_KEY=%s\n' "$DB_PASSWORD" "$BOT_KEY" >> "$TMP_ENV"
 mv "$TMP_ENV" .env
 chmod 600 .env
 
