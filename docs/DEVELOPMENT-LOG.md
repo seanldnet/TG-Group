@@ -1,5 +1,17 @@
 # TG-Group 开发日志
 
+## 2026-11-26（管理后台导航与登录设备会话修复）
+
+- **用户反馈**：已登录工作台没有持久侧边栏，点击品牌区域会回到公开首页；登录设备列表把同一浏览器每次 15 分钟 Token 续期都记为一台新设备；用户添加的群管 Bot 已保存但没有通用指令菜单。
+- **前端导航**：新增 `src/components/DashboardLayout.tsx`，使用仓库 shadcn/ui 官方 Button、Badge、Separator 组合统一控制台框架；桌面端固定侧边栏、移动端抽屉导航，提供首页、机器人、群组、账号安全、登录设备和安全日志入口。所有 /dashboard 路由统一套用布局。
+- **首页跳转修复**：Dashboard 品牌链接由公开首页 `/` 改为受保护工作台 `/dashboard`。
+- **会话修复**：Refresh Token 轮换不再每 15 分钟插入一条新的 `user_sessions`；改为在同一个 refresh family 内更新现有设备会话的 access token 摘要、过期时间和最近 User-Agent/IP，设备记录 ID 保持不变。历史上已生成的重复记录不会自动合并或删除。
+- **测试**：扩展 PostgreSQL 集成测试，断言 refresh 前后的当前设备 session ID 保持一致；需要 CI 的 Go/PostgreSQL 测试、go vet 和前端构建结果确认。
+- **尚未完成**：平台管理员设置页面及平台注册/身份 Bot 的数据库配置尚未实现；平台身份 Bot 与用户群管 Bot 是不同职责，不应混用同一 Token。群管 Bot 当前运行时主要处理群组发现、消息记录、已配置规则和验证回调，并没有完整通用命令菜单/双端管理工作流，因此“添加成功”不代表已具备完整指令交互。真实 Telegram Bot 联调仍需逐项验收。
+- **涉及文件**：`src/App.tsx`、`src/components/DashboardLayout.tsx`、`src/pages/DashboardPage.tsx`、`internal/auth/refresh.go`、`internal/auth/service_integration_test.go`、`docs/DEVELOPMENT-PLAN.md`、`docs/DEVELOPMENT-LOG.md`。
+- **下一步**：验证 CI；继续建设平台管理员设置和 Telegram 注册管理 Bot 对话流程，再逐项完成群管 Bot 命令菜单及功能双端闭环。
+
+
 所有代码、配置、依赖、测试、修复和部署变更均须在此记录。只记录已实际发生并可验证的工作，不将计划标为完成。
 
 ## 2026-11-25
