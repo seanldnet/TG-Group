@@ -657,7 +657,7 @@ func (p *Poller) sendGroupRulesForCategory(ctx context.Context,bot managedBot,gr
 	case "verify":
 		lines=append(lines,"当前已接通：数字加法选择验证、验证时限、失败处理、必需频道成员核验。")
 		lines=append(lines,"字母、数字字母组合、私聊验证及 CAPTCHA 尚未接通，不会显示为可用功能。")
-		keyboard=append(keyboard,[]map[string]string{{"text":"添加数学入群验证","callback_data":"group:create:verify"}})
+		keyboard=append(keyboard,[]map[string]string{{"text":"添加数字验证","callback_data":"group:create:verify"},{"text":"添加字母验证","callback_data":"group:create:verify_letters"}})\n\t\tkeyboard=append(keyboard,[]map[string]string{{"text":"添加数字+字母验证","callback_data":"group:create:verify_alphanumeric"}})
 	case "all":
 		keyboard=append(keyboard,[]map[string]string{{"text":"添加欢迎语","callback_data":"group:create:welcome"},{"text":"离群通知","callback_data":"group:create:leave"}})
 		keyboard=append(keyboard,[]map[string]string{{"text":"广告拦截","callback_data":"group:create:anti_ad"},{"text":"关键词过滤","callback_data":"group:create:keyword"}})
@@ -699,7 +699,7 @@ func parseGroupRuleEditCallback(data string) (stage,ruleID,preset string,ok bool
 	}
 	if len(parts)==4 && parts[0]=="group" && parts[1]=="es" && validRuleUUID(parts[2]) {
 		switch parts[3] {
-		case "w1","w2","w3","l1","l2","k1","k2","k3","a1","a2","s1","s2","s3","v1","v2","v3","vr","vk":
+		case "w1","w2","w3","l1","l2","k1","k2","k3","a1","a2","s1","s2","s3","v1","v2","v3","v4","v5","vr","vk":
 			return "set",parts[2],parts[3],true
 		}
 	}
@@ -740,7 +740,7 @@ func groupRuleEditConfig(kind,preset string) []byte {
 		switch preset {
 		case "v1": return []byte(`{"challenge_type":"math","timeout_seconds":60,"failure_action":"kick","required_channels":[]}`)
 		case "v2": return []byte(`{"challenge_type":"math","timeout_seconds":180,"failure_action":"kick","required_channels":[]}`)
-		case "v3": return []byte(`{"challenge_type":"math","timeout_seconds":300,"failure_action":"kick","required_channels":[]}`)
+		case "v3": return []byte(`{"challenge_type":"math","timeout_seconds":300,"failure_action":"kick","required_channels":[]}`)\n\t\tcase "v4": return []byte(`{"challenge_type":"letters","timeout_seconds":180,"failure_action":"kick","required_channels":[]}`)\n\t\tcase "v5": return []byte(`{"challenge_type":"alphanumeric","timeout_seconds":180,"failure_action":"kick","required_channels":[]}`)
 		case "vr": return []byte(`{"challenge_type":"math","timeout_seconds":180,"failure_action":"restrict","required_channels":[]}`)
 		case "vk": return []byte(`{"challenge_type":"math","timeout_seconds":180,"failure_action":"kick","required_channels":[]}`)
 		}
@@ -910,7 +910,7 @@ func (p *Poller) handleGroupRuleEdit(ctx context.Context,bot managedBot,groupID 
 		case "keyword_filter","sensitive_word": add("关键词：引流词","k1");add("关键词：营销词","k2");add("关键词：推广词","k3")
 		case "anti_ad": add("广告：链接类","a1");add("广告：推广话术","a2")
 		case "anti_spam": add("刷屏：宽松（10条/10秒）","s1");add("刷屏：标准（6条/10秒）","s2");add("刷屏：严格（4条/10秒）","s3")
-		case "join_verification": add("验证超时：60秒","v1");add("验证超时：180秒","v2");add("验证超时：300秒","v3");add("失败后：限制发言","vr");add("失败后：移出群组","vk")
+		case "join_verification": add("验证方式：数字加法","v2");add("验证方式：字母验证码","v4");add("验证方式：数字+字母","v5");add("验证超时：60秒","v1");add("验证超时：180秒","v2");add("验证超时：300秒","v3");add("失败后：限制发言","vr");add("失败后：移出群组","vk")
 		default: return
 		}
 		switch current.RuleType { case "welcome","leave_notice": rows=append(rows,[]map[string]string{{"text":"自定义输入文案","callback_data":"group:ec:"+ruleID+":text"}}); case "keyword_filter","sensitive_word": rows=append(rows,[]map[string]string{{"text":"自定义关键词","callback_data":"group:ec:"+ruleID+":words"}}); case "anti_ad": rows=append(rows,[]map[string]string{{"text":"自定义广告匹配内容","callback_data":"group:ec:"+ruleID+":patterns"}}); case "join_verification": rows=append(rows,[]map[string]string{{"text":"设置必需加入的频道","callback_data":"group:ec:"+ruleID+":channels"}}) }
