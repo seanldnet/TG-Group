@@ -60,6 +60,9 @@ type joinVerificationRuleConfig struct {
 	RequiredChannels []string `json:"required_channels"`
 }
 
+type warningEscalationLevel struct { Threshold int `json:"threshold"`; Action string `json:"action"`; DurationMinutes int `json:"duration_minutes,omitempty"` }
+type warningEscalationRuleConfig struct { Levels []warningEscalationLevel `json:"levels"` }
+
 type qaRuleConfig struct {
 	Triggers []string `json:"triggers"`
 	MatchMode string `json:"match_mode"`
@@ -90,6 +93,16 @@ func ValidateGroupRule(input GroupRuleInput) error {
 		return true
 	}
 	switch input.RuleType {
+	case "warning_escalation":
+		var cfg warningEscalationRuleConfig
+		if decode(&cfg) != nil || len(cfg.Levels) == 0 || len(cfg.Levels) > 5 { return ErrInvalidGroupRule }
+		previous := 0
+		for _, level := range cfg.Levels {
+			if level.Threshold <= previous || level.Threshold > 100 || (level.Action != "mute" && level.Action != "ban") { return ErrInvalidGroupRule }
+			if level.Action == "mute" && (level.DurationMinutes < 1 || level.DurationMinutes > 10080) { return ErrInvalidGroupRule }
+			if level.Action == "ban" && level.DurationMinutes != 0 { return ErrInvalidGroupRule }
+			previous = level.Threshold
+		}
 	case "qa":
 		var cfg qaRuleConfig
 		if decode(&cfg) != nil || !validTerms(cfg.Triggers) || strings.TrimSpace(cfg.Response) == "" || len([]rune(cfg.Response)) > 4096 || (cfg.MatchMode != "exact" && cfg.MatchMode != "contains" && cfg.MatchMode != "prefix") { return ErrInvalidGroupRule }
