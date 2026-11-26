@@ -478,3 +478,10 @@
 - 新增单测覆盖 callback payload 解析、一次性 Token 输入状态和 Inline Keyboard callback 数据。
 - 平台设置页保存时报 `internal server error` 的问题仍需结合部署 API 容器日志中的 `save platform Telegram Bot settings` / `read platform Telegram Bot status` 具体数据库错误确认；当前服务端已记录底层错误，但 API 为避免泄露数据库细节仍返回通用 500。下一步补充部署迁移状态诊断并依据实际日志定位，不将未复现的问题宣称已彻底修复。
 - **验证边界**：代码已提交 main；等待 CI。尚未在真实 Telegram Bot 环境验证 Inline Keyboard callback 与私聊消息删除权限。
+
+
+## 平台 Bot 配置保存 SQL 参数类型修复（2026-11-26）
+- **现场根因**：用户提供的 API 日志明确显示保存平台 Telegram Bot 配置时，事务内审计写入失败：`audit platform Telegram Bot update: ERROR: could not determine data type of parameter $2 (SQLSTATE 42P18)`。启动日志同时确认 PostgreSQL 已连接且 migrations applied，因此本次不是缺少 migration。
+- **修复**：审计 SQL 的 `jsonb_build_object('username', $2)` 将参数显式转换为 `$2::text`，消除 PostgreSQL 对未知参数类型的歧义；配置写入和审计仍在同一事务中，失败时整体回滚。
+- **提交**：`36b5a90dfe815a42c15af1cffc1f2d488292dde6`。
+- **验证边界**：代码修复已推送 main；需等待该提交对应的 CI 与 Docker Publish。用户升级后需重新保存一次平台 Bot 配置确认现场问题消失；尚未声称真实 Telegram 联调完成。
