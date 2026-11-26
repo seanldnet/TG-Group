@@ -348,3 +348,5 @@
 - **测试**：PostgreSQL 集成测试验证登录、续期、退出、密码修改、Telegram 绑定/解绑记录可查询；HTTP 测试覆盖无数据库时安全记录路由返回 503。
 - **文档**：更新 API、LOCAL-TESTING 和 DEVELOPMENT-PLAN。
 - **验证状态**：代码已提交 main；等待 GitHub Actions Go/PostgreSQL 测试、go vet 和前端构建结果。
+
+- **CI 验证**：账号安全审计代码提交 `4173d49d1fda44c3291773d155ca012dbab7f0e5` 对应 Actions run `45738879169` 的 Go 格式检查、Go/PostgreSQL 集成测试、go vet 和前端 TypeScript 生产构建均 success。覆盖认证事件查询、退出审计、当前用户事件隔离和前端安全记录展示。
