@@ -173,3 +173,15 @@ go run ./cmd/api
 8. 检查 `users.telegram_id`，该值只能由 Telegram 身份 Bot 的 Update 处理流程写入，前端没有输入 Telegram ID 的表单或 API 字段。
 
 未配置平台身份 Bot 时，网站会显示未绑定状态，但创建绑定链接接口返回 503；不能把这一状态误认为 Telegram 绑定功能已经完成真实环境验收。
+
+## Refresh Token 会话续期测试
+
+1. 注册或登录，检查响应同时包含 `token`、`expires_at`、`refresh_token` 和 `refresh_expires_at`。
+2. 使用返回的 refresh_token 调用 `POST /api/v1/auth/refresh`，确认获得新的 access token 和 refresh token。
+3. 再次提交旧 refresh_token，应返回 401；该会话族所有访问会话均被撤销，旧 access token 和刚签发的 access token 都不能继续访问受保护 API。
+4. 使用新账号会话重新登录，执行退出登录；随后使用该会话 refresh_token 续期应返回 401。
+5. 在网站正常登录后等待访问令牌过期（15 分钟），触发工作台或受保护 API 请求，浏览器应自动续期并重试，不应要求用户重新登录。
+6. 在浏览器 Network 面板确认多个同时返回 401 的请求只触发一次 refresh 请求；刷新令牌不得出现在 URL、前端日志或服务端日志。
+7. 删除浏览器当前会话存储中的 refresh token，再等待 access token 过期，受保护 API 应要求重新登录。
+
+测试需要启用 PostgreSQL；GitHub CI 的集成测试覆盖轮换、重放撤销和退出登录撤销。
