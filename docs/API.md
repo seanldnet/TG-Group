@@ -131,12 +131,12 @@ CAP 采用官方 Cap Standalone 服务端和官方 `cap-widget` Web Component。
 
 平台专用 Bot 由 API 环境变量 `TELEGRAM_AUTH_BOT_TOKEN` 与 `TELEGRAM_AUTH_BOT_USERNAME` 配置，两项必须同时设置。该 Bot 与用户在“机器人管理”中添加的群管 Bot 是不同角色，不能共用同一 Token。API 启动后使用 Telegram `getUpdates` 长轮询接收私聊消息。
 
-- 用户在 Bot 私聊发送 `/start`：服务端生成随机初始密码，在一个 PostgreSQL 事务内创建独立租户、普通用户账号并绑定 Telegram ID；Bot 私聊返回用户 ID 和初始密码。网站登录时使用用户 ID + 初始密码。初始密码仅在注册成功消息中展示一次，请用户立即修改。
-- 同一 Telegram ID 再次发送 `/start` 不会重复创建账号，会提示使用原账号登录或走网站绑定流程。
-- 已注册用户可发送 `/account` 查询用户 ID、登录账号、邮箱、昵称和角色；未绑定的 Telegram ID 不会返回其他账号资料。
-- 网站账号在账号安全中发起绑定后，Bot 收到 `/start <一次性挑战>` 完成可信 ID 绑定；挑战有效期 5 分钟且只能使用一次。
-- Bot 仅处理用户本人私聊（From ID 必须等于 Chat ID），忽略群聊、机器人账号及非 `/start` 消息。
-- 当前注册管理 Bot 只交付注册和身份绑定基础流程；套餐查询/购买、提交群管 Bot Token、账户查询和 Inline Keyboard 管理菜单尚未完成。
+- 用户首次打开 Bot 使用 Telegram 标准 `/start` 入口：服务端生成随机初始密码，在一个 PostgreSQL 事务内创建独立租户、普通用户账号并绑定 Telegram ID；Bot 返回用户 ID 和初始密码。网站登录时使用用户 ID + 初始密码。初始密码仅展示一次，请立即修改。
+- 后续日常操作使用 Telegram Inline Keyboard 按钮：账号信息、添加群管 Bot、使用帮助、取消当前操作；不要求用户输入 `/account`、`/help` 或 `/addbot` 等业务命令。
+- 点击“添加群管 Bot”后，Bot 为当前 Telegram 用户建立一次性输入状态；用户直接发送 BotFather Token。服务端先尝试删除含 Token 的原始私聊消息，删除失败则拒绝处理；删除成功后才验证并加密保存。输入状态按 Telegram 用户 ID 隔离，消费后立即清除。
+- 同一 Telegram ID 再次进入 `/start` 不会重复创建账号，会返回现有账号入口。
+- 网站账号发起一次性绑定后，Telegram 深链仍由 Telegram 标准 `/start <一次性挑战>` 传递挑战；挑战有效期 5 分钟且只能使用一次。
+- Bot 仅处理用户本人私聊（From ID 必须等于 Chat ID），忽略群聊和机器人账号。日常功能由 Inline Keyboard 触发；`/start` 仅作为 Telegram 首次启动和网站绑定深链的协议入口。
 
 ### Telegram Bot 管理
 
