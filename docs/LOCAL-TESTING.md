@@ -109,3 +109,15 @@ docker compose -f compose.dev.yml down -v
 - `POST /api/v1/groups/{groupID}/members/{userID}/action`，请求体示例：`{"action":"mute","duration_minutes":30}`
 
 支持 action：`ban`、`unban`、`mute`、`unmute`。执行后检查 Telegram 群内实际状态、本地 `telegram_group_members.status` 和 `audit_logs`。Telegram API 操作与本地数据库并非分布式事务，若数据库在 Telegram 执行成功后发生故障，需要人工核对 Telegram 状态。
+
+
+## Telegram 入群数学题验证测试
+
+1. 使用独立测试 Bot 和 Telegram supergroup；将 Bot 设为群管理员并授予“封禁用户/限制成员”权限。普通基础群组不支持当前验证流程。
+2. 网站登录后进入测试群组的“规则管理”，新增规则类型“入群验证（数学题）”，默认配置为 `challenge_type=math`、`timeout_seconds=120`、`failure_action=kick`。可将失败动作改为 `restrict`，超时范围 30–600 秒。
+3. 使用另一个测试账号加入群组。Bot 应立即限制该成员发言，并发送随机加法题与三个按钮选项。
+4. 使用加入者本人点击正确答案；成功后 Bot 应读取群默认权限并恢复该成员权限。其他成员点击按钮应收到“该按钮不属于你的验证”提示。
+5. 再用另一个测试账号加入但不答题；到期后若配置 `kick`，Bot 应封禁后立即解封以移出群组；若配置 `restrict`，成员将继续保持受限状态。
+6. 通过 PostgreSQL 检查挑战状态：`SELECT telegram_user_id,status,failure_action,expires_at FROM telegram_join_verification_challenges ORDER BY created_at DESC LIMIT 20;`
+
+**重要**：数学题是基础验证，不是 CAP.js，也不能抵御所有自动化账号。若 Bot 权限不足、Telegram 无法返回群默认权限或 API 调用失败，需检查服务日志和群成员状态。仅在测试群组/测试账号执行，不要在生产群组直接试验自动踢人。
