@@ -25,7 +25,7 @@ type Poller struct {
     logger *slog.Logger
     client *http.Client
     stateMu sync.Mutex
-    awaitingBotToken map[int64]bool
+    awaitingBotToken map[int64]time.Time
 }
 
 type telegramUser struct {
@@ -62,7 +62,7 @@ func New(token string, service *auth.Service, logger *slog.Logger) *Poller {
 }
 func NewWithBotService(token string,service *auth.Service,botService *bots.Service,logger *slog.Logger)*Poller{
     if logger==nil {logger=slog.Default()}
-    return &Poller{token:token,auth:service,bots:botService,logger:logger,client:&http.Client{Timeout:40*time.Second},awaitingBotToken:make(map[int64]bool)}
+    return &Poller{token:token,auth:service,bots:botService,logger:logger,client:&http.Client{Timeout:40*time.Second},awaitingBotToken:make(map[int64]time.Time)}
 }
 
 func (p *Poller) Run(ctx context.Context) {
@@ -138,9 +138,9 @@ func (p *Poller) handleMessage(ctx context.Context,message *telegramMessage) {
 }
 func (p *Poller) consumeBotTokenPrompt(userID int64) bool {
     p.stateMu.Lock(); defer p.stateMu.Unlock()
-    if !p.awaitingBotToken[userID] { return false }
+    deadline,ok:=p.awaitingBotToken[userID]
     delete(p.awaitingBotToken,userID)
-    return true
+    return ok && time.Now().Before(deadline)
 }
 func (p *Poller) handleCallback(ctx context.Context,query *telegramCallbackQuery) {
     if query==nil || query.From==nil || query.From.IsBot || query.Message==nil || query.Message.Chat.Type!="private" || query.Message.Chat.ID!=query.From.ID { return }
@@ -153,7 +153,7 @@ func (p *Poller) handleCallback(ctx context.Context,query *telegramCallbackQuery
     case "menu:addbot":
         if _,err:=p.auth.TelegramAccount(ctx,query.From.ID);err!=nil { _=p.sendMessage(ctx,query.Message.Chat.ID,"请先完成平台账号注册或 Telegram 账号关联，再添加群管 Bot。");return }
         if p.bots==nil { _=p.sendMessage(ctx,query.Message.Chat.ID,"群管 Bot 管理服务暂不可用，请联系管理员。");return }
-        p.stateMu.Lock();p.awaitingBotToken[query.From.ID]=true;p.stateMu.Unlock()
+        p.stateMu.Lock();p.awaitingBotToken[query.From.ID]=time.Now().Add(5*time.Minute);p.stateMu.Unlock()
         _=p.sendMessage(ctx,query.Message.Chat.ID,"请直接发送要添加的 Bot Token。收到后会先尝试删除这条消息，再验证并加密保存。若无法删除，系统将拒绝处理。")
     case "menu:help":
         _=p.sendMessage(ctx,query.Message.Chat.ID,"使用帮助\n• 账号信息：查看当前绑定的平台账号\n• 添加群管 Bot：点击按钮后直接发送 BotFather 提供的 Token\n• 网站控制台：管理群组、成员、规则和安全设置\n所有日常操作请使用下方按钮，无需输入命令。")
