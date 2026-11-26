@@ -225,7 +225,13 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 	if !p.requireGroupOwner(ctx,bot,query.From.ID,query.Message.Chat.ID,token) { return }
 	switch {
 	case query.Data=="group:rules": p.sendGroupRules(ctx,bot,groupID,query.Message.Chat.ID,token)
-	case query.Data=="group:members": p.sendGroupMembers(ctx,bot,groupID,query.Message.Chat.ID,token)
+	case query.Data=="group:members" || strings.HasPrefix(query.Data,"group:members:page:"):
+		offset:=0
+		if query.Data!="group:members" { parsed,err:=strconv.Atoi(strings.TrimPrefix(query.Data,"group:members:page:"));if err!=nil||parsed<0||parsed>100000{return};offset=parsed }
+		p.sendGroupMembers(ctx,bot,groupID,query.Message.Chat.ID,token,offset)
+	case query.Data=="group:rule-events": p.sendGroupRuleEvents(ctx,bot,groupID,query.Message.Chat.ID,token)
+	case strings.HasPrefix(query.Data,"group:create:"): p.createGroupRulePreset(ctx,bot,groupID,query.Message.Chat.ID,strings.TrimPrefix(query.Data,"group:create:"),token)
+	case strings.HasPrefix(query.Data,"group:delete:"): p.handleGroupRuleDelete(ctx,bot,groupID,query.Message.Chat.ID,query.Data,token)
 	case query.Data=="group:status": p.sendGroupStatus(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:help" || query.Data=="group:home": p.sendGroupMenu(ctx,query.Message.Chat.ID,0,token)
 	case strings.HasPrefix(query.Data,"group:toggle:"):
@@ -263,7 +269,7 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 		}
 		label:=map[string]string{"mute":"禁言 30 分钟","ban":"封禁","unmute":"解除禁言","unban":"解除封禁"}[action]
 		_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":fmt.Sprintf("已完成：用户 %d，%s。操作已记录审计日志。",targetID,label)},nil)
-		p.sendGroupMembers(ctx,bot,groupID,query.Message.Chat.ID,token)
+		p.sendGroupMembers(ctx,bot,groupID,query.Message.Chat.ID,token,0)
 	}
 }
 
@@ -279,16 +285,18 @@ func parseGroupMemberCallback(data string) (stage,action string,targetID int64,o
 	return parts[2],parts[3],id,true
 }
 
-func (p *Poller) sendGroupMembers(ctx context.Context,bot managedBot,groupID string,chatID int64,token string) {
+func (p *Poller) sendGroupMembers(ctx context.Context,bot managedBot,groupID string,chatID int64,token string,offset int) {
 	rows,err:=p.pool.Query(ctx,`SELECT telegram_user_id,username,first_name,last_name,status FROM telegram_group_members
 		WHERE tenant_id=$1 AND group_id=$2 AND status IN ('member','restricted','kicked') AND is_bot=false
-		ORDER BY last_seen_at DESC,id DESC LIMIT 10`,bot.tenantID,groupID)
+		ORDER BY last_seen_at DESC,id DESC LIMIT 11 OFFSET $3`,bot.tenantID,groupID,offset)
 	if err!=nil { p.logger.Error("load Telegram members for inline menu","group_id",groupID,"error",err);return }
 	defer rows.Close()
 	lines:=[]string{"群成员管理（最近活跃的普通成员）："}
 	keyboard:=[][]map[string]string{}
 	count:=0
+	hasNext:=false
 	for rows.Next() {
+		if count==10 { hasNext=true;break }
 		var id int64
 		var username,firstName,lastName,status string
 		if err:=rows.Scan(&id,&username,&firstName,&lastName,&status);err!=nil { p.logger.Error("read Telegram member for inline menu","error",err);return }
@@ -314,8 +322,12 @@ func (p *Poller) sendGroupMembers(ctx context.Context,bot managedBot,groupID str
 	}
 	if err:=rows.Err();err!=nil { p.logger.Error("iterate Telegram members for inline menu","group_id",groupID,"error",err);return }
 	if count==0 { lines=append(lines,"暂无已采集的普通成员。成员数据会在 Bot 收到群成员更新后逐步建立。") }
-	keyboard=append(keyboard,[]map[string]string{{"text":"刷新成员","callback_data":"group:members"},{"text":"返回菜单","callback_data":"group:help"}})
-	_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\n"),"reply_markup":map[string]any{"inline_keyboard":keyboard}},nil)
+	page:=[][]map[string]string{}
+	if offset>0 { prev:=offset-10;if prev<0{prev=0};page=append(page,[]map[string]string{{"text":"上一页","callback_data":fmt.Sprintf("group:members:page:%d",prev)}}) }
+	if hasNext { page=append(page,[]map[string]string{{"text":"下一页","callback_data":fmt.Sprintf("group:members:page:%d",offset+10)}}) }
+	keyboard=append(keyboard,page...)
+	keyboard=append(keyboard,[]map[string]string{{"text":"刷新","callback_data":fmt.Sprintf("group:members:page:%d",offset)},{"text":"返回菜单","callback_data":"group:home"}})
+	_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":fmt.Sprintf("%s\n第 %d 页",strings.Join(lines,"\n"),offset/10+1),"reply_markup":map[string]any{"inline_keyboard":keyboard}},nil)
 }
 
 func validRuleUUID(value string) bool {
@@ -339,11 +351,16 @@ func (p *Poller) sendGroupRules(ctx context.Context,bot managedBot,groupID strin
 		count++;state:="已停用";action:="启用";if enabled{state="运行中";action="停用"}
 		lines=append(lines,fmt.Sprintf("%d. %s（%s）- %s",count,name,kind,state))
 		keyboard=append(keyboard,[]map[string]string{{"text":action+"："+name,"callback_data":"group:toggle:"+id}})
+		keyboard=append(keyboard,[]map[string]string{{"text":"删除："+name,"callback_data":"group:delete:ask:"+id+":rule"}})
 	}
 	if err:=rows.Err();err!=nil{p.logger.Error("iterate Telegram group rules for Telegram group menu","group_id",groupID,"error",err);return}
-	if count==0 { lines=append(lines,"暂无群组规则。请先在网站控制台创建规则。") }
-	keyboard=append(keyboard,[]map[string]string{{"text":"刷新规则","callback_data":"group:rules"},{"text":"检查 Bot 权限","callback_data":"group:status"}})
-	_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\n"),"reply_markup":map[string]any{"inline_keyboard":keyboard}},nil)
+	if count==0 { lines=append(lines,"暂无群组规则。点击下方预设按钮即可快速添加。") }
+	keyboard=append(keyboard,[]map[string]string{{"text":"添加欢迎语","callback_data":"group:create:welcome"},{"text":"离群通知","callback_data":"group:create:leave"}})
+	keyboard=append(keyboard,[]map[string]string{{"text":"广告拦截","callback_data":"group:create:anti_ad"},{"text":"关键词过滤","callback_data":"group:create:keyword"}})
+	keyboard=append(keyboard,[]map[string]string{{"text":"刷屏限制","callback_data":"group:create:anti_spam"},{"text":"数学入群验证","callback_data":"group:create:verify"}})
+	keyboard=append(keyboard,[]map[string]string{{"text":"执行记录","callback_data":"group:rule-events"},{"text":"刷新规则","callback_data":"group:rules"}})
+	keyboard=append(keyboard,[]map[string]string{{"text":"返回菜单","callback_data":"group:home"}})
+	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\n"),"reply_markup":map[string]any{"inline_keyboard":keyboard}},nil)
 }
 
 func (p *Poller) sendGroupStatus(ctx context.Context,bot managedBot,groupID string,chatID int64,token string) {
