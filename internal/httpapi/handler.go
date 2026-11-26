@@ -361,8 +361,8 @@ func (h *Handler) updatePlatformTelegramBot(w http.ResponseWriter,r *http.Reques
 	writeJSON(w,http.StatusOK,map[string]any{"configured":true,"username":strings.TrimPrefix(strings.TrimSpace(input.Username),"@"),"running":h.telegramAuthBotManager!=nil})
 }
 func (h *Handler) clearPlatformTelegramBot(w http.ResponseWriter,r *http.Request){
-	if _,ok:=h.platformAdmin(w,r);!ok{return}
-	if err:=h.platformSettings.Clear(r.Context());err!=nil{h.logger.Error("clear platform Telegram Bot settings","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return}
+	user,ok:=h.platformAdmin(w,r);if !ok{return}
+	if err:=h.platformSettings.Clear(r.Context(),user.ID);err!=nil{h.logger.Error("clear platform Telegram Bot settings","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return}
 	if h.telegramAuthBotManager!=nil {h.telegramAuthBotManager.Configure("","")}
 	writeJSON(w,http.StatusOK,map[string]any{"configured":false,"username":"","running":false})
 }
