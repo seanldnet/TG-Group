@@ -134,8 +134,9 @@ func (p *Poller) handleVerificationCallback(ctx context.Context, bot managedBot,
 		FROM telegram_join_verification_challenges c JOIN telegram_groups g
 		ON g.id=c.group_id AND g.tenant_id=c.tenant_id
 		WHERE c.id=$1 AND c.tenant_id=$2 AND c.bot_id=$3 AND c.telegram_user_id=$4
-		AND c.status='pending' AND c.expires_at>now() AND g.telegram_chat_id=$5`,
-		parts[1],bot.tenantID,bot.id,query.From.ID,query.Message.Chat.ID).Scan(&challengeID,&groupID,&expected,&chatID)
+		AND c.status='pending' AND c.expires_at>now() AND g.telegram_chat_id=$5
+		AND c.challenge_message_id=$6`,
+		parts[1],bot.tenantID,bot.id,query.From.ID,query.Message.Chat.ID,query.Message.MessageID).Scan(&challengeID,&groupID,&expected,&chatID)
 	if err!=nil {
 		_ = p.answerCallback(ctx,token,query.ID,"验证已过期或该按钮不属于你的验证",true); return
 	}
