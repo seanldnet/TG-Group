@@ -53,10 +53,12 @@ func main() {
 			if err!=nil {logger.Error("configure platform Bot settings encryption","error",err);os.Exit(1)}
 			storedStatus,statusErr:=platformBotSettings.Status(startupCtx)
 			if statusErr!=nil {logger.Error("load platform Bot settings","error",statusErr);os.Exit(1)}
-			if storedStatus.Configured {
-				token,username,loadErr:=platformBotSettings.LoadToken(startupCtx)
-				if loadErr!=nil {logger.Error("decrypt platform Bot settings","error",loadErr);os.Exit(1)}
-				cfg.TelegramAuthBotToken,cfg.TelegramAuthBotUsername=token,username
+			if storedStatus.Managed {
+				if storedStatus.Configured {
+					token,username,loadErr:=platformBotSettings.LoadToken(startupCtx)
+					if loadErr!=nil {logger.Error("decrypt platform Bot settings","error",loadErr);os.Exit(1)}
+					cfg.TelegramAuthBotToken,cfg.TelegramAuthBotUsername=token,username
+				} else { cfg.TelegramAuthBotToken,cfg.TelegramAuthBotUsername="","" }
 			}
 		}
 		if cfg.TelegramAuthBotToken!="" {telegramIdentityManager.Configure(cfg.TelegramAuthBotToken,cfg.TelegramAuthBotUsername)}
