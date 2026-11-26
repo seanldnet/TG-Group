@@ -61,6 +61,8 @@ CAP 采用官方 Cap Standalone 服务端和官方 `cap-widget` Web Component。
 
 成功返回 `200` 和新会话 token。锁定/停用账号或停用租户不能登录。
 
+登录失败限制：同一规范化邮箱或同一来源 IP 在滚动 15 分钟内累计 5 次密码验证失败后，后续登录请求返回 `429 Too Many Requests`，并附带 `Retry-After: 900`。邮箱与 IP 标识在数据库中仅保存 SHA-256 摘要；相同标识的并发登录通过 PostgreSQL advisory lock 串行检查，避免并发绕过阈值。失败记录按 24 小时保留边界进行分批清理。成功登录不增加失败计数。
+
 ## 会话续期（Refresh Token）
 
 注册和登录成功后，服务端返回：
