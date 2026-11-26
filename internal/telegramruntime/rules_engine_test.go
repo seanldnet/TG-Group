@@ -74,3 +74,18 @@ func TestGroupOwnerAccessUsesLinkedTenantIdentity(t *testing.T) {
 		})
 	}
 }
+
+func TestValidRuleUUID(t *testing.T) {
+    tests:=[]struct{value string;want bool}{
+        {"00000000-0000-4000-8000-000000000001",true},
+        {"not-a-uuid",false},
+        {"00000000000040008000000000000001",false},
+        {"00000000-0000-4000-8000-00000000000Z",false},
+        {"",false},
+    }
+    for _,test:=range tests {
+        if got:=validRuleUUID(test.value);got!=test.want {
+            t.Errorf("validRuleUUID(%q)=%v want %v",test.value,got,test.want)
+        }
+    }
+}
