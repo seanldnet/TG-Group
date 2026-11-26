@@ -39,6 +39,8 @@ func NewHandlerWithTelegramAuthBot(logger *slog.Logger, authService *auth.Servic
 	mux.HandleFunc("POST /api/v1/auth/logout",h.logout)
 	mux.HandleFunc("GET /api/v1/auth/me",h.me)
 	mux.HandleFunc("GET /api/v1/auth/security-events",h.securityEvents)
+	mux.HandleFunc("GET /api/v1/auth/sessions",h.listAuthSessions)
+	mux.HandleFunc("DELETE /api/v1/auth/sessions/{sessionID}",h.revokeAuthSession)
 	mux.HandleFunc("GET /api/v1/auth/telegram",h.telegramIdentity)
 	mux.HandleFunc("POST /api/v1/auth/telegram/link",h.createTelegramLink)
 	mux.HandleFunc("DELETE /api/v1/auth/telegram",h.unlinkTelegramIdentity)
@@ -183,6 +185,41 @@ func (h *Handler) me(w http.ResponseWriter,r *http.Request) {
 	user,err:=h.auth.Authenticate(r.Context(),bearerToken(r))
 	if err!=nil { writeError(w,http.StatusUnauthorized,"unauthorized");return }
 	writeJSON(w,http.StatusOK,user)
+}
+
+func (h *Handler) listAuthSessions(w http.ResponseWriter,r *http.Request) {
+	if !h.requireAuthStore(w) { return }
+	token:=bearerToken(r)
+	if token=="" { writeError(w,http.StatusUnauthorized,"unauthorized");return }
+	limit:=20
+	if raw:=r.URL.Query().Get("limit");raw!="" {
+		value,err:=strconv.Atoi(raw)
+		if err!=nil || value<1 || value>100 { writeError(w,http.StatusBadRequest,"limit must be between 1 and 100");return }
+		limit=value
+	}
+	sessions,err:=h.auth.ListSessions(r.Context(),token,limit)
+	if err!=nil {
+		if errors.Is(err,auth.ErrUnauthorized) { writeError(w,http.StatusUnauthorized,"unauthorized");return }
+		h.logger.Error("list account sessions","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return
+	}
+	writeJSON(w,http.StatusOK,map[string]any{"items":sessions})
+}
+
+func (h *Handler) revokeAuthSession(w http.ResponseWriter,r *http.Request) {
+	if !h.requireAuthStore(w) { return }
+	token:=bearerToken(r)
+	if token=="" { writeError(w,http.StatusUnauthorized,"unauthorized");return }
+	err:=h.auth.RevokeSession(r.Context(),token,r.PathValue("sessionID"),r.RemoteAddr)
+	if err!=nil {
+		switch {
+		case errors.Is(err,auth.ErrUnauthorized): writeError(w,http.StatusUnauthorized,"unauthorized")
+		case errors.Is(err,auth.ErrCurrentSessionRevoke): writeError(w,http.StatusBadRequest,"不能撤销当前正在使用的登录会话")
+		case errors.Is(err,auth.ErrSessionNotFound): writeError(w,http.StatusNotFound,"登录会话不存在或已失效")
+		default: h.logger.Error("revoke account session","error",err);writeError(w,http.StatusInternalServerError,"internal server error")
+		}
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) securityEvents(w http.ResponseWriter,r *http.Request) {
