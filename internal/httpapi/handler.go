@@ -44,6 +44,8 @@ func NewHandlerWithPlatformBot(logger *slog.Logger, authService *auth.Service, b
 	mux.HandleFunc("GET /api/v1/admin/platform/telegram-auth-bot",h.platformTelegramBotStatus)
 	mux.HandleFunc("PUT /api/v1/admin/platform/telegram-auth-bot",h.updatePlatformTelegramBot)
 	mux.HandleFunc("DELETE /api/v1/admin/platform/telegram-auth-bot",h.clearPlatformTelegramBot)
+	mux.HandleFunc("GET /api/v1/admin/users",h.adminUsers)
+	mux.HandleFunc("PATCH /api/v1/admin/users/{userID}/status",h.updateAdminUserStatus)
 	mux.HandleFunc("POST /api/v1/auth/register",h.register)
 	mux.HandleFunc("POST /api/v1/auth/login",h.login)
 	mux.HandleFunc("POST /api/v1/auth/refresh",h.refresh)
@@ -564,5 +566,33 @@ func (h *Handler) writeBotError(w http.ResponseWriter,err error){
 	case errors.Is(err,bots.ErrTelegramOperation):writeError(w,http.StatusUnprocessableEntity,err.Error())
 	case errors.Is(err,bots.ErrGroupPermissionsUnavailable):writeError(w,http.StatusConflict,"group default permissions are unavailable; unmute was not applied")
 	default:h.logger.Error("Telegram bot operation failed","error",err);writeError(w,http.StatusInternalServerError,"internal server error")
+	}
+}
+
+func (h *Handler) adminUsers(w http.ResponseWriter,r *http.Request) {
+	if h.auth == nil { writeError(w,http.StatusServiceUnavailable,"authentication service unavailable"); return }
+	user,ok:=h.currentUser(w,r);if !ok{return}
+	if user.Role!="admin" { writeError(w,http.StatusForbidden,"platform administrator permission required"); return }
+	limit,offset:=25,0
+	if raw:=r.URL.Query().Get("limit");raw!="" { value,err:=strconv.Atoi(raw);if err!=nil||value<1||value>100{writeError(w,http.StatusBadRequest,"limit must be between 1 and 100");return};limit=value }
+	if raw:=r.URL.Query().Get("offset");raw!="" { value,err:=strconv.Atoi(raw);if err!=nil||value<0{writeError(w,http.StatusBadRequest,"offset must be a non-negative integer");return};offset=value }
+	items,total,err:=h.auth.ListAdminUsers(r.Context(),r.URL.Query().Get("search"),limit,offset)
+	if err!=nil { h.logger.Error("list platform users","error",err);writeError(w,http.StatusInternalServerError,"读取用户列表失败");return }
+	writeJSON(w,http.StatusOK,map[string]any{"items":items,"total":total,"limit":limit,"offset":offset})
+}
+
+func (h *Handler) updateAdminUserStatus(w http.ResponseWriter,r *http.Request) {
+	if h.auth == nil { writeError(w,http.StatusServiceUnavailable,"authentication service unavailable"); return }
+	user,ok:=h.currentUser(w,r);if !ok{return}
+	if user.Role!="admin" { writeError(w,http.StatusForbidden,"platform administrator permission required"); return }
+	var input adminUserStatusRequest
+	if !decodeJSON(w,r,&input){return}
+	err:=h.auth.UpdateAdminUserStatus(r.Context(),user.ID,r.PathValue("userID"),input.Status)
+	switch {
+	case err==nil: writeJSON(w,http.StatusOK,map[string]any{"ok":true,"status":input.Status})
+	case errors.Is(err,auth.ErrInvalidAdminUserStatus): writeError(w,http.StatusBadRequest,"管理员账号不可锁定，状态只能设置为 active 或 locked")
+	case errors.Is(err,auth.ErrAdminSelfLock): writeError(w,http.StatusBadRequest,"不能锁定当前登录的管理员账号")
+	case errors.Is(err,auth.ErrAdminUserNotFound): writeError(w,http.StatusNotFound,"用户不存在")
+	default: h.logger.Error("update platform user status","error",err);writeError(w,http.StatusInternalServerError,"更新用户状态失败")
 	}
 }
