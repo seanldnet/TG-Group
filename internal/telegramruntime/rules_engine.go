@@ -215,7 +215,7 @@ func (p *Poller) sendGroupMenu(ctx context.Context,chatID,messageID int64,token 
 	keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{
 		{{"text":"规则管理","callback_data":"group:rules"},{"text":"成员管理","callback_data":"group:members"}},
 		{{"text":"消息管理","callback_data":"group:messages"},{"text":"检查 Bot 权限","callback_data":"group:status"}},
-		{{"text":"刷新菜单","callback_data":"group:home"}},
+		{{"text":"群公告","callback_data":"group:announce"},{"text":"刷新菜单","callback_data":"group:home"}},
 	}}
 	payload:=map[string]any{"chat_id":chatID,"text":"TG-Group 群管 Bot 已连接。请直接点击下方按钮管理本群规则、成员和 Bot 权限。所有管理操作仅限已绑定的平台主人。"}
 	if messageID>0 { payload["reply_to_message_id"]=messageID }
@@ -235,6 +235,8 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 		p.sendGroupMembers(ctx,bot,groupID,query.Message.Chat.ID,token,offset)
 	case query.Data=="group:rule-events": p.sendGroupRuleEvents(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:messages": p.sendGroupMessages(ctx,bot,groupID,query.Message.Chat.ID,token)
+	case query.Data=="group:announce": p.beginGroupAnnouncement(ctx,bot,groupID,query.From.ID,query.Message.Chat.ID,token)
+	case strings.HasPrefix(query.Data,"group:ec:"): p.beginGroupRuleCustomEdit(ctx,bot,groupID,query.From.ID,query.Message.Chat.ID,query.Data,token)
 	case strings.HasPrefix(query.Data,"group:msg:"): p.handleGroupMessageAction(ctx,bot,groupID,query,token)
 	case strings.HasPrefix(query.Data,"group:create:"): p.createGroupRulePreset(ctx,bot,groupID,query.Message.Chat.ID,strings.TrimPrefix(query.Data,"group:create:"),token)
 	case strings.HasPrefix(query.Data,"group:ed:") || strings.HasPrefix(query.Data,"group:es:"): p.handleGroupRuleEdit(ctx,bot,groupID,query.Message.Chat.ID,query.Data,token)
@@ -612,6 +614,101 @@ func groupRuleEditConfig(kind,preset string) []byte {
 	return nil
 }
 
+func parseGroupRuleCustomEditCallback(data string)(ruleID,field string,ok bool) {
+ parts:=strings.Split(data,":")
+ if len(parts)!=4 || parts[0]!="group" || parts[1]!="ec" || !validRuleUUID(parts[2]) { return "", "", false }
+ if parts[3]!="text" && parts[3]!="words" && parts[3]!="patterns" { return "", "", false }
+ return parts[2],parts[3],true
+}
+func (p *Poller) saveGroupPendingInput(ctx context.Context,bot managedBot,groupID string,userID int64,action,ruleID string) error {
+ var rule any
+ if ruleID!="" { if !validRuleUUID(ruleID) { return bots.ErrInvalidGroupRule }; rule=ruleID }
+ _,err:=p.pool.Exec(ctx,"INSERT INTO telegram_group_pending_inputs(tenant_id,group_id,telegram_user_id,action,rule_id,expires_at) VALUES($1,$2,$3,$4,$5,now()+interval '5 minutes') ON CONFLICT(tenant_id,group_id,telegram_user_id) DO UPDATE SET action=EXCLUDED.action,rule_id=EXCLUDED.rule_id,created_at=now(),expires_at=EXCLUDED.expires_at",bot.tenantID,groupID,userID,action,rule)
+ return err
+}
+func (p *Poller) beginGroupRuleCustomEdit(ctx context.Context,bot managedBot,groupID string,userID,chatID int64,data,token string) {
+ ruleID,field,ok:=parseGroupRuleCustomEditCallback(data); if !ok || userID<=0 || p.botService==nil { return }
+ rules,err:=p.botService.ListGroupRules(ctx,bot.tenantID,groupID); if err!=nil { return }
+ var current *bots.GroupRule
+ for i:=range rules { if rules[i].ID==ruleID { current=&rules[i]; break } }
+ if current==nil { return }
+ action,prompt:="",""
+ switch field {
+ case "text":
+  if current.RuleType!="welcome" && current.RuleType!="leave_notice" { return }
+  action="rule_text";prompt="请直接回复新的完整文案（最多 4096 个字符）。可用变量：{user}、{username}、{group}。"
+ case "words":
+  if current.RuleType!="keyword_filter" && current.RuleType!="sensitive_word" { return }
+  action="rule_words";prompt="请发送关键词列表，每行一个，也可以用逗号分隔。最多 100 个词，每个不超过 100 个字符。"
+ case "patterns":
+  if current.RuleType!="anti_ad" { return }
+  action="rule_patterns";prompt="请发送广告匹配内容，每行一条，也可以用逗号分隔。最多 100 条，每条不超过 100 个字符。"
+ }
+ if err:=p.saveGroupPendingInput(ctx,bot,groupID,userID,action,ruleID); err!=nil { p.logger.Warn("save Telegram group edit session","group_id",groupID,"error",err); return }
+ _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":prompt+"\n本次输入等待 5 分钟；发送后自动校验并保存。","reply_markup":map[string]any{"force_reply":true,"selective":true}},nil)
+}
+func (p *Poller) beginGroupAnnouncement(ctx context.Context,bot managedBot,groupID string,userID,chatID int64,token string) {
+ if userID<=0 { return }
+ if err:=p.saveGroupPendingInput(ctx,bot,groupID,userID,"announcement",""); err!=nil { p.logger.Warn("save Telegram group announcement session","group_id",groupID,"error",err); return }
+ _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"请直接回复公告正文（最多 4000 个字符）。提交后 Bot 会在群内发布，并在具备置顶权限时自动置顶。5 分钟内有效。","reply_markup":map[string]any{"force_reply":true,"selective":true}},nil)
+}
+func splitRuleTerms(value string) []string {
+ parts:=strings.FieldsFunc(value,func(r rune)bool{return r=='\n'||r=='\r'||r==','||r=='，'||r==';'||r=='；'})
+ result:=make([]string,0,len(parts));seen:=map[string]bool{}
+ for _,part:=range parts { term:=strings.TrimSpace(part);key:=strings.ToLower(term);if term!=""&&!seen[key] { seen[key]=true;result=append(result,term) } }
+ return result
+}
+func (p *Poller) processPendingGroupInput(ctx context.Context,bot managedBot,groupID string,message *telegramMessage,token string) bool {
+ if message==nil || message.From==nil || message.From.ID<=0 { return false }
+ var action,ruleID string
+ err:=p.pool.QueryRow(ctx,"SELECT action,COALESCE(rule_id::text,'') FROM telegram_group_pending_inputs WHERE tenant_id=$1 AND group_id=$2 AND telegram_user_id=$3 AND expires_at>now()",bot.tenantID,groupID,message.From.ID).Scan(&action,&ruleID)
+ if err==pgx.ErrNoRows { _,_=p.pool.Exec(ctx,"DELETE FROM telegram_group_pending_inputs WHERE tenant_id=$1 AND group_id=$2 AND telegram_user_id=$3 AND expires_at<=now()",bot.tenantID,groupID,message.From.ID); return false }
+ if err!=nil { p.logger.Warn("load Telegram pending group input","group_id",groupID,"error",err); return false }
+ if !p.requireGroupOwner(ctx,bot,message.From.ID,message.Chat.ID,token) { _,_=p.pool.Exec(ctx,"DELETE FROM telegram_group_pending_inputs WHERE tenant_id=$1 AND group_id=$2 AND telegram_user_id=$3",bot.tenantID,groupID,message.From.ID); return true }
+ value:=strings.TrimSpace(message.Text); if value=="" { value=strings.TrimSpace(message.Caption) }
+ if value=="" || len([]rune(value))>4000 { _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":message.Chat.ID,"text":"输入不能为空，且不能超过 4000 个字符。请重新发送。"},nil); return true }
+ switch action {
+ case "announcement":
+  var targetChatID,botID int64
+  if err:=p.pool.QueryRow(ctx,"SELECT g.telegram_chat_id,b.telegram_bot_id FROM telegram_groups g JOIN telegram_bots b ON b.id=g.bot_id AND b.tenant_id=g.tenant_id WHERE g.tenant_id=$1 AND g.id=$2 AND g.status='active' AND b.status='active'",bot.tenantID,groupID).Scan(&targetChatID,&botID); err!=nil { return true }
+  var botMember telegramChatMember
+  if err:=p.callTelegram(ctx,token,"getChatMember",map[string]any{"chat_id":targetChatID,"user_id":botID},&botMember); err!=nil { return true }
+  var sent struct { MessageID int64 "json:\"message_id\"" }
+  if err:=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":targetChatID,"text":"📢 群公告\n\n"+value},&sent); err!=nil { _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":message.Chat.ID,"text":"公告发布失败，请检查 Bot 是否有发送消息权限。"},nil); return true }
+  pinned:=botMember.Status=="creator" || (botMember.Status=="administrator"&&botMember.CanPinMessages)
+  if pinned { if err:=p.callTelegram(ctx,token,"pinChatMessage",map[string]any{"chat_id":targetChatID,"message_id":sent.MessageID,"disable_notification":false},nil); err!=nil { pinned=false } }
+  var actorID string
+  if err:=p.pool.QueryRow(ctx,"SELECT id::text FROM users WHERE tenant_id=$1 AND telegram_id=$2 AND status='active'",bot.tenantID,message.From.ID).Scan(&actorID); err==nil {
+   _,_=p.pool.Exec(ctx,"INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id) VALUES($1,$2,'group.announcement.publish','telegram_group_message',$3)",bot.tenantID,actorID,fmt.Sprintf("%s:%d",groupID,sent.MessageID))
+  }
+  status:="公告已发布并置顶。"; if !pinned { status="公告已发布，但 Bot 缺少置顶权限或置顶失败。" }
+  _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":message.Chat.ID,"text":status},nil)
+ case "rule_text","rule_words","rule_patterns":
+  if p.botService==nil || !validRuleUUID(ruleID) { return true }
+  rules,err:=p.botService.ListGroupRules(ctx,bot.tenantID,groupID); if err!=nil { return true }
+  var current *bots.GroupRule
+  for i:=range rules { if rules[i].ID==ruleID { current=&rules[i]; break } }
+  if current==nil { return true }
+  config:=map[string]any{}
+  switch action {
+  case "rule_text":
+   if current.RuleType!="welcome" && current.RuleType!="leave_notice" { return true }; config["text"]=value
+  case "rule_words":
+   if current.RuleType!="keyword_filter" && current.RuleType!="sensitive_word" { return true }; config["words"]=splitRuleTerms(value); config["action"]="delete"
+  case "rule_patterns":
+   if current.RuleType!="anti_ad" { return true }; config["patterns"]=splitRuleTerms(value); config["action"]="delete"
+  }
+  encoded,err:=json.Marshal(config); if err!=nil { return true }
+  _,err=p.botService.UpdateGroupRule(ctx,bot.tenantID,groupID,ruleID,bots.GroupRuleInput{RuleType:current.RuleType,Name:current.Name,Enabled:current.Enabled,Priority:current.Priority,Config:encoded})
+  if err!=nil { _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":message.Chat.ID,"text":"内容未通过规则校验，原配置保持不变。请检查格式后重新发送。"},nil); return true }
+  _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":message.Chat.ID,"text":"自定义内容已校验并保存。"},nil)
+  p.sendGroupRules(ctx,bot,groupID,message.Chat.ID,token)
+ default: return true
+ }
+ _,_=p.pool.Exec(ctx,"DELETE FROM telegram_group_pending_inputs WHERE tenant_id=$1 AND group_id=$2 AND telegram_user_id=$3",bot.tenantID,groupID,message.From.ID)
+ return true
+}
+
 func (p *Poller) handleGroupRuleEdit(ctx context.Context,bot managedBot,groupID string,chatID int64,data,token string) {
 	stage,ruleID,preset,ok:=parseGroupRuleEditCallback(data)
 	if !ok || p.botService==nil { return }
@@ -632,6 +729,7 @@ func (p *Poller) handleGroupRuleEdit(ctx context.Context,bot managedBot,groupID 
 		case "join_verification": add("验证超时：60秒","v1");add("验证超时：180秒","v2");add("验证超时：300秒","v3");add("失败后：限制发言","vr");add("失败后：移出群组","vk")
 		default: return
 		}
+		switch current.RuleType { case "welcome","leave_notice": rows=append(rows,[]map[string]string{{"text":"自定义输入文案","callback_data":"group:ec:"+ruleID+":text"}}); case "keyword_filter","sensitive_word": rows=append(rows,[]map[string]string{{"text":"自定义关键词","callback_data":"group:ec:"+ruleID+":words"}}); case "anti_ad": rows=append(rows,[]map[string]string{{"text":"自定义广告匹配内容","callback_data":"group:ec:"+ruleID+":patterns"}}) }
 		rows=append(rows,[]map[string]string{{"text":"返回规则列表","callback_data":"group:rules"}})
 		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"编辑规则："+current.Name+"\n请选择要应用的配置预设。保存后立即生效；原配置会被所选预设整体替换。","reply_markup":map[string]any{"inline_keyboard":rows}},nil)
 		return
