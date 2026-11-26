@@ -92,3 +92,51 @@ func TestRegistrationSessionLifecyclePostgres(t *testing.T) {
     unlinked,err:=service.TelegramIdentity(ctx,registered.User.ID)
     if err!=nil || unlinked.ID!=nil { t.Fatalf("Telegram identity still linked after unlink: %+v, err=%v",unlinked,err) }
 }
+
+func TestChangePasswordRevokesPreviousSessionsPostgres(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" { t.Skip("TEST_DATABASE_URL is not configured") }
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	db, err := database.Open(ctx, databaseURL)
+	if err != nil { t.Fatalf("open test database: %v", err) }
+	defer db.Close()
+	if err := db.Migrate(ctx); err != nil { t.Fatalf("apply migrations: %v", err) }
+
+	service := NewService(db.Pool)
+	email := fmt.Sprintf("password-change-%d@example.test", time.Now().UnixNano())
+	first, err := service.Register(ctx,email,"old-password-123","Password Test","","127.0.0.1:4321")
+	if err != nil { t.Fatalf("register: %v",err) }
+	second, err := service.Login(ctx,email,"old-password-123","","127.0.0.1:4322")
+	if err != nil { t.Fatalf("second login: %v",err) }
+
+	if _, err := service.ChangePassword(ctx,first.Token,"incorrect-password","new-password-456","","127.0.0.1:4321"); !errors.Is(err,ErrCurrentPasswordInvalid) {
+		t.Fatalf("wrong current password error = %v, want ErrCurrentPasswordInvalid",err)
+	}
+	if _, err := service.ChangePassword(ctx,first.Token,"old-password-123","short","",""); !errors.Is(err,ErrInvalidInput) {
+		t.Fatalf("weak new password error = %v, want ErrInvalidInput",err)
+	}
+	if _, err := service.ChangePassword(ctx,first.Token,"old-password-123","old-password-123","",""); !errors.Is(err,ErrInvalidInput) {
+		t.Fatalf("unchanged password error = %v, want ErrInvalidInput",err)
+	}
+
+	changed, err := service.ChangePassword(ctx,first.Token,"old-password-123","new-password-456","integration-test","127.0.0.1:4321")
+	if err != nil { t.Fatalf("change password: %v",err) }
+	if changed.Token == "" || changed.RefreshToken == "" { t.Fatal("password change did not issue a replacement session") }
+	if _, err := service.Authenticate(ctx,changed.Token); err != nil { t.Fatalf("authenticate replacement session: %v",err) }
+	if _, err := service.Authenticate(ctx,first.Token); !errors.Is(err,ErrUnauthorized) {
+		t.Fatalf("old current session error = %v, want ErrUnauthorized",err)
+	}
+	if _, err := service.Authenticate(ctx,second.Token); !errors.Is(err,ErrUnauthorized) {
+		t.Fatalf("other device session error = %v, want ErrUnauthorized",err)
+	}
+	if _, err := service.Refresh(ctx,first.RefreshToken,"",""); !errors.Is(err,ErrRefreshUnauthorized) {
+		t.Fatalf("old refresh token error = %v, want ErrRefreshUnauthorized",err)
+	}
+	if _, err := service.Login(ctx,email,"old-password-123","",""); !errors.Is(err,ErrInvalidCredentials) {
+		t.Fatalf("old password login error = %v, want ErrInvalidCredentials",err)
+	}
+	if _, err := service.Login(ctx,email,"new-password-456","",""); err != nil {
+		t.Fatalf("login with new password: %v",err)
+	}
+}
