@@ -274,3 +274,6 @@
 - **前端**：注册页、登录页通过独立 CaptchaField 加载官方 Web Component；失败后重新挂载组件获取新 token。未配置 CAP 时不显示组件，开发环境原有流程兼容。
 - **测试**：新增官方 siteverify 请求体/路径、成功/失败/空 token、配置校验、loopback HTTP 限制及公开配置不泄露 secret 测试；更新配置、API 和人工验收文档。
 - **限制**：本次接入覆盖网站注册/登录；Telegram 群聊不能直接渲染浏览器 CAP 组件，群内继续采用数学题 Inline Keyboard 与频道成员校验。真实 CAP 端到端仍需部署 Cap Standalone、创建站点密钥并进行浏览器联调。
+
+
+- **CAP 资源部署补充**：新增可选 `CAP_WIDGET_URL`，支持将官方 `widget.js` 指向自托管/镜像地址；默认使用固定版本 CDN。公开 CAPTCHA 配置只返回该脚本地址，不返回任何 secret。增加 widget URL HTTPS/loopback 校验与配置测试，并同步本地联调文档。若使用 Cap Standalone assets server，仍需按官方说明固定 widget/WASM 版本并保证 WASM 文件浏览器可访问。
