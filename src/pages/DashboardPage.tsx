@@ -23,8 +23,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let active = true
-    currentUser()
-      .then((value) => {
+    Promise.all([currentUser(), getTelegramIdentity()])
+      .then(([value, telegramValue]) => {
         if (active) { setUser(value); setTelegram(telegramValue) }
       })
       .catch((cause: unknown) => {
