@@ -112,7 +112,7 @@ func (p *Poller) startJoinVerification(ctx context.Context, bot managedBot, grou
 	}
 	var sent struct { MessageID int64 `json:"message_id"` }
 	err=p.callTelegram(ctx,token,"sendMessage",map[string]any{
-		"chat_id":chatID,"text":fmt.Sprintf("欢迎 %s！请在 %d 秒内完成验证：%s%s",renderNotice("{user}",member,""),cfg.TimeoutSeconds,prompt,requiredChannelPrompt(cfg.RequiredChannels)),
+		"chat_id":chatID,"text":fmt.Sprintf("欢迎 %s！请在 %d 秒内完成验证：%s%s",html.EscapeString(renderNotice("{user}",member,"")),cfg.TimeoutSeconds,prompt,requiredChannelPrompt(cfg.RequiredChannels)),
 		"parse_mode":"HTML","reply_markup":replyMarkup,
 	},&sent)
 	if err!=nil {
