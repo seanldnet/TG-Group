@@ -264,3 +264,13 @@
 - **文档**：更新 API、开发计划和人工验收步骤。CAP.js 官方服务端验证仍未接入。
 
 - **频道验证测试修复与 CI**：首轮频道验证 CI run `45726378568` 发现运行时测试错误引用了 bots 包内未导出的配置校验 helper，已删除跨包引用；该校验本身由 `internal/bots/group_rules_test.go` 覆盖。修复提交 `38d8fba244e4e4dd6d0a66dad9aa88aa0e096633` 对应 run `45726537680` 的 Go 格式检查、Go/PostgreSQL 测试、`go vet ./...` 和前端生产构建均通过。
+
+
+### 官方 CAP.js 接入网站认证（第十五批第三阶段）
+- **官方方案核实**：采用 Cap Standalone 官方服务端与 `/siteverify`，而不是官方文档已标记为被取代的旧 `@cap.js/server` 集成方式；前端固定使用官方 `cap-widget@0.1.58`。
+- **后端配置**：新增 `CAP_BASE_URL`、`CAP_SITE_KEY`、`CAP_SECRET`；三项必须同时配置。远程站点只允许 HTTPS，HTTP 仅允许 loopback 本地开发地址。
+- **服务端验证**：新增 CAP verifier，限制请求超时与响应体大小；按官方 JSON 协议提交站点 secret 和浏览器 response token；仅接受 2xx 且 `success=true`。空 token、无效/重放 token、服务异常均失败关闭；secret 不会出现在公开配置接口。
+- **API**：新增 `GET /api/v1/security/captcha`，只返回 enabled 和公开 endpoint；网站注册、登录请求支持 `captcha_token`，启用 CAP 后强制服务端校验。
+- **前端**：注册页、登录页通过独立 CaptchaField 加载官方 Web Component；失败后重新挂载组件获取新 token。未配置 CAP 时不显示组件，开发环境原有流程兼容。
+- **测试**：新增官方 siteverify 请求体/路径、成功/失败/空 token、配置校验、loopback HTTP 限制及公开配置不泄露 secret 测试；更新配置、API 和人工验收文档。
+- **限制**：本次接入覆盖网站注册/登录；Telegram 群聊不能直接渲染浏览器 CAP 组件，群内继续采用数学题 Inline Keyboard 与频道成员校验。真实 CAP 端到端仍需部署 Cap Standalone、创建站点密钥并进行浏览器联调。
