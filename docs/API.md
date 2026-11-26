@@ -357,4 +357,6 @@ openssl rand -base64 32
 
 - `GET /api/v1/groups/{groupID}/members/{userID}/warning-escalations?limit=50`：查询指定成员在当前群组的递进处罚执行记录，默认 50 条，范围 1–100。查询按当前登录用户 tenant、groupID 和 Telegram userID 三重约束。
 - `POST /api/v1/groups/{groupID}/members/{userID}/warning-escalations/{executionID}/retry`：仅允许重试状态为 `failed` 且属于当前租户、群组和成员的执行记录。状态通过数据库条件更新原子抢占，避免并发重复重试；重试时重新调用成员处罚服务，实时检查 Bot 权限并拒绝处罚群主/管理员。成功后状态变为 `succeeded`，失败则保留 `failed` 和错误详情。
-- 当前提供的是管理员手动重试入口，不是自动后台重试队列。进程崩溃后的 `processing` 记录恢复、退避重试调度及自动恢复 worker 仍待实现。Telegram 真实群组联调仍是独立验收项。
+- 后端现已增加 PostgreSQL 持久化自动重试 worker：失败记录按到期时间进入队列，采用 30 秒起步、指数递增、最长 1 小时的退避；最多自动尝试 8 次。超过 5 分钟仍处于 `processing` 的任务会被重新抢占，覆盖进程崩溃/异常退出后的恢复场景。
+- 自动 worker 使用数据库原子领取和租户/群组归属约束；每次重试仍调用成员处罚服务，重新检查 Bot 实时权限并拒绝处罚群主/管理员。达到自动重试上限后保留失败记录，管理员仍可手动重试（手动重试会重新开启自动重试计数）。
+- 自动恢复属于至少一次执行语义：若 Telegram 已执行成功但进程在写回结果前崩溃，过期任务可能再次调用 Telegram；封禁/禁言前会重新检查目标状态，但仍需真实群组验收此边界。
