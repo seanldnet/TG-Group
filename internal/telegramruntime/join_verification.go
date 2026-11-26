@@ -75,23 +75,22 @@ func (p *Poller) startJoinVerification(ctx context.Context, bot managedBot, grou
 	if botMember.Status != "creator" && (botMember.Status != "administrator" || !botMember.CanRestrictMembers) {
 		p.logger.Warn("join verification skipped because Bot lacks can_restrict_members", "group_id", groupID); return
 	}
-	a, err := randomInt(1,9); if err != nil { p.logger.Error("generate join challenge", "error", err); return }
-	b, err := randomInt(1,9); if err != nil { p.logger.Error("generate join challenge", "error", err); return }
-	answer := a+b
-	options := joinChallengeOptions(answer)
+	answerText, prompt, options, numericAnswer, err := generateJoinChallenge(cfg.ChallengeType)
+	if err != nil { p.logger.Error("generate join challenge", "error", err); return }
 	for i:=len(options)-1;i>0;i-- {
 		j,err:=randomInt(0,int64(i)); if err!=nil { p.logger.Error("shuffle join challenge", "error", err); return }
 		options[i],options[j]=options[j],options[i]
 	}
 	var challengeID string
 	err=p.pool.QueryRow(ctx,`INSERT INTO telegram_join_verification_challenges(
-		tenant_id,bot_id,group_id,telegram_user_id,answer,failure_action,expires_at,required_channels)
-		VALUES($1,$2,$3,$4,$5,$6,now()+($7 * interval '1 second'),$8::jsonb)
+		tenant_id,bot_id,group_id,telegram_user_id,answer,challenge_type,answer_text,challenge_options,failure_action,expires_at,required_channels)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,now()+($10 * interval '1 second'),$11::jsonb)
 		ON CONFLICT(group_id,telegram_user_id) DO UPDATE SET
 			tenant_id=EXCLUDED.tenant_id,bot_id=EXCLUDED.bot_id,answer=EXCLUDED.answer,
+			challenge_type=EXCLUDED.challenge_type,answer_text=EXCLUDED.answer_text,challenge_options=EXCLUDED.challenge_options,
 			status='pending',failure_action=EXCLUDED.failure_action,challenge_message_id=NULL,
-			expires_at=EXCLUDED.expires_at,updated_at=now()
-		RETURNING id::text`,bot.tenantID,bot.id,groupID,member.ID,answer,cfg.FailureAction,cfg.TimeoutSeconds,mustJSON(cfg.RequiredChannels)).Scan(&challengeID)
+			expires_at=EXCLUDED.expires_at,required_channels=EXCLUDED.required_channels,updated_at=now()
+		RETURNING id::text`,bot.tenantID,bot.id,groupID,member.ID,numericAnswer,cfg.ChallengeType,answerText,mustJSON(options),cfg.FailureAction,cfg.TimeoutSeconds,mustJSON(cfg.RequiredChannels)).Scan(&challengeID)
 	if err!=nil { p.logger.Error("save join verification challenge", "group_id", groupID, "error", err); return }
 	locked:=chatPermissions{}
 	if err:=p.callTelegram(ctx,token,"restrictChatMember",map[string]any{
@@ -108,7 +107,7 @@ func (p *Poller) startJoinVerification(ctx context.Context, bot managedBot, grou
 	buttons=append(buttons,row)
 	var sent struct { MessageID int64 `json:"message_id"` }
 	err=p.callTelegram(ctx,token,"sendMessage",map[string]any{
-		"chat_id":chatID,"text":fmt.Sprintf("欢迎 %s！请在 %d 秒内完成验证：%d + %d = ?%s",renderNotice("{user}",member,""),cfg.TimeoutSeconds,a,b,requiredChannelPrompt(cfg.RequiredChannels)),
+		"chat_id":chatID,"text":fmt.Sprintf("欢迎 %s！请在 %d 秒内完成验证：%s%s",renderNotice("{user}",member,""),cfg.TimeoutSeconds,prompt,requiredChannelPrompt(cfg.RequiredChannels)),
 		"reply_markup":map[string]any{"inline_keyboard":buttons},
 	},&sent)
 	if err!=nil {
@@ -125,20 +124,19 @@ func (p *Poller) startJoinVerification(ctx context.Context, bot managedBot, grou
 func (p *Poller) handleVerificationCallback(ctx context.Context, bot managedBot, query telegramCallbackQuery, token string) {
 	parts:=strings.Split(query.Data,":")
 	if len(parts)!=3 || parts[0]!="tgverify" { return }
-	answer,err:=strconv.ParseInt(parts[2],10,16)
-	if err!=nil { return }
+	optionIndex,err:=strconv.Atoi(parts[2])
+	if err!=nil || optionIndex<0 || optionIndex>2 { return }
 	if query.Message==nil { return }
-	var challengeID,groupID string
-	var expected int64
+	var challengeID,groupID,expected,challengeType string
 	var chatID int64
-	var requiredChannelsJSON []byte
-	err=p.pool.QueryRow(ctx,`SELECT c.id::text,c.group_id::text,c.answer,g.telegram_chat_id,c.required_channels
+	var requiredChannelsJSON,optionsJSON []byte
+	err=p.pool.QueryRow(ctx,`SELECT c.id::text,c.group_id::text,c.answer_text,c.challenge_type,c.challenge_options,g.telegram_chat_id,c.required_channels
 		FROM telegram_join_verification_challenges c JOIN telegram_groups g
 		ON g.id=c.group_id AND g.tenant_id=c.tenant_id
 		WHERE c.id=$1 AND c.tenant_id=$2 AND c.bot_id=$3 AND c.telegram_user_id=$4
 		AND c.status='pending' AND c.expires_at>now() AND g.telegram_chat_id=$5
 		AND c.challenge_message_id=$6`,
-		parts[1],bot.tenantID,bot.id,query.From.ID,query.Message.Chat.ID,query.Message.MessageID).Scan(&challengeID,&groupID,&expected,&chatID,&requiredChannelsJSON)
+		parts[1],bot.tenantID,bot.id,query.From.ID,query.Message.Chat.ID,query.Message.MessageID).Scan(&challengeID,&groupID,&expected,&challengeType,&optionsJSON,&chatID,&requiredChannelsJSON)
 	if err!=nil {
 		_ = p.answerCallback(ctx,token,query.ID,"验证已过期或该按钮不属于你的验证",true); return
 	}
@@ -217,6 +215,37 @@ func (p *Poller) expireJoinVerificationChallenges(ctx context.Context, bot manag
 	}
 }
 
+
+func generateJoinChallenge(challengeType string) (string,string,[]string,int64,error) {
+	const letters="ABCDEFGHJKLMNPQRSTUVWXYZ"
+	const alpha="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	switch challengeType {
+	case "math":
+		a,err:=randomInt(1,9);if err!=nil{return "","",nil,0,err}
+		b,err:=randomInt(1,9);if err!=nil{return "","",nil,0,err}
+		answer:=a+b
+		values:=joinChallengeOptions(answer)
+		options:=make([]string,len(values))
+		for i,v:=range values{options[i]=strconv.FormatInt(v,10)}
+		return strconv.FormatInt(answer,10),fmt.Sprintf("%d + %d = ?",a,b),options,answer,nil
+	case "letters","alphanumeric":
+		alphabet:=letters;if challengeType=="alphanumeric"{alphabet=alpha}
+		code:=make([]byte,4)
+		for i:=range code{n,err:=randomInt(0,int64(len(alphabet)-1));if err!=nil{return "","",nil,0,err};code[i]=alphabet[n]}
+		answer:=string(code)
+		wrong:=make([]string,0,2)
+		for len(wrong)<2{
+			candidate:=make([]byte,4)
+			for i:=range candidate{n,err:=randomInt(0,int64(len(alphabet)-1));if err!=nil{return "","",nil,0,err};candidate[i]=alphabet[n]}
+			value:=string(candidate);if value==answer{continue}
+			duplicate:=false;for _,v:=range wrong{if v==value{duplicate=true;break}}
+			if !duplicate{wrong=append(wrong,value)}
+		}
+		return answer,"请输入验证码："+answer,[]string{answer,wrong[0],wrong[1]},2,nil
+	default:
+		return "","",nil,0,fmt.Errorf("unsupported join challenge type %q",challengeType)
+	}
+}
 
 func joinChallengeOptions(answer int64) []int64 {
 	if answer < 2 || answer > 18 { return nil }
