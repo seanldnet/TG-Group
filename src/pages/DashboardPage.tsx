@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { Bot, LogOut, ShieldCheck, UsersRound } from "lucide-react"
 
-import { clearToken, currentUser, logout, getTelegramIdentity, createTelegramLink, unlinkTelegramIdentity, changePassword, saveToken, type TelegramIdentityStatus, type User } from "@/lib/api"
+import { clearToken, currentUser, logout, getTelegramIdentity, createTelegramLink, unlinkTelegramIdentity, changePassword, saveToken, listSecurityEvents, type AccountSecurityEvent, type TelegramIdentityStatus, type User } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,12 +28,20 @@ export default function DashboardPage() {
   const [passwordBusy, setPasswordBusy] = useState(false)
   const [passwordMessage, setPasswordMessage] = useState("")
   const [passwordError, setPasswordError] = useState("")
+  const [securityEvents, setSecurityEvents] = useState<AccountSecurityEvent[]>([])
+  const [securityEventsError, setSecurityEventsError] = useState("")
 
   useEffect(() => {
     let active = true
     Promise.all([currentUser(), getTelegramIdentity()])
       .then(([value, telegramValue]) => {
-        if (active) { setUser(value); setTelegram(telegramValue) }
+        if (active) {
+          setUser(value)
+          setTelegram(telegramValue)
+          listSecurityEvents(20).then((result) => { if (active) setSecurityEvents(result.items) }).catch((cause: unknown) => {
+            if (active) setSecurityEventsError(cause instanceof Error ? cause.message : "安全记录加载失败")
+          })
+        }
       })
       .catch((cause: unknown) => {
         clearToken()
@@ -268,6 +276,41 @@ export default function DashboardPage() {
           </Card>
         </div>
       </div>
+        <div className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>账号安全记录</CardTitle>
+              <CardDescription>最近 20 条登录、退出、会话续期、密码及 Telegram 身份操作记录。</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {securityEventsError ? (
+                <p role="alert" className="text-sm text-destructive">{securityEventsError}</p>
+              ) : securityEvents.length === 0 ? (
+                <p className="text-sm text-muted-foreground">暂无账号安全记录</p>
+              ) : securityEvents.map((event) => (
+                <div key={event.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 pb-3 last:border-0 last:pb-0">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">
+                      {{
+                        "auth.register": "注册账号",
+                        "auth.login": "登录成功",
+                        "auth.logout": "退出登录",
+                        "auth.refresh": "会话续期",
+                        "auth.password_change": "修改登录密码",
+                        "auth.telegram_link": "绑定 Telegram",
+                        "auth.telegram_unlink": "解除 Telegram 绑定",
+                      }[event.action] || event.action}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {event.ip_address ? `来源 IP：${event.ip_address} · ` : ""}{new Date(event.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  <Badge variant="outline">{event.resource_type || "account"}</Badge>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
     </main>
   )
 }
