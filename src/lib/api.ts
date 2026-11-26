@@ -288,7 +288,7 @@ export type TelegramGroupMemberWarning = {
 }
 
 export function listGroupMemberWarnings(groupID: string, userID: number) {
-  return request<{ items: TelegramGroupMemberWarning[] }>(
+  return request<{ items: TelegramGroupMemberWarning[]; total: number }>(
     `/api/v1/groups/${encodeURIComponent(groupID)}/members/${userID}/warnings`,
     { headers: authenticatedHeaders() },
   )
