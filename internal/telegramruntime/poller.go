@@ -332,6 +332,7 @@ func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update,to
 		messageType(*message),content,sentAt)
 	if err!=nil{return fmt.Errorf("persist Telegram message event: %w",err)}
 	if tag.RowsAffected()==1 {
+		if p.processPendingGroupInput(ctx,bot,groupID,message,token) { return nil }
 		p.processMessageRules(ctx,bot,groupID,item,message,token)
 	}
 	return nil
