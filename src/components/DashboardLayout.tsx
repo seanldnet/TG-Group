@@ -1,5 +1,5 @@
 import {useEffect,useState,type ReactNode} from "react"
-import {Activity,Bot,ChevronRight,ClipboardList,KeyRound,LayoutDashboard,Link2,LogOut,Menu,ShieldCheck,UsersRound,X} from "lucide-react"
+import {Activity,Bot,ChevronRight,ClipboardList,KeyRound,LayoutDashboard,LogOut,Menu,ShieldCheck,UsersRound,X} from "lucide-react"
 import {clearToken,currentUser,logout,type User} from "@/lib/api"
 import {Badge} from "@/components/ui/badge"
 import {Button} from "@/components/ui/button"
