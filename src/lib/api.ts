@@ -69,18 +69,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       const token = getToken()
       if (token) headers.set("Authorization", `Bearer ${token}`)
     }
-    return fetch(path, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...Object.fromEntries(headers.entries()),
-      },
-      cache: "no-store",
-    })
+    headers.set("Content-Type", "application/json")
+    return fetch(path, { ...init, headers, cache: "no-store" })
   }
 
   let response = await send()
-  const refreshable = !path.endsWith("/auth/refresh") &&
+  const requiresAuth = new Headers(init.headers).has("Authorization")
+  const refreshable = requiresAuth && !path.endsWith("/auth/refresh") &&
     !path.endsWith("/auth/login") &&
     !path.endsWith("/auth/register")
   if (response.status === 401 && refreshable && sessionStorage.getItem(REFRESH_TOKEN_KEY)) {
