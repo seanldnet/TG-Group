@@ -14,6 +14,7 @@ type Config struct {
 	CAPBaseURL string
 	CAPSiteKey string
 	CAPSecret string
+	CAPWidgetURL string
 }
 
 func Load() (Config, error) {
@@ -30,7 +31,7 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("CAP_BASE_URL, CAP_SITE_KEY and CAP_SECRET must be configured together")
 	}
 	return Config{
-		CAPBaseURL: capBaseURL, CAPSiteKey: capSiteKey, CAPSecret: capSecret,
+		CAPBaseURL: capBaseURL, CAPSiteKey: capSiteKey, CAPSecret: capSecret, CAPWidgetURL: os.Getenv("CAP_WIDGET_URL"),
 		HTTPAddr: fmt.Sprintf(":%d", portNumber),
 		Environment: environment,
 		DatabaseURL: os.Getenv("DATABASE_URL"),
