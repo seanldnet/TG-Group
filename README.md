@@ -65,3 +65,23 @@ TG_GROUP_API_PROXY="http://127.0.0.1:8080" pnpm dev
 - [本地开发与测试指南](docs/LOCAL-TESTING.md)
 - [开发计划](docs/DEVELOPMENT-PLAN.md)
 - [开发日志](docs/DEVELOPMENT-LOG.md)
+
+## Docker 一键部署（无需服务器编译或手动配置）
+
+支持 Docker Engine + Docker Compose Plugin 的 Linux 服务器。部署脚本会在 Ubuntu/Debian 或 RHEL 系（dnf）环境自动安装 Docker（如尚未安装），自动生成数据库密码和 Bot Token 加密密钥，拉取 GHCR 预构建镜像并启动 PostgreSQL、API、Web。服务器不会执行 Go 或前端构建。
+
+首次部署只需执行：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/seanldnet/Tg-group/main/deploy/install.sh | sudo bash
+```
+
+- 访问：`http://服务器公网IP:18680`
+- 测试管理员：用户名 `admin`，密码 `123456`
+- 数据库只在 Docker 内网开放，不映射到宿主机端口。
+- 数据持久化在 Docker volume `tg_group_postgres`；安装生成的密钥文件位于 `/opt/tg-group/.env`，由脚本自动生成，不需要手动编辑。
+- 查看日志：`cd /opt/tg-group && docker compose logs -f`
+- 更新镜像：`cd /opt/tg-group && docker compose pull && docker compose up -d`
+- 停止：`cd /opt/tg-group && docker compose down`（不会删除数据库卷）；彻底删除数据需另行执行 `docker compose down -v`。
+
+**安全提示：**这是测试用默认管理员密码，任何公网环境都必须在测试后立即修改密码并限制访问。请在云服务器安全组/防火墙放行 TCP 18680。GHCR 镜像需为 Public，发布工作流会尝试自动设置包可见性；首次发布后请确认两个容器包均允许匿名拉取。
