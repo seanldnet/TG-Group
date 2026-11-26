@@ -1,6 +1,6 @@
 package telegramruntime
 
-import ("testing"; "encoding/json"; "github.com/seanldnet/tg-group/internal/bots")
+import ("testing"; "encoding/json"; "strconv"; "github.com/seanldnet/tg-group/internal/bots")
 
 func TestRenderNotice(t *testing.T) {
 	member:=telegramSender{ID:42,Username:"ada",FirstName:"Ada",LastName:"Lovelace"}
@@ -171,4 +171,23 @@ func TestParseGroupMemberDetailCallback(t *testing.T) {
 		got,ok:=parseGroupMemberDetailCallback(tt.value)
 		if ok!=tt.ok || (ok && got!=tt.want) { t.Errorf("parseGroupMemberDetailCallback(%q) = (%d,%v), want (%d,%v)",tt.value,got,ok,tt.want,tt.ok) }
 	}
+}
+
+func TestParseGroupMemberMuteConfirm(t *testing.T) {
+	const id="123456"
+	for _,minutes:=range []string{"10","30","60","1440"} {
+		stage,action,gotMinutes,gotID,ok:=parseGroupMemberMuteConfirm("group:member:confirm:mute:"+minutes+":"+id)
+		if !ok || stage!="confirm" || action!="mute" || gotID!=123456 { t.Fatalf("unexpected parse result for %s",minutes) }
+		want,_:=strconv.Atoi(minutes);if gotMinutes!=want { t.Fatalf("minutes=%d want %d",gotMinutes,want) }
+	}
+	for _,value:=range []string{"group:member:confirm:mute:1:123","group:member:confirm:mute:999999:123","group:member:confirm:mute:30:0","group:member:confirm:ban:30:123"} {
+		if _,_,_,_,ok:=parseGroupMemberMuteConfirm(value);ok { t.Errorf("accepted invalid callback %q",value) }
+	}
+}
+
+func TestParseGroupMessageActionCallback(t *testing.T) {
+	valid:=[]string{"group:msg:delete:ask:100","group:msg:delete:confirm:100","group:msg:pin:run:100"}
+	for _,value:=range valid { if _,_,id,ok:=parseGroupMessageActionCallback(value);!ok || id!=100 { t.Errorf("rejected %q",value) } }
+	invalid:=[]string{"group:msg:delete:run:100","group:msg:pin:confirm:100","group:msg:delete:ask:-1","group:msg:delete:ask:0","group:msg:other:ask:100"}
+	for _,value:=range invalid { if _,_,_,ok:=parseGroupMessageActionCallback(value);ok { t.Errorf("accepted %q",value) } }
 }
