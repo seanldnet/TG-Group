@@ -1,0 +1,87 @@
+import { useEffect, useState, type ReactNode } from "react"
+import { Activity, Bot, ChevronRight, ClipboardList, LayoutDashboard, LogOut, Menu, ShieldCheck, UsersRound, X } from "lucide-react"
+import { clearToken, currentUser, logout, type User } from "@/lib/api"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
+
+const navigation = [
+  { href: "/dashboard", label: "控制台首页", icon: LayoutDashboard },
+  { href: "/dashboard/bots", label: "机器人管理", icon: Bot },
+  { href: "/dashboard/groups", label: "群组管理", icon: UsersRound },
+]
+
+export default function DashboardLayout({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
+  const pathname = window.location.pathname
+
+  useEffect(() => {
+    let active = true
+    currentUser().then(value => { if (active) setUser(value) }).catch(() => {
+      clearToken()
+      window.location.replace("/login")
+    })
+    return () => { active = false }
+  }, [])
+
+  async function handleLogout() {
+    setSigningOut(true)
+    try { await logout() } finally {
+      clearToken()
+      window.location.replace("/login")
+    }
+  }
+
+  const sidebar = (
+    <div className="flex h-full flex-col">
+      <a href="/dashboard" className="flex h-16 items-center gap-3 px-5">
+        <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><ShieldCheck className="size-5" /></span>
+        <span><span className="block text-sm font-bold tracking-tight">TG-Group</span><span className="block text-[11px] text-muted-foreground">社群管理平台</span></span>
+      </a>
+      <Separator />
+      <div className="px-3 pt-5">
+        <p className="px-3 pb-2 text-[11px] font-semibold tracking-wider text-muted-foreground">工作空间</p>
+        <nav className="space-y-1">
+          {navigation.map(item => {
+            const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"))
+            const Icon = item.icon
+            return <a key={item.href} href={item.href} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
+              <Icon className="size-4 shrink-0" /><span className="flex-1">{item.label}</span>{active && <ChevronRight className="size-4" />}
+            </a>
+          })}
+        </nav>
+      </div>
+      <div className="mt-6 px-3">
+        <p className="px-3 pb-2 text-[11px] font-semibold tracking-wider text-muted-foreground">账户与安全</p>
+        <a href="/dashboard#account-security" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"><ShieldCheck className="size-4" />账号安全</a>
+        <a href="/dashboard#login-devices" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"><Activity className="size-4" />登录设备</a>
+        <a href="/dashboard#security-logs" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"><ClipboardList className="size-4" />安全日志</a>
+      </div>
+      <div className="mt-auto p-4">
+        <Separator className="mb-4" />
+        <div className="mb-3 flex min-w-0 items-center gap-2 px-1">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">{(user?.display_name || user?.email || "U").slice(0,1).toUpperCase()}</div>
+          <div className="min-w-0 flex-1"><p className="truncate text-xs font-medium">{user?.display_name || user?.email || "正在加载账号"}</p><p className="text-[11px] text-muted-foreground">{user?.role || "用户"}</p></div>
+          <Badge variant="outline" className="text-[10px]">在线</Badge>
+        </div>
+        <Button variant="outline" size="sm" className="w-full justify-start" onClick={handleLogout} disabled={signingOut}><LogOut className="mr-2 size-4" />{signingOut ? "正在退出..." : "退出登录"}</Button>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="min-h-svh bg-muted/20">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-border bg-background lg:block">{sidebar}</aside>
+      <div className="lg:pl-64">
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border/70 bg-background/95 px-4 backdrop-blur sm:px-6">
+          <div className="flex items-center gap-2"><Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMenuOpen(v => !v)} aria-label="打开导航菜单">{menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}</Button><span className="text-sm font-semibold lg:hidden">TG-Group</span><span className="hidden text-xs text-muted-foreground lg:inline">管理控制台</span></div>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground"><span className="hidden sm:inline">{user?.email || "账号工作空间"}</span><Badge variant="secondary">控制台</Badge></div>
+        </header>
+        {menuOpen && <div className="fixed inset-0 z-40 bg-black/30 lg:hidden" onClick={() => setMenuOpen(false)}><aside className="h-full w-72 border-r bg-background shadow-xl" onClick={event => event.stopPropagation()}>{sidebar}</aside></div>}
+        <div className="min-h-[calc(100svh-3.5rem)] min-w-0">{children}</div>
+      </div>
+    </div>
+  )
+}
