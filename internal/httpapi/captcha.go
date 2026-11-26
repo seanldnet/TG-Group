@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -36,7 +37,7 @@ func NewCaptchaVerifier(baseURL, siteKey, secret string) (*CaptchaVerifier, erro
 		return nil, errors.New("CAP_BASE_URL, CAP_SITE_KEY and CAP_SECRET must be configured together")
 	}
 	parsed, err := url.Parse(baseURL)
-	if err != nil || parsed.Host == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "https" && !(parsed.Scheme == "http" && isLoopbackHost(parsed.Hostname()))) || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return nil, errors.New("CAP_BASE_URL must be an absolute HTTP(S) URL without credentials, query or fragment")
 	}
 	endpoint := baseURL + "/" + url.PathEscape(siteKey) + "/"
@@ -74,3 +75,9 @@ func (v *CaptchaVerifier) Verify(ctx context.Context, token string) error {
 	return nil
 }
 
+
+func isLoopbackHost(host string) bool {
+	if strings.EqualFold(host, "localhost") { return true }
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
