@@ -311,9 +311,10 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 		ruleID:=strings.TrimPrefix(query.Data,"group:toggle:")
 		if !validRuleUUID(ruleID) { return }
 		var enabled bool
-		err:=p.pool.QueryRow(ctx,"UPDATE telegram_group_rules SET enabled=NOT enabled,updated_at=now() WHERE tenant_id=$1 AND group_id=$2 AND id=$3::uuid RETURNING enabled",bot.tenantID,groupID,ruleID).Scan(&enabled)
+		var ruleType string
+		err:=p.pool.QueryRow(ctx,"UPDATE telegram_group_rules SET enabled=NOT enabled,updated_at=now() WHERE tenant_id=$1 AND group_id=$2 AND id=$3::uuid RETURNING enabled,rule_type",bot.tenantID,groupID,ruleID).Scan(&enabled,&ruleType)
 		if err!=nil { p.logger.Warn("toggle Telegram group rule failed","group_id",groupID,"rule_id",ruleID,"error",err);_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"规则更新失败，请刷新网站确认规则是否仍存在。"},nil);return }
-		p.sendGroupRules(ctx,bot,groupID,query.Message.Chat.ID,token)
+		p.refreshGroupRuleCategory(ctx,bot,groupID,query.Message.Chat.ID,ruleType,token)
 	default:
 		if stage,action,minutes,targetID,ok:=parseGroupMemberMuteConfirm(query.Data);ok {
 			if stage!="confirm" { return }
@@ -581,6 +582,22 @@ func (p *Poller) sendGroupRules(ctx context.Context,bot managedBot,groupID strin
 }
 
 // sendGroupRulesForCategory keeps each feature page limited to its own rule types.
+func groupRuleCategory(ruleType string) string {
+	switch ruleType {
+	case "welcome","leave_notice": return "notices"
+	case "anti_spam": return "spam"
+	case "anti_ad","keyword_filter","sensitive_word": return "ads"
+	case "join_verification": return "verify"
+	default: return "all"
+	}
+}
+
+func (p *Poller) refreshGroupRuleCategory(ctx context.Context,bot managedBot,groupID string,chatID int64,ruleType,token string) {
+	category:=groupRuleCategory(ruleType)
+	if category=="all" { p.sendGroupRules(ctx,bot,groupID,chatID,token); return }
+	p.sendGroupRulesForCategory(ctx,bot,groupID,chatID,category,token)
+}
+
 func (p *Poller) sendGroupRulesForCategory(ctx context.Context,bot managedBot,groupID string,chatID int64,category,token string) {
 	allowed:=map[string]map[string]bool{
 		"notices":{"welcome":true,"leave_notice":true},
@@ -648,7 +665,7 @@ func (p *Poller) createGroupRulePreset(ctx context.Context,bot managedBot,groupI
 		return
 	}
 	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"规则已创建并启用："+item.name},nil)
-	p.sendGroupRules(ctx,bot,groupID,chatID,token)
+	p.refreshGroupRuleCategory(ctx,bot,groupID,chatID,item.kind,token)
 }
 
 // Group rule edits are callback-only and use validated presets. This avoids
@@ -875,7 +892,7 @@ func (p *Poller) handleGroupRuleEdit(ctx context.Context,bot managedBot,groupID 
 		default: return
 		}
 		switch current.RuleType { case "welcome","leave_notice": rows=append(rows,[]map[string]string{{"text":"自定义输入文案","callback_data":"group:ec:"+ruleID+":text"}}); case "keyword_filter","sensitive_word": rows=append(rows,[]map[string]string{{"text":"自定义关键词","callback_data":"group:ec:"+ruleID+":words"}}); case "anti_ad": rows=append(rows,[]map[string]string{{"text":"自定义广告匹配内容","callback_data":"group:ec:"+ruleID+":patterns"}}); case "join_verification": rows=append(rows,[]map[string]string{{"text":"设置必需加入的频道","callback_data":"group:ec:"+ruleID+":channels"}}) }
-		rows=append(rows,[]map[string]string{{"text":"返回规则列表","callback_data":"group:rules"}})
+		rows=append(rows,[]map[string]string{{"text":"返回规则列表","callback_data":"group:rules:"+groupRuleCategory(current.RuleType)}})
 		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"编辑规则："+current.Name+"\n请选择要应用的配置预设。保存后立即生效；原配置会被所选预设整体替换。","reply_markup":map[string]any{"inline_keyboard":rows}},nil)
 		return
 	}
@@ -886,7 +903,7 @@ func (p *Poller) handleGroupRuleEdit(ctx context.Context,bot managedBot,groupID 
 	})
 	if err!=nil { p.logger.Warn("update Telegram group rule preset","group_id",groupID,"rule_id",ruleID,"preset",preset,"error",err);_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"规则更新失败，原配置未变更。请稍后重试。"},nil);return }
 	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"规则配置已更新并保存。"},nil)
-	p.sendGroupRules(ctx,bot,groupID,chatID,token)
+	p.refreshGroupRuleCategory(ctx,bot,groupID,chatID,current.RuleType,token)
 }
 
 func parseGroupRuleDeleteCallback(data string) (stage,ruleID string,ok bool) {
@@ -906,9 +923,11 @@ func (p *Poller) handleGroupRuleDelete(ctx context.Context,bot managedBot,groupI
 		return
 	}
 	if p.botService==nil{return}
+	var ruleType string
+	if err:=p.pool.QueryRow(ctx,"SELECT rule_type FROM telegram_group_rules WHERE tenant_id=$1 AND group_id=$2 AND id=$3::uuid",bot.tenantID,groupID,ruleID).Scan(&ruleType);err!=nil{return}
 	if err:=p.botService.DeleteGroupRule(ctx,bot.tenantID,groupID,ruleID);err!=nil { p.logger.Warn("delete Telegram group rule","group_id",groupID,"rule_id",ruleID,"error",err);_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"删除失败，该规则可能已不存在。"},nil);return }
 	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"群规已删除，历史执行记录仍保留。"},nil)
-	p.sendGroupRules(ctx,bot,groupID,chatID,token)
+	p.refreshGroupRuleCategory(ctx,bot,groupID,chatID,ruleType,token)
 }
 
 func (p *Poller) sendGroupRuleEvents(ctx context.Context,bot managedBot,groupID string,chatID int64,token string) {
