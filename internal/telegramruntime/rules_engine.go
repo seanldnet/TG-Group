@@ -232,6 +232,15 @@ func (p *Poller) sendGroupMenu(ctx context.Context,chatID,messageID int64,token 
 	_ = p.callTelegram(ctx,token,"sendMessage",payload,nil)
 }
 
+func validGroupCategory(category string) bool {
+	switch category {
+	case "qa","review","notices","basic","spam","ads","retract","admins","lists","verify","warnings","profile","schedule","polls","stats","settings":
+		return true
+	default:
+		return false
+	}
+}
+
 func (p *Poller) sendGroupCategory(ctx context.Context,bot managedBot,groupID string,chatID int64,category,token string) {
 	type categoryInfo struct { title,description,status string }
 	categories:=map[string]categoryInfo{
@@ -252,7 +261,7 @@ func (p *Poller) sendGroupCategory(ctx context.Context,bot managedBot,groupID st
 		"stats":{"群组统计","查看消息量、活跃成员、进退群和处罚统计。","开发中"},
 		"settings":{"群组设置","修改群名称、群简介和邀请链接。","已开放"},
 	}
-	info,ok:=categories[category];if !ok{return}
+	info,ok:=categories[category];if !ok || !validGroupCategory(category){return}
 	text:=info.title+"\n"+info.description+"\n功能状态："+info.status
 	keyboard:=[][]map[string]string{}
 	switch category {
