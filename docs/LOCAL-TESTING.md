@@ -150,6 +150,15 @@ go run ./cmd/api
 本地不配置 CAP 时，页面不会显示验证组件，原有开发流程保持可用。Telegram 群内使用 Inline Keyboard，不能直接渲染浏览器 CAP 组件；群成员验证继续使用数学题与可选频道关注检查。
 
 
+## 登录设备管理测试
+
+1. 在两个独立浏览器会话登录同一个账号。
+2. 从任意一个会话调用 `GET /api/v1/auth/sessions?limit=20`，应看到两条会话，并准确标记当前设备。
+3. 尝试撤销当前设备对应的 session ID，应返回 400，当前会话仍然有效。
+4. 撤销另一设备的 session ID，应返回 204；该设备旧 access token 和 refresh token 均应失效。
+5. 当前设备刷新会话列表，应显示被撤销设备的状态为已退出；安全记录中出现 `auth.session_revoke`。
+6. 使用另一个账号尝试撤销该 session ID，应无法影响原账号的会话。
+
 ## 账号安全审计记录测试
 
 1. 登录账号后调用 `GET /api/v1/auth/security-events?limit=20`，应返回当前账号的注册/登录、退出、会话续期、密码修改和 Telegram 身份操作事件（仅显示实际执行过的操作）。
