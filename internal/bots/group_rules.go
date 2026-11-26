@@ -57,6 +57,7 @@ type joinVerificationRuleConfig struct {
 	ChallengeType string `json:"challenge_type"`
 	TimeoutSeconds int `json:"timeout_seconds"`
 	FailureAction string `json:"failure_action"`
+	RequiredChannels []string `json:"required_channels"`
 }
 
 func ValidateGroupRule(input GroupRuleInput) error {
@@ -96,7 +97,9 @@ func ValidateGroupRule(input GroupRuleInput) error {
 		if decode(&cfg) != nil || strings.TrimSpace(cfg.Text) == "" || len([]rune(cfg.Text)) > 4096 { return ErrInvalidGroupRule }
 	case "join_verification":
 		var cfg joinVerificationRuleConfig
-		if decode(&cfg) != nil || cfg.ChallengeType != "math" || cfg.TimeoutSeconds < 30 || cfg.TimeoutSeconds > 600 || (cfg.FailureAction != "restrict" && cfg.FailureAction != "kick") { return ErrInvalidGroupRule }
+		if decode(&cfg) != nil || cfg.ChallengeType != "math" || cfg.TimeoutSeconds < 30 || cfg.TimeoutSeconds > 600 || (cfg.FailureAction != "restrict" && cfg.FailureAction != "kick") || len(cfg.RequiredChannels) > 10 { return ErrInvalidGroupRule }
+		seen := make(map[string]struct{}, len(cfg.RequiredChannels))
+		for _, channel := range cfg.RequiredChannels { if !validRequiredChannel(channel) { return ErrInvalidGroupRule }; if _, exists := seen[channel]; exists { return ErrInvalidGroupRule }; seen[channel] = struct{}{} }
 	default:
 		return ErrInvalidGroupRule
 	}
@@ -187,4 +190,18 @@ func (s *Service) ListGroupRuleEvents(ctx context.Context, tenantID, groupID str
 		result = append(result,item)
 	}
 	return result, rows.Err()
+}
+
+func validRequiredChannel(value string) bool {
+	if strings.HasPrefix(value, "@") {
+		name := value[1:]
+		if len(name) < 5 || len(name) > 32 { return false }
+		for _, char := range name {
+			if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '_') { return false }
+		}
+		return true
+	}
+	if !strings.HasPrefix(value, "-100") || len(value) < 10 { return false }
+	for _, char := range value[4:] { if char < '0' || char > '9' { return false } }
+	return true
 }
