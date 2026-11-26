@@ -1,3 +1,14 @@
+## 2026-11-27（群成员警告递进处罚执行链路第一阶段）
+
+- **执行接入**：新增 ApplyWarningEscalation，网站端手动添加警告和 Telegram 群管 Bot 的“添加警告”按钮都会在警告落库后评估当前群启用的递进规则。
+- **阈值处理**：每条规则只选取当前警告总数已达到的最高档位；未达到任何阈值时不执行处罚。
+- **安全保护**：执行时复用 ModerateGroupMember，重新查询 Bot 当前管理员身份和 can_restrict_members 权限，并通过 Telegram getChatMember 拒绝处罚群主/管理员；不会使用成员表中的权限快照作为授权依据。
+- **幂等与审计**：新增 migration 000018（internal 与根 migrations 同步），按 tenant/group/rule/user/warning_count 唯一约束防止同一档位重复执行；记录执行状态、动作和失败原因。
+- **异常边界**：警告记录会先保存；自动处罚失败不会回滚警告，服务端记录失败日志，Telegram 端提示检查权限/成员状态。当前尚未实现失败自动重试和执行记录查询页。
+- **涉及文件**：internal/bots/warning_escalation.go、internal/httpapi/handler.go、internal/telegramruntime/rules_engine.go、internal/database/migrations/000018_group_warning_escalation_events.*.sql、migrations/000018_group_warning_escalation_events.*.sql、docs/DEVELOPMENT-PLAN.md。
+- **测试**：本次提交后由 GitHub Actions 执行 Go/PostgreSQL 测试、go vet 和前端构建；当前尚未获得本次提交对应的 CI 结果，也未进行真实 Telegram 测试群联调。
+- **下一步**：补充递进策略阈值/幂等单元测试、失败重试与执行记录查询，再做真实 Telegram 群组验收。
+
 ## 2026-11-26（Telegram 群管 Bot 成员管理第一阶段）
 
 - **功能**：群管 Bot 主菜单新增“成员管理”，并提供 `/members` 快捷命令。
