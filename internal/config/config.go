@@ -36,6 +36,7 @@ func Load() (Config, error) {
 	telegramAuthBotToken := os.Getenv("TELEGRAM_AUTH_BOT_TOKEN")
 	telegramAuthBotUsername := strings.TrimPrefix(strings.TrimSpace(os.Getenv("TELEGRAM_AUTH_BOT_USERNAME")), "@")
 	if (telegramAuthBotToken == "") != (telegramAuthBotUsername == "") { return Config{}, fmt.Errorf("TELEGRAM_AUTH_BOT_TOKEN and TELEGRAM_AUTH_BOT_USERNAME must be configured together") }
+	if telegramAuthBotUsername != "" && !validTelegramBotUsername(telegramAuthBotUsername) { return Config{}, fmt.Errorf("TELEGRAM_AUTH_BOT_USERNAME must be a valid Telegram Bot username") }
 	return Config{
 		TelegramAuthBotToken: telegramAuthBotToken, TelegramAuthBotUsername: telegramAuthBotUsername,
 		CAPBaseURL: capBaseURL, CAPSiteKey: capSiteKey, CAPSecret: capSecret, CAPWidgetURL: os.Getenv("CAP_WIDGET_URL"),
@@ -44,4 +45,13 @@ func Load() (Config, error) {
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		BotTokenEncryptionKey: os.Getenv("BOT_TOKEN_ENCRYPTION_KEY"),
 	}, nil
+}
+
+func validTelegramBotUsername(value string) bool {
+    if len(value) < 5 || len(value) > 32 || !strings.HasSuffix(strings.ToLower(value), "bot") { return false }
+    for _, char := range value {
+        if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '_' { continue }
+        return false
+    }
+    return true
 }
