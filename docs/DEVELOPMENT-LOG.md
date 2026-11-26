@@ -373,3 +373,7 @@
 - **使用方式**：`curl -fsSL https://raw.githubusercontent.com/seanldnet/Tg-group/main/deploy/install.sh | sudo bash`，访问 `http://服务器IP:18680`。
 - **安全边界**：默认账号密码仅供测试，公网使用前必须修改密码；自动生成的密钥保存在安装目录，用户无需编辑。GHCR 包必须允许匿名拉取。
 - **CI 状态**：正在验证镜像构建、推送、公开可拉取及 Go/前端 CI；若 GHCR 包可见性无法由工作流令牌自动调整，需要在仓库所有者侧完成一次 Package visibility 设置，之后服务器部署完全无需登录镜像仓库。
+
+- **最终验证结果**：提交 `95f8c6efe12c8e47bacdb52ffab18b475ff7a858` 的 CI run `45741570144` 全部通过（Go/PostgreSQL 集成测试、go vet、前端构建）；Docker 发布 run `45741570062` 成功，已推送 API/Web 两个 amd64+arm64 镜像。Docker build 在 GitHub Actions 云端完成，目标服务器无需编译。
+- **GHCR 匿名拉取限制**：发布工作流可成功推送镜像，但使用仓库 GITHUB_TOKEN 修改个人包可见性返回 404（已在 Actions 日志确认）；需包所有者在 GitHub Packages 对两个包各执行一次 Public 设置。完成后服务器可匿名 docker pull，不需要服务器侧 registry login。README 已补充两个包设置链接。
+- **AES 密钥修正**：安装脚本生成的 `BOT_TOKEN_ENCRYPTION_KEY` 改为 Base64 编码的 32 字节随机密钥，匹配服务端 AES-256 key 解码要求；数据库密码仍使用随机 hex。
