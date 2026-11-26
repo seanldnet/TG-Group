@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 )
 
 var ErrCaptchaRejected = errors.New("captcha verification rejected")
@@ -62,16 +61,15 @@ func (v *CaptchaVerifier) Verify(ctx context.Context, token string) error {
 	response, err := v.client.Do(req)
 	if err != nil { return fmt.Errorf("CAP verification service unavailable: %w", err) }
 	defer response.Body.Close()
-	var result captchaSiteVerifyResponse
-	if _, err := io.Copy(io.Discard, io.LimitReader(response.Body, 64<<10)); err != nil {
-		return fmt.Errorf("read CAP verification response: %w", err)
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 64<<10))
+		return ErrCaptchaRejected
 	}
-	// Decode from a bounded second request body is not possible after draining; use the response body directly below.
-	return ErrCaptchaRejected
+	responseBody, err := io.ReadAll(io.LimitReader(response.Body, 64<<10))
+	if err != nil { return fmt.Errorf("read CAP verification response: %w", err) }
+	var result captchaSiteVerifyResponse
+	if err := json.Unmarshal(responseBody, &result); err != nil { return ErrCaptchaRejected }
+	if !result.Success { return ErrCaptchaRejected }
+	return nil
 }
 
-func (v *CaptchaVerifier) verifyResponse(ctx context.Context, token string) error {
-	return v.Verify(ctx, token)
-}
-
-var _ = time.Second
