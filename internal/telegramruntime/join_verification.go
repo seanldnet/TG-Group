@@ -126,40 +126,52 @@ func (p *Poller) startJoinVerification(ctx context.Context, bot managedBot, grou
 	if err!=nil { p.logger.Error("save join verification prompt message id","challenge_id",challengeID,"error",err) }
 }
 
-func (p *Poller) handleJoinVerificationText(ctx context.Context,bot managedBot,groupID string,message *telegramMessage,token string) bool {
-	if message==nil || message.From==nil || message.From.IsBot || strings.TrimSpace(message.Text)=="" { return false }
-	var challengeID,expected string
+func (p *Poller) handleJoinVerificationText(ctx context.Context, bot managedBot, groupID string, message *telegramMessage, token string) bool {
+	if message == nil || message.From == nil || message.From.IsBot || strings.TrimSpace(message.Text) == "" {
+		return false
+	}
+	var challengeID, expected string
 	var chatID int64
 	var channelsJSON []byte
-	err:=p.pool.QueryRow(ctx,`SELECT c.id::text,c.answer_text,g.telegram_chat_id,c.required_channels
+	err := p.pool.QueryRow(ctx, `SELECT c.id::text,c.answer_text,g.telegram_chat_id,c.required_channels
 		FROM telegram_join_verification_challenges c JOIN telegram_groups g ON g.id=c.group_id AND g.tenant_id=c.tenant_id
 		WHERE c.tenant_id=$1 AND c.bot_id=$2 AND c.group_id=$3 AND c.telegram_user_id=$4
 		AND c.challenge_type IN ('letters','alphanumeric') AND c.status='pending' AND c.expires_at>now()`,
-		bot.tenantID,bot.id,groupID,message.From.ID).Scan(&challengeID,&expected,&chatID,&channelsJSON)
-	if err!=nil { return false }
-	if !strings.EqualFold(strings.TrimSpace(message.Text),expected) {
-		if message.MessageID>0 { _=p.callTelegram(ctx,token,"deleteMessage",map[string]any{"chat_id":chatID,"message_id":message.MessageID},nil) }
-		_,_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"验证码不正确，请查看验证提示后重新输入。"},nil)
+		bot.tenantID, bot.id, groupID, message.From.ID).Scan(&challengeID, &expected, &chatID, &channelsJSON)
+	if err != nil {
+		return false
+	}
+	if !strings.EqualFold(strings.TrimSpace(message.Text), expected) {
+		if message.MessageID > 0 {
+			_ = p.callTelegram(ctx, token, "deleteMessage", map[string]any{"chat_id": chatID, "message_id": message.MessageID}, nil)
+		}
+		_, _ = p.callTelegram(ctx, token, "sendMessage", map[string]any{"chat_id": chatID, "text": "验证码不正确，请查看验证提示后重新输入。"}, nil)
 		return true
 	}
 	var channels []string
-	if json.Unmarshal(channelsJSON,&channels)!=nil { return true }
-	if missing,checkErr:=p.checkRequiredChannels(ctx,token,channels,message.From.ID);checkErr!=nil || len(missing)>0 {
-		notice:="暂时无法核验频道成员状态，请稍后重试。"
-		if checkErr==nil { notice="请先加入必需频道："+strings.Join(missing,", ") }
-		_,_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":notice},nil)
+	if json.Unmarshal(channelsJSON, &channels) != nil {
 		return true
 	}
-	tag,err:=p.pool.Exec(ctx,`UPDATE telegram_join_verification_challenges SET status='verifying',updated_at=now()
-		WHERE id=$1 AND status='pending' AND telegram_user_id=$2 AND expires_at>now()`,challengeID,message.From.ID)
-	if err!=nil || tag.RowsAffected()!=1 { return true }
-	if err:=p.restoreMemberPermissions(ctx,token,chatID,message.From.ID);err!=nil {
-		_,_=p.pool.Exec(ctx,"UPDATE telegram_join_verification_challenges SET status='pending',updated_at=now() WHERE id=$1 AND status='verifying'",challengeID)
-		p.logger.Error("restore member permissions after text verification","challenge_id",challengeID,"error",err)
+	if missing, checkErr := p.checkRequiredChannels(ctx, token, channels, message.From.ID); checkErr != nil || len(missing) > 0 {
+		notice := "暂时无法核验频道成员状态，请稍后重试。"
+		if checkErr == nil {
+			notice = "请先加入必需频道：" + strings.Join(missing, ", ")
+		}
+		_, _ = p.callTelegram(ctx, token, "sendMessage", map[string]any{"chat_id": chatID, "text": notice}, nil)
 		return true
 	}
-	_,_=p.pool.Exec(ctx,"UPDATE telegram_join_verification_challenges SET status='verified',updated_at=now() WHERE id=$1 AND status='verifying'",challengeID)
-	_,_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"验证成功，欢迎加入！"},nil)
+	tag, err := p.pool.Exec(ctx, `UPDATE telegram_join_verification_challenges SET status='verifying',updated_at=now()
+		WHERE id=$1 AND status='pending' AND telegram_user_id=$2 AND expires_at>now()`, challengeID, message.From.ID)
+	if err != nil || tag.RowsAffected() != 1 {
+		return true
+	}
+	if err := p.restoreMemberPermissions(ctx, token, chatID, message.From.ID); err != nil {
+		_, _ = p.pool.Exec(ctx, "UPDATE telegram_join_verification_challenges SET status='pending',updated_at=now() WHERE id=$1 AND status='verifying'", challengeID)
+		p.logger.Error("restore member permissions after text verification", "challenge_id", challengeID, "error", err)
+		return true
+	}
+	_, _ = p.pool.Exec(ctx, "UPDATE telegram_join_verification_challenges SET status='verified',updated_at=now() WHERE id=$1 AND status='verifying'", challengeID)
+	_, _ = p.callTelegram(ctx, token, "sendMessage", map[string]any{"chat_id": chatID, "text": "验证成功，欢迎加入！"}, nil)
 	return true
 }
 
@@ -260,34 +272,68 @@ func (p *Poller) expireJoinVerificationChallenges(ctx context.Context, bot manag
 }
 
 
-func generateJoinChallenge(challengeType string) (string,string,[]string,int64,error) {
-	const letters="ABCDEFGHJKLMNPQRSTUVWXYZ"
-	const alpha="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+func generateJoinChallenge(challengeType string) (string, string, []string, int64, error) {
+	const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+	const alpha = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 	switch challengeType {
 	case "math":
-		a,err:=randomInt(1,9);if err!=nil{return "","",nil,0,err}
-		b,err:=randomInt(1,9);if err!=nil{return "","",nil,0,err}
-		answer:=a+b
-		values:=joinChallengeOptions(answer)
-		options:=make([]string,len(values))
-		for i,v:=range values{options[i]=strconv.FormatInt(v,10)}
-		return strconv.FormatInt(answer,10),fmt.Sprintf("%d + %d = ?",a,b),options,answer,nil
-	case "letters","alphanumeric":
-		alphabet:=letters;if challengeType=="alphanumeric"{alphabet=alpha}
-		code:=make([]byte,4)
-		for i:=range code{n,err:=randomInt(0,int64(len(alphabet)-1));if err!=nil{return "","",nil,0,err};code[i]=alphabet[n]}
-		answer:=string(code)
-		wrong:=make([]string,0,2)
-		for len(wrong)<2{
-			candidate:=make([]byte,4)
-			for i:=range candidate{n,err:=randomInt(0,int64(len(alphabet)-1));if err!=nil{return "","",nil,0,err};candidate[i]=alphabet[n]}
-			value:=string(candidate);if value==answer{continue}
-			duplicate:=false;for _,v:=range wrong{if v==value{duplicate=true;break}}
-			if !duplicate{wrong=append(wrong,value)}
+		a, err := randomInt(1, 9)
+		if err != nil {
+			return "", "", nil, 0, err
 		}
-		return answer,"请在群内发送验证码：<tg-spoiler>"+html.EscapeString(answer)+"</tg-spoiler>",nil,2,nil
+		b, err := randomInt(1, 9)
+		if err != nil {
+			return "", "", nil, 0, err
+		}
+		answer := a + b
+		values := joinChallengeOptions(answer)
+		options := make([]string, len(values))
+		for i, v := range values {
+			options[i] = strconv.FormatInt(v, 10)
+		}
+		return strconv.FormatInt(answer, 10), fmt.Sprintf("%d + %d = ?", a, b), options, answer, nil
+	case "letters", "alphanumeric":
+		alphabet := letters
+		if challengeType == "alphanumeric" {
+			alphabet = alpha
+		}
+		code := make([]byte, 4)
+		for i := range code {
+			n, err := randomInt(0, int64(len(alphabet)-1))
+			if err != nil {
+				return "", "", nil, 0, err
+			}
+			code[i] = alphabet[n]
+		}
+		answer := string(code)
+		wrong := make([]string, 0, 2)
+		for len(wrong) < 2 {
+			candidate := make([]byte, 4)
+			for i := range candidate {
+				n, err := randomInt(0, int64(len(alphabet)-1))
+				if err != nil {
+					return "", "", nil, 0, err
+				}
+				candidate[i] = alphabet[n]
+			}
+			value := string(candidate)
+			if value == answer {
+				continue
+			}
+			duplicate := false
+			for _, v := range wrong {
+				if v == value {
+					duplicate = true
+					break
+				}
+			}
+			if !duplicate {
+				wrong = append(wrong, value)
+			}
+		}
+		return answer, "请在群内发送验证码：<tg-spoiler>" + html.EscapeString(answer) + "</tg-spoiler>", nil, 2, nil
 	default:
-		return "","",nil,0,fmt.Errorf("unsupported join challenge type %q",challengeType)
+		return "", "", nil, 0, fmt.Errorf("unsupported join challenge type %q", challengeType)
 	}
 }
 
