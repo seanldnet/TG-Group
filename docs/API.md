@@ -83,6 +83,21 @@ CAP 采用官方 Cap Standalone 服务端和官方 `cap-widget` Web Component。
 
 退出登录会同时撤销当前访问会话及其 refresh-token family。刷新令牌不通过 Cookie 自动发送，当前实现继续使用 JSON 请求体，需配合 HTTPS 部署并防范 XSS。
 
+## 修改登录密码
+
+`POST /api/v1/auth/password/change`
+
+需要 Bearer 登录。请求：
+
+```json
+{
+  "current_password": "当前密码",
+  "new_password": "新的至少 10 个字符的密码"
+}
+```
+
+新密码长度为 10–72 字节，不能与当前密码相同。服务端先验证当前会话和原密码，再在同一 PostgreSQL 事务中更新 bcrypt 密码哈希、撤销该用户所有既有访问会话及 refresh token，并为当前设备签发一组新的 access/refresh token。成功返回新的会话对象；其他设备会立即失效，需要使用新密码重新登录。密码修改操作写入 `audit_logs`。原密码错误返回 401，参数/密码长度错误返回 400。
+
 ## 当前用户
 
 `GET /api/v1/auth/me`
