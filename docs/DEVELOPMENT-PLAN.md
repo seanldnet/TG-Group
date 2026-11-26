@@ -13,7 +13,8 @@
 - [x] 建立 PostgreSQL pgx 连接池、Ping、版本化迁移执行器与身份/租户基础 schema（尚未完成 Redis 和后台任务）。
 - [x] 增加 PostgreSQL 16 / Redis 7 本地开发 Compose 配置与启动文档（Compose 本身尚未在当前执行环境启动验证；Redis 暂未接入 Go 服务）。
 - [x] 完成邮箱注册/登录、bcrypt 密码哈希、30 天 Bearer 会话、当前用户查询和退出撤销 API；租户/用户状态参与会话鉴权。
-- [ ] 补齐密码找回、邮箱验证、登录限流、角色授权及跨租户资源访问测试。\n- [x] 实现 15 分钟 access token、30 天 refresh token 滚动轮换、重放检测与会话族撤销；前端 401 自动续期及并发请求合并。
+- [ ] 补齐密码找回、邮箱验证、登录限流、角色授权及跨租户资源访问测试。
+- [x] 实现 15 分钟 access token、30 天 refresh token 滚动轮换、重放检测与会话族撤销；前端 401 自动续期及并发请求合并。
 - [ ] Telegram ID 绑定首批代码已写入：一次性挑战、Telegram 官方 Update 自动取 ID、全局唯一绑定、解除绑定与审计；Go/PostgreSQL 测试、go vet、前端构建 CI 已通过；待平台 Bot 真实配置验收。
 - [x] 网站首页、注册页、登录页和账号工作台已连接第一版 Go 认证 API。
 - [ ] Telegram 注册管理 Bot、refresh token、密码找回、邮箱验证、登录限流。
@@ -124,7 +125,8 @@
 - [x] 新增按租户、Bot、群组关联的成员状态表和索引。
 - [x] 新增 `GET /api/v1/groups/{groupID}/members`，限制每次最多 200 条，SQL 双重租户/群组过滤。
 - [x] 网站群组列表增加成员入口，成员页展示身份、管理员权限快照、加入时间和最近活动。
-- [x] Bot 群组权限实时检测（getChatMember）及手动禁言/解禁/封禁/解封 API 与网站操作入口。\n- [ ] 全量成员同步、自动化处罚规则、权限定时刷新和真实 Bot 群组联调。
+- [x] Bot 群组权限实时检测（getChatMember）及手动禁言/解禁/封禁/解封 API 与网站操作入口。
+- [ ] 全量成员同步、自动化处罚规则、权限定时刷新和真实 Bot 群组联调。
 
 ## 最近增量：Bot 权限检测与成员处罚
 - [x] 实时调用 Telegram `getChatMember` 检查 Bot 身份及管理权限。
@@ -163,4 +165,12 @@
 - 新增配置：`TELEGRAM_AUTH_BOT_TOKEN` 与 `TELEGRAM_AUTH_BOT_USERNAME`，必须同时配置；Token 仅后端读取。
 - 新增 PostgreSQL migration 000010（internal 与根目录 up/down 文件同步）、服务集成测试和配置测试；同步 API 与本地测试文档。
 - **状态**：代码已提交 main；CI 已通过；尚未配置真实平台 Bot Token，因此不得标记真实 Telegram 联调完成。
-\n\n## 最近增量：Refresh Token 会话续期（代码已实现，待 CI 验证）\n- 新增 migration 000011：访问会话关联 refresh family，新增 refresh token 哈希存储、过期时间、撤销时间及轮换指针。\n- 注册和登录签发 15 分钟 access token 与 30 天 refresh token；数据库只保存 SHA-256 摘要。\n- 新增 `POST /api/v1/auth/refresh`，每次续期同时轮换 access/refresh token。\n- 检测到已轮换 refresh token 重放时，撤销该 family 下全部 refresh token 与 access session；退出登录也撤销当前 family。\n- 前端 sessionStorage 保存两类令牌，受保护 API 返回 401 时自动续期并重试；并发 401 共用一个续期请求。\n- 新增 PostgreSQL 集成测试覆盖轮换、重放撤销及退出登录撤销；CI 结果待本批提交验证。\n
+
+
+## 最近增量：Refresh Token 会话续期（代码已实现，待 CI 验证）
+- 新增 migration 000011：访问会话关联 refresh family，新增 refresh token 哈希存储、过期时间、撤销时间及轮换指针。
+- 注册和登录签发 15 分钟 access token 与 30 天 refresh token；数据库只保存 SHA-256 摘要。
+- 新增 `POST /api/v1/auth/refresh`，每次续期同时轮换 access/refresh token。
+- 检测到已轮换 refresh token 重放时，撤销该 family 下全部 refresh token 与 access session；退出登录也撤销当前 family。
+- 前端 sessionStorage 保存两类令牌，受保护 API 返回 401 时自动续期并重试；并发 401 共用一个续期请求。
+- 新增 PostgreSQL 集成测试覆盖轮换、重放撤销及退出登录撤销；CI 结果待本批提交验证。
