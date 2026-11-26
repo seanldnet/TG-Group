@@ -538,6 +538,11 @@ func (h *Handler) addGroupMemberWarning(w http.ResponseWriter,r *http.Request) {
 	var input groupMemberWarningRequest;if !decodeJSON(w,r,&input){return}
 	item,err:=h.bots.AddGroupMemberWarning(r.Context(),user.TenantID,r.PathValue("groupID"),userID,0,input.Reason,input.Source)
 	if err!=nil{h.writeGroupRuleError(w,err);return}
+	if input.Source=="manual" {
+		if err:=h.bots.ApplyWarningEscalation(r.Context(),user.TenantID,r.PathValue("groupID"),userID);err!=nil {
+			h.logger.Warn("warning recorded but automatic escalation did not complete","group_id",r.PathValue("groupID"),"telegram_user_id",userID,"error",err)
+		}
+	}
 	writeJSON(w,http.StatusCreated,item)
 }
 
