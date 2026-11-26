@@ -736,3 +736,12 @@
 - `GET /api/v1/groups/{groupID}/members/{userID}/warnings` 新增 `total` 字段；网站警告面板显示累计警告次数和当前展示记录数，避免把列表上限误当成总次数。
 - 涉及文件：`internal/bots/group_rules.go`、`internal/httpapi/handler.go`、`src/lib/api.ts`、`src/pages/GroupMembersPage.tsx`。
 - CI 尚待本批最新提交运行完成；自动递进处罚、操作审计和真实 Telegram 群聊验收仍未完成。
+
+
+## 2026-11-26（群成员警告递进策略配置）
+- 新增群规类型 `warning_escalation`，使用现有群规 CRUD 与租户/群组隔离存储策略。
+- 每条策略最多 5 个档位，阈值必须严格递增（1–100）；动作支持 mute/ban。mute 时长限定 1–10080 分钟，ban 不允许携带时长。
+- 新增 migration 000017，更新数据库规则类型约束，并同步 internal 与根目录 up/down SQL；回滚时清理新旧版本不兼容的规则记录。
+- 网站规则管理增加警告递进策略预设和配置说明；页面明确提示本批仅保存配置，不会自动处罚。
+- 新增服务端配置合法性测试，覆盖有效档位、阈值乱序、禁言时长非法及不支持动作。
+- **未完成**：自动处罚执行器、目标管理员/群主保护、Bot 实时权限检查、重复处罚幂等和执行审计；CI 与迁移集成测试待本批验证。
