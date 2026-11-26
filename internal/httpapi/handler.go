@@ -35,6 +35,7 @@ func NewHandlerWithTelegramAuthBot(logger *slog.Logger, authService *auth.Servic
 	mux.HandleFunc("POST /api/v1/auth/register",h.register)
 	mux.HandleFunc("POST /api/v1/auth/login",h.login)
 	mux.HandleFunc("POST /api/v1/auth/refresh",h.refresh)
+	mux.HandleFunc("POST /api/v1/auth/password/change",h.changePassword)
 	mux.HandleFunc("POST /api/v1/auth/logout",h.logout)
 	mux.HandleFunc("GET /api/v1/auth/me",h.me)
 	mux.HandleFunc("GET /api/v1/auth/telegram",h.telegramIdentity)
@@ -68,6 +69,10 @@ type credentialsRequest struct {
 	CaptchaToken string `json:"captcha_token"`
 }
 type refreshRequest struct { RefreshToken string `json:"refresh_token"` }
+type changePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword string `json:"new_password"`
+}
 type registerRequest struct {
 	Email string `json:"email"`
 	Password string `json:"password"`
@@ -133,6 +138,32 @@ func (h *Handler) refresh(w http.ResponseWriter,r *http.Request) {
 		}
 		h.logger.Error("refresh session failed","error",err)
 		writeError(w,http.StatusInternalServerError,"internal server error")
+		return
+	}
+	writeJSON(w,http.StatusOK,session)
+}
+
+func (h *Handler) changePassword(w http.ResponseWriter,r *http.Request) {
+	if !h.requireAuthStore(w) { return }
+	token := bearerToken(r)
+	if token == "" { writeError(w,http.StatusUnauthorized,"unauthorized");return }
+	var input changePasswordRequest
+	if !decodeJSON(w,r,&input) { return }
+	session,err := h.auth.ChangePassword(r.Context(),token,input.CurrentPassword,input.NewPassword,r.UserAgent(),r.RemoteAddr)
+	if err != nil {
+		switch {
+		case errors.Is(err,auth.ErrInvalidInput):
+			writeError(w,http.StatusBadRequest,"新密码必须为 10-72 字节，且不能与当前密码相同")
+		case errors.Is(err,auth.ErrCurrentPasswordInvalid):
+			writeError(w,http.StatusUnauthorized,"当前密码不正确")
+		case errors.Is(err,auth.ErrUnauthorized):
+			writeError(w,http.StatusUnauthorized,"登录会话已失效，请重新登录")
+		case errors.Is(err,auth.ErrAccountInactive):
+			writeError(w,http.StatusForbidden,"账号当前不可用")
+		default:
+			h.logger.Error("change password failed","error",err)
+			writeError(w,http.StatusInternalServerError,"internal server error")
+		}
 		return
 	}
 	writeJSON(w,http.StatusOK,session)
