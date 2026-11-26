@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { ArrowLeft, LoaderCircle, ShieldCheck } from "lucide-react"
 
-import { login, saveToken } from "@/lib/api"
+import { currentUser, getToken, login, saveToken } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,6 +22,17 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [captchaToken, setCaptchaToken] = useState("")
   const [captchaReset, setCaptchaReset] = useState(0)
+
+  useEffect(() => {
+    if (!getToken()) return
+    let active = true
+    currentUser().then(() => {
+      if (active) window.location.replace("/dashboard")
+    }).catch(() => {
+      // Invalid/expired credentials are handled by the API client's refresh flow.
+    })
+    return () => { active = false }
+  }, [])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
