@@ -16,9 +16,13 @@ Telegram 多用户、多 Bot、多群组管理平台。
 - 网站注册、登录页面。
 - 登录后账号工作台、当前用户信息和退出登录。
 - Go API：健康检查、邮箱注册、登录、当前用户、退出登录。
-- PostgreSQL 迁移和注册会话集成测试。
+- PostgreSQL 版本化迁移和注册会话集成测试。
+- Telegram Bot Token 加密管理、后台长轮询、群组自动发现、消息日志、成员增量采集和手动成员处罚。
+- 群组规则配置/执行记录、入群数学题和可选频道关注验证。
+- 网站 CAP Standalone siteverify 服务端验证（需部署配置）。
+- Telegram 身份绑定首批代码：一次性挑战、专用平台身份 Bot 自动获取 Telegram ID、全局唯一约束、解绑和审计；需配置平台 Bot 凭据后联调。
 
-Bot 接入、Telegram 注册 Bot、群管规则、支付、AI 审核和生产部署仍在开发中。
+Refresh token、密码找回、邮箱验证、登录限流、完整角色授权、Telegram 注册管理 Bot 对话流程、完整群管矩阵、支付、AI 审核和生产部署仍在开发中.
 
 ## 本地启动
 
@@ -44,7 +48,7 @@ pnpm install
 TG_GROUP_API_PROXY="http://127.0.0.1:8080" pnpm dev
 ```
 
-打开 Vite 输出的地址即可访问首页。注册、登录和工作台路径：
+打开 Vite 输出的地址即可访问首页。若需测试 Telegram 身份绑定，额外配置专用平台 Bot 环境变量，见 [本地测试文档](docs/LOCAL-TESTING.md)。注册、登录和工作台路径：
 
 - `/` 首页
 - `/register` 注册
