@@ -19,6 +19,7 @@ import LoginPage from "@/pages/LoginPage"
 import RegisterPage from "@/pages/RegisterPage"
 import DashboardPage from "@/pages/DashboardPage"
 import SecurityPage from "@/pages/SecurityPage"
+import PlatformSettingsPage from "@/pages/PlatformSettingsPage"
 import BotsPage from "@/pages/BotsPage"
 import GroupsPage from "@/pages/GroupsPage"
 import GroupEventsPage from "@/pages/GroupEventsPage"
@@ -363,6 +364,7 @@ export default function App() {
   if (pathname === "/register") return <RegisterPage />
   let page: ReactNode = null
   if (pathname === "/dashboard") page = <DashboardPage />
+  else if (pathname === "/dashboard/platform") page = <PlatformSettingsPage />
   else if (pathname === "/dashboard/security/password") page = <SecurityPage section="password" />
   else if (pathname === "/dashboard/security/sessions") page = <SecurityPage section="sessions" />
   else if (pathname === "/dashboard/security/logs") page = <SecurityPage section="logs" />
