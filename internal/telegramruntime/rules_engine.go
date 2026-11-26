@@ -164,7 +164,9 @@ func (p *Poller) executeRuleNotice(ctx context.Context,bot managedBot,groupID st
 
 func (p *Poller) callTelegram(ctx context.Context,token,method string,payload any,result any)error{
 	body,err:=json.Marshal(payload);if err!=nil{return err}
-	endpoint:="https://api.telegram.org/bot"+url.PathEscape(token)+"/"+method
+	baseURL:=p.apiBaseURL
+	if baseURL=="" { baseURL="https://api.telegram.org" }
+	endpoint:=strings.TrimRight(baseURL,"/")+"/bot"+url.PathEscape(token)+"/"+method
 	req,err:=http.NewRequestWithContext(ctx,http.MethodPost,endpoint,bytes.NewReader(body));if err!=nil{return err}
 	req.Header.Set("Content-Type","application/json")
 	response,err:=p.client.Do(req);if err!=nil{return fmt.Errorf("Telegram request failed: %w",err)}
