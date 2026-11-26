@@ -97,7 +97,7 @@ func (s *Service) claimWarningEscalation(ctx context.Context) (pendingWarningEsc
 			) OR (
 				status = 'processing'
 				AND processing_started_at IS NOT NULL
-				AND processing_started_at <= now() - $2::interval
+				AND processing_started_at <= now() - ($2 * interval '1 second')
 				AND attempt_count < $1
 			)
 			ORDER BY COALESCE(next_retry_at, processing_started_at), id
@@ -119,7 +119,7 @@ func (s *Service) claimWarningEscalation(ctx context.Context) (pendingWarningEsc
 			)
 		RETURNING e.id, e.tenant_id::text, e.group_id::text,
 			e.telegram_user_id, e.action, e.duration_minutes, e.attempt_count
-	`, warningEscalationMaxAttempts, warningEscalationLease.String()).Scan(
+	`, warningEscalationMaxAttempts, int64(warningEscalationLease.Seconds())).Scan(
 		&item.ID, &item.TenantID, &item.GroupID, &item.UserID,
 		&item.Action, &item.Duration, &item.AttemptCount,
 	)
