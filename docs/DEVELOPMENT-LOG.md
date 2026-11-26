@@ -729,3 +729,10 @@
 - **Telegram 修复**：黑白名单列表改为真实换行分隔符，避免把反斜杠和字母 n 当作内容显示。
 - **涉及文件**：`internal/telegramruntime/rules_engine.go`、`src/lib/api.ts`、`src/pages/GroupMembersPage.tsx`、`docs/DEVELOPMENT-PLAN.md`、`docs/DEVELOPMENT-LOG.md`。
 - **验证**：代码已写入 main；GitHub Actions 尚未运行完成，不能据此宣称前端构建或 Go 测试通过。下一步检查 CI，并继续自动递进处罚策略设计与实现。
+
+## 2026-11-26（群成员警告次数统计）
+
+- 新增 `CountGroupMemberWarnings` 服务方法，使用租户/群组/成员三重范围统计全部警告历史，独立于最近 100 条记录列表。
+- `GET /api/v1/groups/{groupID}/members/{userID}/warnings` 新增 `total` 字段；网站警告面板显示累计警告次数和当前展示记录数，避免把列表上限误当成总次数。
+- 涉及文件：`internal/bots/group_rules.go`、`internal/httpapi/handler.go`、`src/lib/api.ts`、`src/pages/GroupMembersPage.tsx`。
+- CI 尚待本批最新提交运行完成；自动递进处罚、操作审计和真实 Telegram 群聊验收仍未完成。
