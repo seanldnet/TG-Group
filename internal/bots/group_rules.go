@@ -245,11 +245,11 @@ func (s *Service) ListGroupMemberLists(ctx context.Context, tenantID, groupID st
 func (s *Service) UpsertGroupMemberList(ctx context.Context, tenantID, groupID string, userID, actorID int64, listType, reason string) error {
 	listType = strings.TrimSpace(listType)
 	reason = strings.TrimSpace(reason)
-	if userID <= 0 || actorID <= 0 || !validGroupMemberListType(listType) || len([]rune(reason)) > 500 { return ErrInvalidGroupRule }
+	if userID <= 0 || actorID < 0 || !validGroupMemberListType(listType) || len([]rune(reason)) > 500 { return ErrInvalidGroupRule }
 	_, err := s.pool.Exec(ctx, `INSERT INTO telegram_group_member_lists(tenant_id,group_id,telegram_user_id,list_type,reason,actor_telegram_user_id)
 		SELECT $1,g.id,$3,$4,$5,$6 FROM telegram_groups g WHERE g.tenant_id=$1 AND g.id=$2
 		ON CONFLICT(tenant_id,group_id,telegram_user_id,list_type) DO UPDATE SET reason=EXCLUDED.reason,actor_telegram_user_id=EXCLUDED.actor_telegram_user_id,created_at=now()`,
-		tenantID,groupID,userID,listType,reason,actorID)
+		tenantID,groupID,userID,listType,reason,nullableTelegramActor(actorID))
 	if err != nil { return fmt.Errorf("save group member list entry: %w", err) }
 	return nil
 }
@@ -266,11 +266,11 @@ func (s *Service) DeleteGroupMemberList(ctx context.Context, tenantID, groupID s
 
 func (s *Service) AddGroupMemberWarning(ctx context.Context, tenantID, groupID string, userID, actorID int64, reason, source string) (GroupMemberWarning,error) {
 	reason = strings.TrimSpace(reason)
-	if userID <= 0 || actorID <= 0 || reason == "" || len([]rune(reason)) > 500 || (source != "manual" && source != "automatic") { return GroupMemberWarning{},ErrInvalidGroupRule }
+	if userID <= 0 || actorID < 0 || reason == "" || len([]rune(reason)) > 500 || (source != "manual" && source != "automatic") { return GroupMemberWarning{},ErrInvalidGroupRule }
 	var item GroupMemberWarning
 	err := s.pool.QueryRow(ctx, `INSERT INTO telegram_group_member_warnings(tenant_id,group_id,telegram_user_id,actor_telegram_user_id,reason,source)
 		SELECT $1,g.id,$3,$4,$5,$6 FROM telegram_groups g WHERE g.tenant_id=$1 AND g.id=$2
-		RETURNING id,telegram_user_id,actor_telegram_user_id,reason,source,created_at`,tenantID,groupID,userID,actorID,reason,source).
+		RETURNING id,telegram_user_id,actor_telegram_user_id,reason,source,created_at`,tenantID,groupID,userID,nullableTelegramActor(actorID),reason,source).
 		Scan(&item.ID,&item.TelegramUserID,&item.ActorTelegramUserID,&item.Reason,&item.Source,&item.CreatedAt)
 	if errors.Is(err,pgx.ErrNoRows) { return GroupMemberWarning{},ErrNotFound }
 	if err != nil { return GroupMemberWarning{},fmt.Errorf("add group member warning: %w",err) }
@@ -287,4 +287,9 @@ func (s *Service) ListGroupMemberWarnings(ctx context.Context, tenantID, groupID
 	items:=make([]GroupMemberWarning,0)
 	for rows.Next(){var item GroupMemberWarning;if err:=rows.Scan(&item.ID,&item.TelegramUserID,&item.ActorTelegramUserID,&item.Reason,&item.Source,&item.CreatedAt);err!=nil{return nil,err};items=append(items,item)}
 	return items,rows.Err()
+}
+
+func nullableTelegramActor(id int64) any {
+	if id <= 0 { return nil }
+	return id
 }
