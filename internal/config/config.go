@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -15,6 +16,8 @@ type Config struct {
 	CAPSiteKey string
 	CAPSecret string
 	CAPWidgetURL string
+	TelegramAuthBotToken string
+	TelegramAuthBotUsername string
 }
 
 func Load() (Config, error) {
@@ -30,7 +33,11 @@ func Load() (Config, error) {
 	if (capBaseURL != "") != (capSiteKey != "") || (capSiteKey != "") != (capSecret != "") {
 		return Config{}, fmt.Errorf("CAP_BASE_URL, CAP_SITE_KEY and CAP_SECRET must be configured together")
 	}
+	telegramAuthBotToken := os.Getenv("TELEGRAM_AUTH_BOT_TOKEN")
+	telegramAuthBotUsername := strings.TrimPrefix(strings.TrimSpace(os.Getenv("TELEGRAM_AUTH_BOT_USERNAME")), "@")
+	if (telegramAuthBotToken == "") != (telegramAuthBotUsername == "") { return Config{}, fmt.Errorf("TELEGRAM_AUTH_BOT_TOKEN and TELEGRAM_AUTH_BOT_USERNAME must be configured together") }
 	return Config{
+		TelegramAuthBotToken: telegramAuthBotToken, TelegramAuthBotUsername: telegramAuthBotUsername,
 		CAPBaseURL: capBaseURL, CAPSiteKey: capSiteKey, CAPSecret: capSecret, CAPWidgetURL: os.Getenv("CAP_WIDGET_URL"),
 		HTTPAddr: fmt.Sprintf(":%d", portNumber),
 		Environment: environment,
