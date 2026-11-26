@@ -3,10 +3,11 @@
 ## 2026-11-26（平台注册管理 Bot：Telegram 自助注册第一阶段）
 
 - **业务实现**：平台专用 Telegram Bot 收到用户私聊 `/start` 后，调用认证服务创建普通平台账号；Telegram ID 在创建事务中直接写入用户记录，避免先注册再绑定的竞态。为账号生成随机初始密码，bcrypt 哈希保存；Bot 私聊一次性返回用户 UUID 和初始密码。
+- **账号查询**：新增按 Telegram ID 查询本人账号摘要的服务方法，Bot 支持 `/account` 查询用户 ID、登录账号、邮箱、昵称和角色；未绑定身份无法查询其他用户资料。
 - **账号登录**：网站登录接口现在允许使用用户 UUID 或邮箱作为账号标识；登录页面提示支持“邮箱、用户 ID 或管理员账号”。Telegram 注册用户可用 Bot 返回的用户 ID + 初始密码登录。
 - **重复注册保护**：使用 PostgreSQL advisory transaction lock 串行化相同 Telegram ID 的注册；数据库唯一约束作为最终保护。重复 /start 不创建第二个账号，提示用户使用原账号。
 - **身份绑定兼容**：保留网站注册用户的 `/start <challenge>` 一次性绑定流程；Bot 只处理用户私聊，忽略群聊和机器人账号；绑定失败会返回明确提示。
-- **测试**：新增 PostgreSQL 集成测试覆盖 Telegram 注册、重复注册拒绝、用户 ID 登录和身份绑定检查。需等待 CI 中 Go/PostgreSQL 测试、go vet 与前端构建结果；未在真实 Telegram Bot 上联调。
+- **测试**：新增 PostgreSQL 集成测试覆盖 Telegram 注册、重复注册拒绝、用户 ID 登录、身份绑定和按 Telegram ID 查询账号。需等待 CI 中 Go/PostgreSQL 测试、go vet 与前端构建结果；未在真实 Telegram Bot 上联调。
 - **安全说明**：初始密码仅由 Bot 私聊发送一次，日志不记录密码或 Token；平台 Bot 仍由 `TELEGRAM_AUTH_BOT_TOKEN` 与 `TELEGRAM_AUTH_BOT_USERNAME` 环境变量配置，管理员可视化配置尚未实现。注册菜单、套餐查询/购买、提交群管 Bot Token 等流程仍待开发。
 - **涉及文件**：`internal/auth/telegram_register.go`、`internal/auth/service.go`、`internal/auth/service_integration_test.go`、`internal/telegramauthbot/poller.go`、`src/pages/LoginPage.tsx`、`docs/API.md`、`docs/DEVELOPMENT-PLAN.md`。
 - **下一步**：完成管理员可视化平台 Bot 配置（加密存储与运行时安全重载），再开发注册 Bot Inline Keyboard 主菜单、用户/套餐/群管 Bot 账户管理对话，并补齐真实 Bot 联调。
