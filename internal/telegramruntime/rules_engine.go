@@ -203,7 +203,7 @@ func (p *Poller) requireGroupOwner(ctx context.Context,bot managedBot,telegramUs
 		_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"无法确认你当前的群管理员身份，请确认你仍是本群管理员。"},nil)
 		return false
 	}
-	if member.Status=="creator" || member.Status=="administrator" { return true }
+	if isTelegramGroupAdministrator(member.Status) { return true }
 	_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"此操作仅限平台主人或当前群管理员使用。被取消群管理员后，机器人会立即撤销这份管理权限。"},nil)
 	return false
 }
