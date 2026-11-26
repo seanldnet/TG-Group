@@ -721,3 +721,11 @@
 - Telegram 成员详情增加清零警告按钮；先显示不可恢复提示并二次确认，确认后执行清零并刷新成员详情。
 - 当前仅实现人工清除历史记录；自动递进处罚策略、警告阈值设置、网站 UI、警告操作审计及真实 Telegram 群聊验收尚未完成。
 - 提交：e65a6dc（服务层）、c3803e7（HTTP API）、e800044（Telegram 确认交互）；等待最新 CI。
+
+## 2026-11-26（群成员警告网站端补齐与 Telegram 列表换行修复）
+
+- **网站端警告管理**：成员列表增加逐成员警告记录入口；可查看当前群组该成员的历史记录、填写原因新增人工警告，并在二次确认后清零该成员当前群组全部警告。页面明确提示当前仅记录、不自动处罚。
+- **API 接入**：前端新增警告列表、添加、清零 API 客户端函数，继续使用登录态和服务端租户隔离，不接收客户端 tenant_id。
+- **Telegram 修复**：黑白名单列表改为真实换行分隔符，避免把反斜杠和字母 n 当作内容显示。
+- **涉及文件**：`internal/telegramruntime/rules_engine.go`、`src/lib/api.ts`、`src/pages/GroupMembersPage.tsx`、`docs/DEVELOPMENT-PLAN.md`、`docs/DEVELOPMENT-LOG.md`。
+- **验证**：代码已写入 main；GitHub Actions 尚未运行完成，不能据此宣称前端构建或 Go 测试通过。下一步检查 CI，并继续自动递进处罚策略设计与实现。
