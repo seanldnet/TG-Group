@@ -1,6 +1,7 @@
 package telegramruntime
 
 import (
+	"errors"
 	"bytes"
 	"context"
 	"encoding/json"
