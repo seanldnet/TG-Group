@@ -226,11 +226,14 @@ func (p *Poller) sendRegistrationCredentials(ctx context.Context,chatID int64,re
 
 func (p *Poller) sendIntroMenu(ctx context.Context,chatID int64) error {
     text:="欢迎使用 TG-Group 平台机器人！\\n\\n这里是平台账号与群管 Bot 的统一入口：\\n• 注册并管理你的平台账号\\n• 将多个群管 Bot 统一归属到已绑定的 Telegram 账号\\n• 在网站控制台管理群组、成员和自动化规则\\n\\n首次使用请先阅读说明，再点击“开始注册”；已有账号请点击“账号信息”。"
-    keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{
+    return p.sendMessageWithKeyboard(ctx,chatID,text,"",platformIntroKeyboard())
+}
+
+func platformIntroKeyboard() map[string]any {
+    return map[string]any{"inline_keyboard":[][]map[string]string{
         {{"text":"开始注册","callback_data":"menu:register"},{"text":"账号信息","callback_data":"menu:account"}},
         {{"text":"添加群管 Bot","callback_data":"menu:addbot"},{"text":"使用帮助","callback_data":"menu:help"}},
     }}
-    return p.sendMessageWithKeyboard(ctx,chatID,text,"",keyboard)
 }
 
 func (p *Poller) sendMessageWithParseMode(ctx context.Context, chatID int64, text string, parseMode string) error {
