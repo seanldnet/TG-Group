@@ -87,6 +87,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	var pollerDone chan struct{}
+	var escalationWorkerDone chan struct{}
 	defer func(){if telegramIdentityManager!=nil {telegramIdentityManager.Stop()}}()
 	if botPoller != nil {
 		pollerDone = make(chan struct{})
@@ -95,6 +96,14 @@ func main() {
 			botPoller.Run(ctx)
 		}()
 		logger.Info("Telegram Bot long-polling manager started")
+	}
+	if botService != nil {
+		escalationWorkerDone = make(chan struct{})
+		go func() {
+			defer close(escalationWorkerDone)
+			botService.RunWarningEscalationRetries(ctx, logger)
+		}()
+		logger.Info("warning escalation retry worker started")
 	}
 	select {
 	case err := <-serverErrors:
@@ -109,6 +118,13 @@ func main() {
 			case <-pollerDone:
 			case <-shutdownCtx.Done():
 				logger.Warn("Telegram Bot workers did not stop before shutdown deadline")
+			}
+		}
+		if escalationWorkerDone != nil {
+			select {
+			case <-escalationWorkerDone:
+			case <-shutdownCtx.Done():
+				logger.Warn("warning escalation retry worker did not stop before shutdown deadline")
 			}
 		}
 		logger.Info("HTTP server stopped")
