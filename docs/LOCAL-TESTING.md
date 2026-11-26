@@ -121,3 +121,30 @@ docker compose -f compose.dev.yml down -v
 6. 通过 PostgreSQL 检查挑战状态：`SELECT telegram_user_id,status,failure_action,expires_at FROM telegram_join_verification_challenges ORDER BY created_at DESC LIMIT 20;`
 
 **重要**：数学题是基础验证，不是 CAP.js，也不能抵御所有自动化账号。若 Bot 权限不足、Telegram 无法返回群默认权限或 API 调用失败，需检查服务日志和群成员状态。仅在测试群组/测试账号执行，不要在生产群组直接试验自动踢人。
+
+
+## CAP.js 本地/联调配置
+
+项目接入官方 Cap Standalone（服务端）与官方 `cap-widget@0.1.58`。先按 [Cap Standalone 官方快速开始](https://trycap.dev/zh/guide/standalone/) 部署 Cap 和 Valkey/Redis，在 Cap 控制台创建站点密钥，取得 site key 与该站点的 secret key。Cap 的公开 URL 必须能被浏览器访问；正式环境必须使用 HTTPS，并在 Cap 的 CORS 设置中允许 TG-Group 前端域名。
+
+启动 Go API 时设置以下变量（不要提交真实 secret 到仓库）：
+
+```bash
+CAP_BASE_URL="https://captcha.example.com" \
+CAP_SITE_KEY="<站点公钥>" \
+CAP_SECRET="<站点私钥>" \
+DATABASE_URL="postgres://tg_group:tg_group_dev@127.0.0.1:5432/tg_group?sslmode=disable" \
+go run ./cmd/api
+```
+
+三项 CAP 配置必须同时设置；全部留空时 CAPTCHA 功能关闭。配置完成后，访问 `GET /api/v1/security/captcha` 应返回 `enabled=true` 和公开 endpoint（不含 secret）。注册页和登录页加载官方验证组件；完成后提交的 token 会由 Go 后端调用 Cap Standalone 的 `/{site_key}/siteverify` 校验。验证失败、token 重放或 Cap 服务不可用时，注册/登录会被拒绝。
+
+验收步骤：
+1. 浏览器打开注册页和登录页，确认显示 CAP 官方验证组件且可完成验证。
+2. 完成验证后注册或登录，确认成功。
+3. 不完成验证直接调用注册/登录 API，应返回 400。
+4. 把已使用过的 token 再提交一次，应被拒绝；Cap token 为一次性。
+5. 临时停止 Cap 服务后提交，API 应返回 503，不得绕过验证继续创建账号/会话。
+6. 检查 `GET /api/v1/security/captcha` 的响应，确认没有 `CAP_SECRET` 或任何站点私钥字段。
+
+本地不配置 CAP 时，页面不会显示验证组件，原有开发流程保持可用。Telegram 群内使用 Inline Keyboard，不能直接渲染浏览器 CAP 组件；群成员验证继续使用数学题与可选频道关注检查。
