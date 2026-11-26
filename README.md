@@ -80,7 +80,7 @@ curl -fsSL https://raw.githubusercontent.com/seanldnet/Tg-group/main/deploy/inst
 - 测试管理员：用户名 `admin`，密码 `123456`
 - 数据库只在 Docker 内网开放，不映射到宿主机端口。
 - 数据持久化在 Docker volume `tg_group_postgres`；安装生成的数据库与 Bot 加密密钥位于 `/opt/tg-group/.env`。
-- 平台注册/身份 Bot 与用户群管 Bot 分离。当前平台 Bot 凭据暂时通过 `/opt/tg-group/.env` 配置：`TG_GROUP_TELEGRAM_AUTH_BOT_TOKEN` 和 `TG_GROUP_TELEGRAM_AUTH_BOT_USERNAME`（用户名不带 `@`），两项需同时填写；修改后执行 `docker compose -f docker-compose.yml up -d --force-recreate api`。管理员网页配置页正在开发，尚未交付。
+- 平台注册/身份 Bot 与用户群管 Bot 分离。管理员登录后可在「平台管理 → 平台设置」配置注册/身份 Bot；服务端先通过 Telegram `getMe` 校验身份，再使用部署时生成的 `BOT_TOKEN_ENCRYPTION_KEY` 以 AES-256-GCM 加密存储，并立即重启轮询管理器。停用状态会持久化，重启后不会被旧环境变量覆盖。旧安装仍兼容 `.env` 中的 `TG_GROUP_TELEGRAM_AUTH_BOT_TOKEN` 和 `TG_GROUP_TELEGRAM_AUTH_BOT_USERNAME`，首次迁移到网页配置后以数据库配置为准。
 - 查看日志：`cd /opt/tg-group && docker compose logs -f`
 - 更新镜像：`cd /opt/tg-group && docker compose pull && docker compose up -d`
 - 停止：`cd /opt/tg-group && docker compose down`（不会删除数据库卷）；彻底删除数据需另行执行 `docker compose down -v`。
