@@ -26,6 +26,7 @@ import BotsPage from "@/pages/BotsPage"
 import GroupsPage from "@/pages/GroupsPage"
 import GroupEventsPage from "@/pages/GroupEventsPage"
 import GroupMembersPage from "@/pages/GroupMembersPage"
+import GroupMemberListsPage from "@/pages/GroupMemberListsPage"
 import GroupRulesPage from "@/pages/GroupRulesPage"
 import GroupRuleEventsPage from "@/pages/GroupRuleEventsPage"
 
@@ -381,6 +382,7 @@ export default function App() {
     const groupRuleEventsMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/rule-events$/i)
     if (groupEventsMatch) page = <GroupEventsPage groupID={groupEventsMatch[1]} />
     else if (groupMembersMatch) page = <GroupMembersPage groupID={groupMembersMatch[1]} />
+    else if (groupMemberListsMatch) page = <GroupMemberListsPage groupID={groupMemberListsMatch[1]} />
     else if (groupRuleEventsMatch) page = <GroupRuleEventsPage groupID={groupRuleEventsMatch[1]} />
     else if (groupRulesMatch) page = <GroupRulesPage groupID={groupRulesMatch[1]} />
   }
