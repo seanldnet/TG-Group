@@ -16,7 +16,7 @@ func TestWarningEscalationRetryDelay(t *testing.T) {
 		{attempt: 2, want: time.Minute},
 		{attempt: 3, want: 2 * time.Minute},
 		{attempt: 4, want: 4 * time.Minute},
-		{attempt: 8, want: 64 * time.Minute},
+		{attempt: 8, want: time.Hour},
 		{attempt: 9, want: time.Hour},
 		{attempt: 20, want: time.Hour},
 	}
