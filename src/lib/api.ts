@@ -46,10 +46,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>
 }
 
+export type CaptchaConfig = { enabled: boolean; endpoint?: string }
+
+export function getCaptchaConfig() {
+  return request<CaptchaConfig>("/api/v1/security/captcha")
+}
+
 export function register(input: {
   email: string
   password: string
   display_name: string
+  captcha_token?: string
 }) {
   return request<AuthSession>("/api/v1/auth/register", {
     method: "POST",
@@ -57,7 +64,7 @@ export function register(input: {
   })
 }
 
-export function login(input: { email: string; password: string }) {
+export function login(input: { email: string; password: string; captcha_token?: string }) {
   return request<AuthSession>("/api/v1/auth/login", {
     method: "POST",
     body: JSON.stringify(input),
