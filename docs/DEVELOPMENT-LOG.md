@@ -318,3 +318,13 @@
 
 - **CI 修复与验证**：首次 CI 发现 refresh 审计日志把 UUID actor 参数与文本 resource_id 复用，PostgreSQL 无法推断参数类型；已拆分为独立参数。最终代码提交 `bcf9771347f266ec8dc30c97534a344e4f318d20` 对应 Actions run `45733654763` 全部 success：PostgreSQL 集成测试、`go vet ./...`、前端 TypeScript 生产构建均通过。集成测试覆盖 refresh 轮换、旧 refresh token 重放触发整个 family 撤销、退出登录后 refresh token 失效。
 - **当前验收边界**：CI 已通过；尚未在真实部署环境等待 15 分钟验证浏览器自动续期。现有旧版本登录会话没有 refresh family，用户升级后首次重新登录即可获得新双令牌。
+
+
+### 账号密码修改与全设备会话撤销（第十六批第三阶段，首批实现）
+- **服务端**：新增 `POST /api/v1/auth/password/change`，必须携带当前有效 Bearer 会话；先验证当前密码，再以 bcrypt 更新密码哈希。密码长度沿用注册规则 10–72 字节，并拒绝与当前密码相同的值。
+- **会话安全**：密码变更在单个 PostgreSQL 事务中撤销该用户全部既有 access sessions 和 refresh tokens，再为当前设备创建新的 refresh family/access session；当前设备保持登录，其他设备必须重新登录。旧 access/refresh token 均失效。
+- **审计**：写入 `auth.password_change` 审计记录；审计写入失败时密码更新和会话撤销整体回滚。
+- **前端**：账号工作台新增修改密码卡片，包含当前密码、新密码和确认密码；成功后立即替换浏览器内的双令牌，不再要求当前设备重新登录。界面继续使用仓库内 shadcn/ui 官方 Input、Label、Button、Card。
+- **测试**：新增 PostgreSQL 集成测试，覆盖原密码错误、弱密码、重复旧密码、成功修改、旧密码无法登录、其他设备 access session 失效、旧 refresh token 失效和新密码登录；HTTP 路由增加未配置数据库时 503 覆盖。
+- **文档**：同步 API、LOCAL-TESTING、DEVELOPMENT-PLAN。
+- **验证状态**：代码已提交 main；等待 GitHub Actions Go/PostgreSQL 测试、go vet、前端 TypeScript 生产构建完成后再确认验收。
