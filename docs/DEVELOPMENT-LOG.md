@@ -839,3 +839,10 @@
 - 测试仅在 `TEST_DATABASE_URL` 配置时执行；复用项目数据库迁移器，不使用模拟 SQL 替代 PostgreSQL 行为。
 - 涉及文件：`internal/bots/warning_escalation_worker_integration_test.go`。
 - 提交：`273f7d873e64954912a53cc0ae0ceae91db368f4`；Go/PostgreSQL 测试、vet、前端构建和 Docker 发布结果待最新 Actions 确认。
+
+## 2026-11-27（Web 群成员列表分页）
+
+- 群成员页面原先一次性展示 API 返回的最多 200 条记录，列表较长时缺少翻页操作。
+- 新增前端分页，每页 20 条，提供上一页/下一页、当前页码和已采集成员总数；刷新成员后回到第一页。
+- 明确展示边界：当前 API 仍只读取最近活动的最多 200 位已采集成员，本次是列表分页，不代表 Telegram 全量成员同步或服务端游标分页已经完成。
+- 提交：`00ba19f49aff858e0e651089ad04d8bc643d1030`；前端构建与 Go CI 待最新 Actions 确认。
