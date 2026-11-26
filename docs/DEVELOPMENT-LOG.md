@@ -306,4 +306,12 @@
 - **CI 修复与最终验证**：首次 CI 发现前端 Dashboard 状态变量作用域错误，已修复；PostgreSQL 集成测试先后发现审计 JSON 参数缺少 bigint 类型以及解绑审计复用 UUID/text 参数的问题，均已修复。最终代码提交 `dfbdbb1d2bebc304573f1f90781ed3f9b8381eea` 对应 GitHub Actions run `45731398955`：Go/PostgreSQL 全量测试、`go vet ./...` 和前端 TypeScript 生产构建全部 success。CI 验证覆盖绑定成功、挑战重放、Telegram ID 重复绑定拒绝、解除绑定和配置读取；未覆盖真实 Telegram Bot 网络联调。
 
 - **额外安全加固与 CI**：身份 Bot HTTP 请求错误不再记录原始网络错误，避免错误文本带出含 Token 的 Telegram API URL；平台 Bot username 增加字符集、长度和 `bot` 后缀校验。提交 `cfa5760df716182c8f7e7e2e1886a83693dedd64` 对应 run `45731715648` 最终 success，Go/PostgreSQL 测试、`go vet ./...`、前端生产构建均通过。当前仅缺平台身份 Bot 的真实凭据和 Telegram 网络端到端验收。
-\n\n### Refresh Token 会话续期（第十六批第二阶段，首批实现）\n- **数据库**：新增 migration 000011，`user_sessions` 增加 `family_id`，新增 `user_refresh_tokens` 保存 refresh token SHA-256 摘要、family、过期/撤销时间、替换摘要、User-Agent 和 IP。`internal/database/migrations` 与根目录 `migrations` 同步 up/down 文件。\n- **后端**：注册/登录签发 15 分钟 access token 与 30 天 refresh token；新增 `Service.Refresh` 和 `POST /api/v1/auth/refresh`，每次续期轮换两类令牌。已轮换令牌被重放时撤销整个 family 的刷新令牌与访问会话；退出登录撤销当前 family。账号/租户停用时拒绝续期并撤销该 family。\n- **前端**：在 sessionStorage 中保存 access/refresh token；受保护请求遇到 401 自动调用 refresh 并重试；通过 single-flight 合并并发续期请求，避免同一旧 refresh token 被同时消费。登录/注册页面同步保存两类令牌。\n- **测试**：扩展 PostgreSQL 集成测试，覆盖 refresh 轮换、旧 refresh token 重放触发 family 撤销、退出登录后 refresh token 不可用；HTTP 测试覆盖无数据库时 refresh endpoint 返回 503。\n- **文档**：更新 API、LOCAL-TESTING、README 与 DEVELOPMENT-PLAN。\n- **验证状态**：代码已提交 main，等待 GitHub Actions 全量 Go/PostgreSQL 测试、go vet 与前端构建。\n
+
+
+### Refresh Token 会话续期（第十六批第二阶段，首批实现）
+- **数据库**：新增 migration 000011，`user_sessions` 增加 `family_id`，新增 `user_refresh_tokens` 保存 refresh token SHA-256 摘要、family、过期/撤销时间、替换摘要、User-Agent 和 IP。`internal/database/migrations` 与根目录 `migrations` 同步 up/down 文件。
+- **后端**：注册/登录签发 15 分钟 access token 与 30 天 refresh token；新增 `Service.Refresh` 和 `POST /api/v1/auth/refresh`，每次续期轮换两类令牌。已轮换令牌被重放时撤销整个 family 的刷新令牌与访问会话；退出登录撤销当前 family。账号/租户停用时拒绝续期并撤销该 family。
+- **前端**：在 sessionStorage 中保存 access/refresh token；受保护请求遇到 401 自动调用 refresh 并重试；通过 single-flight 合并并发续期请求，避免同一旧 refresh token 被同时消费。登录/注册页面同步保存两类令牌。
+- **测试**：扩展 PostgreSQL 集成测试，覆盖 refresh 轮换、旧 refresh token 重放触发 family 撤销、退出登录后 refresh token 不可用；HTTP 测试覆盖无数据库时 refresh endpoint 返回 503。
+- **文档**：更新 API、LOCAL-TESTING、README 与 DEVELOPMENT-PLAN。
+- **验证状态**：代码已提交 main，等待 GitHub Actions 全量 Go/PostgreSQL 测试、go vet 与前端构建。
