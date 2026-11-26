@@ -101,6 +101,22 @@ func (s *Service) CompleteTelegramLink(ctx context.Context, token string, identi
     return nil
 }
 
+func (s *Service) UnlinkTelegramIdentity(ctx context.Context, userID string) error {
+    tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+    if err != nil { return fmt.Errorf("begin Telegram identity unlink: %w", err) }
+    defer tx.Rollback(ctx)
+    var telegramID int64
+    var tenantID string
+    err = tx.QueryRow(ctx, "SELECT telegram_id,tenant_id::text FROM users WHERE id=$1 AND telegram_id IS NOT NULL FOR UPDATE", userID).Scan(&telegramID,&tenantID)
+    if errors.Is(err,pgx.ErrNoRows) { return ErrTelegramAlreadyBound }
+    if err != nil { return fmt.Errorf("load Telegram identity for unlink: %w",err) }
+    if _,err:=tx.Exec(ctx,"UPDATE users SET telegram_id=NULL,updated_at=now() WHERE id=$1",userID);err!=nil{return fmt.Errorf("unlink Telegram identity: %w",err)}
+    if _,err:=tx.Exec(ctx,`INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,metadata)
+        VALUES($1,$2,'auth.telegram_unlink','user',$2,jsonb_build_object('telegram_id',$3))`,tenantID,userID,telegramID);err!=nil{return fmt.Errorf("audit Telegram identity unlink: %w",err)}
+    if err:=tx.Commit(ctx);err!=nil{return fmt.Errorf("commit Telegram identity unlink: %w",err)}
+    return nil
+}
+
 func (s *Service) TelegramIdentity(ctx context.Context, userID string) (*int64, error) {
     var id *int64
     if err := s.pool.QueryRow(ctx, "SELECT telegram_id FROM users WHERE id=$1", userID).Scan(&id); err != nil {
