@@ -348,7 +348,7 @@ func validGroupCategory(category string) bool {
 func (p *Poller) sendGroupCategory(ctx context.Context,bot managedBot,groupID string,chatID int64,category,token string) {
 	type categoryInfo struct { title,description,status string }
 	categories:=map[string]categoryInfo{
-		"qa":{"问答系统","管理关键词问题和自动回答。","开发中"},
+		"qa":{"问答系统","管理关键词触发与自动回复，支持精确、包含和前缀匹配。","部分开放"},
 		"review":{"审核管理","集中设置消息审核与内容审核规则。","开发中"},
 		"notices":{"提示设置","设置新成员欢迎语、成员离群通知和群公告。","部分开放"},
 		"basic":{"基础群管","查看成员、成员详情，并执行禁言、封禁和解除处罚。","已开放"},
@@ -376,6 +376,7 @@ func (p *Poller) sendGroupCategory(ctx context.Context,bot managedBot,groupID st
 	case "retract": keyboard=append(keyboard,[]map[string]string{{"text":"最近群消息","callback_data":"group:messages"}})
 	case "admins": keyboard=append(keyboard,[]map[string]string{{"text":"查看 Bot 权限","callback_data":"group:status"}})
 	case "verify": keyboard=append(keyboard,[]map[string]string{{"text":"入群验证规则","callback_data":"group:rules:verify"}})
+	case "qa": keyboard=append(keyboard,[]map[string]string{{"text":"问答规则列表","callback_data":"group:rules:qa"}})
 	case "lists": keyboard=append(keyboard,[]map[string]string{{"text":"查看群组黑白名单","callback_data":"group:lists"}})
 	case "warnings": keyboard=append(keyboard,[]map[string]string{{"text":"警告记录说明","callback_data":"group:warnings"}})
 	case "settings": keyboard=append(keyboard,[]map[string]string{{"text":"打开群组设置","callback_data":"group:settings"}})
@@ -802,6 +803,7 @@ func (p *Poller) createGroupRulePreset(ctx context.Context,bot managedBot,groupI
 		"verify":{"join_verification","数字入群验证","{\"challenge_type\":\"math\",\"timeout_seconds\":180,\"failure_action\":\"kick\",\"required_channels\":[]}"},
 		"verify_letters":{"join_verification","字母入群验证","{\"challenge_type\":\"letters\",\"timeout_seconds\":180,\"failure_action\":\"kick\",\"required_channels\":[]}"},
 		"verify_alphanumeric":{"join_verification","数字字母组合验证","{\"challenge_type\":\"alphanumeric\",\"timeout_seconds\":180,\"failure_action\":\"kick\",\"required_channels\":[]}"},
+		"qa":{"qa","群常见问题问答",`{"triggers":["群规","规则"],"match_mode":"contains","response":"请查看群公告中的群规说明。","case_sensitive":false}`},
 	}
 	item,ok:=presets[preset];if !ok{return}
 	_,err:=p.botService.CreateGroupRule(ctx,bot.tenantID,groupID,bots.GroupRuleInput{RuleType:item.kind,Name:item.name,Enabled:true,Priority:100,Config:[]byte(item.config)})
