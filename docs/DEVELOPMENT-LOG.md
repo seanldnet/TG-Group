@@ -304,3 +304,5 @@
 - **验证状态**：源码与文档已提交 main；等待 GitHub Actions Go/PostgreSQL 测试、go vet 与前端构建结果。真实 Bot 联调待平台身份 Bot Token/username 配置后进行。
 
 - **CI 修复与最终验证**：首次 CI 发现前端 Dashboard 状态变量作用域错误，已修复；PostgreSQL 集成测试先后发现审计 JSON 参数缺少 bigint 类型以及解绑审计复用 UUID/text 参数的问题，均已修复。最终代码提交 `dfbdbb1d2bebc304573f1f90781ed3f9b8381eea` 对应 GitHub Actions run `45731398955`：Go/PostgreSQL 全量测试、`go vet ./...` 和前端 TypeScript 生产构建全部 success。CI 验证覆盖绑定成功、挑战重放、Telegram ID 重复绑定拒绝、解除绑定和配置读取；未覆盖真实 Telegram Bot 网络联调。
+
+- **额外安全加固与 CI**：身份 Bot HTTP 请求错误不再记录原始网络错误，避免错误文本带出含 Token 的 Telegram API URL；平台 Bot username 增加字符集、长度和 `bot` 后缀校验。提交 `cfa5760df716182c8f7e7e2e1886a83693dedd64` 对应 run `45731715648` 最终 success，Go/PostgreSQL 测试、`go vet ./...`、前端生产构建均通过。当前仅缺平台身份 Bot 的真实凭据和 Telegram 网络端到端验收。
