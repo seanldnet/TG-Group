@@ -103,8 +103,11 @@ func (s *Service) claimWarningEscalation(ctx context.Context) (pendingWarningEsc
 	err := s.pool.QueryRow(ctx, `
 		WITH candidate AS (
 			SELECT id
-			FROM telegram_group_warning_escalations
-			WHERE (
+			FROM telegram_group_warning_escalations e
+			WHERE EXISTS (
+				SELECT 1 FROM telegram_groups g
+				WHERE g.id = e.group_id AND g.tenant_id = e.tenant_id
+			) AND ((
 				status = 'failed'
 				AND next_retry_at IS NOT NULL
 				AND next_retry_at <= now()
@@ -114,7 +117,7 @@ func (s *Service) claimWarningEscalation(ctx context.Context) (pendingWarningEsc
 				AND processing_started_at IS NOT NULL
 				AND processing_started_at <= now() - ($2 * interval '1 second')
 				AND attempt_count < $1
-			)
+			))
 			ORDER BY COALESCE(next_retry_at, processing_started_at), id
 			LIMIT 1
 			FOR UPDATE SKIP LOCKED
@@ -128,10 +131,6 @@ func (s *Service) claimWarningEscalation(ctx context.Context) (pendingWarningEsc
 			updated_at = now()
 		FROM candidate
 		WHERE e.id = candidate.id
-			AND EXISTS (
-				SELECT 1 FROM telegram_groups g
-				WHERE g.id = e.group_id AND g.tenant_id = e.tenant_id
-			)
 		RETURNING e.id, e.tenant_id::text, e.group_id::text,
 			e.telegram_user_id, e.action, e.duration_minutes, e.attempt_count
 	`, warningEscalationMaxAttempts, int64(warningEscalationLease.Seconds())).Scan(
