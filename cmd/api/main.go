@@ -61,7 +61,6 @@ func main() {
 				} else { cfg.TelegramAuthBotToken,cfg.TelegramAuthBotUsername="","" }
 			}
 		}
-		if cfg.TelegramAuthBotToken!="" {telegramIdentityManager.Configure(cfg.TelegramAuthBotToken,cfg.TelegramAuthBotUsername)}
 		if cfg.BotTokenEncryptionKey != "" {
 			botService, err = bots.NewService(db.Pool, cfg.BotTokenEncryptionKey)
 			if err != nil { logger.Error("configure Telegram bot token encryption", "error", err); os.Exit(1) }
@@ -69,6 +68,8 @@ func main() {
 		} else {
 			logger.Warn("BOT_TOKEN_ENCRYPTION_KEY is empty; Telegram Bot management is disabled")
 		}
+		telegramIdentityManager.SetBotService(botService)
+		if cfg.TelegramAuthBotToken!="" {telegramIdentityManager.Configure(cfg.TelegramAuthBotToken,cfg.TelegramAuthBotUsername)}
 	}
 	captchaVerifier, err := httpapi.NewCaptchaVerifier(cfg.CAPBaseURL, cfg.CAPSiteKey, cfg.CAPSecret, cfg.CAPWidgetURL)
 	if err != nil { logger.Error("configure CAP.js verification", "error", err); os.Exit(1) }
