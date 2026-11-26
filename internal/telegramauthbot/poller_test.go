@@ -3,12 +3,13 @@ package telegramauthbot
 import (
 	"encoding/json"
 	"testing"
+	"time"
 )
 
 func TestBotTokenPromptIsOneShot(t *testing.T) {
 	p := &Poller{awaitingBotToken: make(map[int64]bool)}
 	p.stateMu.Lock()
-	p.awaitingBotToken[123] = true
+	p.awaitingBotToken[123] = time.Now().Add(time.Minute)
 	p.stateMu.Unlock()
 
 	if !p.consumeBotTokenPrompt(123) {
@@ -61,4 +62,11 @@ func contains(value, fragment string) bool {
 		}
 	}
 	return false
+}
+
+func TestBotTokenPromptExpires(t *testing.T) {
+	p := &Poller{awaitingBotToken: map[int64]time.Time{123: time.Now().Add(-time.Second)}}
+	if p.consumeBotTokenPrompt(123) {
+		t.Fatal("expired token prompt must not accept a message")
+	}
 }
