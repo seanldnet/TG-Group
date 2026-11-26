@@ -59,3 +59,18 @@ func TestParseGroupBotCommand(t *testing.T) {
 	}
 	for _,test:=range tests { if got:=parseGroupBotCommand(test.input);got!=test.want { t.Errorf("parseGroupBotCommand(%q)=%q want %q",test.input,got,test.want) } }
 }
+
+func TestGroupOwnerAccessUsesLinkedTenantIdentity(t *testing.T) {
+	tests:=[]struct{name string;hasLinkedOwner,isOwner bool;want string}{
+		{name:"no account linked",hasLinkedOwner:false,isOwner:false,want:"unbound"},
+		{name:"different Telegram account",hasLinkedOwner:true,isOwner:false,want:"not_owner"},
+		{name:"linked account",hasLinkedOwner:true,isOwner:true,want:"owner"},
+	}
+	for _,test:=range tests {
+		t.Run(test.name,func(t *testing.T){
+			if got:=groupOwnerAccess(test.hasLinkedOwner,test.isOwner);got!=test.want {
+				t.Fatalf("groupOwnerAccess()=%q, want %q",got,test.want)
+			}
+		})
+	}
+}
