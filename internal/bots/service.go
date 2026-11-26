@@ -291,6 +291,36 @@ func (s *Service) ListGroupMembers(ctx context.Context, tenantID, groupID string
 	return result, rows.Err()
 }
 
+
+func (s *Service) ListGroupMembersPage(ctx context.Context, tenantID, groupID string, limit, offset int) ([]GroupMember, int, error) {
+	if limit < 1 || limit > 100 { limit = 20 }
+	if offset < 0 { offset = 0 }
+	var total int
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM telegram_group_members WHERE tenant_id=$1 AND group_id=$2`, tenantID, groupID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count Telegram group members: %w", err)
+	}
+	rows, err := s.pool.Query(ctx, `SELECT id,group_id::text,telegram_user_id,username,first_name,last_name,is_bot,status,
+		is_anonymous,can_manage_chat,can_delete_messages,can_restrict_members,can_invite_users,can_pin_messages,
+		can_manage_topics,joined_at,last_seen_at
+		FROM telegram_group_members
+		WHERE tenant_id=$1 AND group_id=$2
+		ORDER BY CASE WHEN status IN ('creator','administrator') THEN 0 WHEN status='member' THEN 1 ELSE 2 END,
+		last_seen_at DESC, id DESC LIMIT $3 OFFSET $4`, tenantID, groupID, limit, offset)
+	if err != nil { return nil, 0, fmt.Errorf("list paginated Telegram group members: %w", err) }
+	defer rows.Close()
+	result := make([]GroupMember, 0)
+	for rows.Next() {
+		var member GroupMember
+		if err := rows.Scan(&member.ID,&member.GroupID,&member.TelegramUserID,&member.Username,&member.FirstName,
+			&member.LastName,&member.IsBot,&member.Status,&member.IsAnonymous,&member.CanManageChat,
+			&member.CanDeleteMessages,&member.CanRestrictMembers,&member.CanInviteUsers,&member.CanPinMessages,
+			&member.CanManageTopics,&member.JoinedAt,&member.LastSeenAt); err != nil { return nil, 0, err }
+		result = append(result, member)
+	}
+	if err := rows.Err(); err != nil { return nil, 0, err }
+	return result, total, nil
+}
+
 func (s *Service) ListGroupEvents(ctx context.Context,tenantID,groupID string,limit int)([]GroupMessageEvent,error){
 	if limit<1 || limit>100{limit=50}
 	rows,err:=s.pool.Query(ctx,`SELECT id,group_id::text,telegram_message_id,COALESCE(telegram_user_id,0),
