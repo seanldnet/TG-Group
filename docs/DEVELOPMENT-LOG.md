@@ -816,3 +816,10 @@
 - 增加达到最大尝试次数后、processing lease 已过期的终态清理，避免崩溃发生在最后一次自动尝试时任务永久停留 processing。
 - 当前 main 最新提交：`cbd1c90ddd8f84a2b4c02451277365f508c33b19`。
 - GitHub Actions：前端 typecheck/build 已 success；Go test/vet 与 Docker 镜像发布仍在运行，最终结果待确认。
+
+## 2026-11-27（自动重试 worker CI 断言修复）
+
+- **CI 结果**：最新 CI 的前端 typecheck/build 通过；Go 测试失败，定位为 `TestWarningEscalationRetryDelay` 对第 8 次退避的期望值写成 64 分钟，与实现中“最长 1 小时”的上限定义冲突。Docker 多架构镜像构建与发布通过。
+- **修复**：将第 8 次退避测试期望修正为 1 小时；实现保持 1 小时封顶，不放宽退避上限。
+- **提交**：`b80685456428cfdea271cd7e2958da9b109dc5cc`。该修复提交后的 CI 尚待执行完成，当前不能标记 Go 测试通过。
+- **下一步**：确认修复提交的 Go/PostgreSQL 测试、vet、前端构建和镜像发布结果；通过后继续补充重试队列 PostgreSQL 并发/租户隔离集成测试。
