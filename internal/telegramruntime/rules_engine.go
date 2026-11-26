@@ -364,6 +364,65 @@ func (p *Poller) sendGroupRules(ctx context.Context,bot managedBot,groupID strin
 	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\n"),"reply_markup":map[string]any{"inline_keyboard":keyboard}},nil)
 }
 
+
+func (p *Poller) createGroupRulePreset(ctx context.Context,bot managedBot,groupID string,chatID int64,preset,token string) {
+	if p.botService==nil { return }
+	type presetRule struct { kind,name,config string }
+	presets:=map[string]presetRule{
+		"welcome":{"welcome","自动欢迎语","{\"text\":\"欢迎 {user} 加入 {group}！请阅读群规，文明交流。\"}"},
+		"leave":{"leave_notice","成员离群通知","{\"text\":\"{user} 离开了群组。\"}"},
+		"anti_ad":{"anti_ad","基础广告拦截","{\"patterns\":[\"http://\",\"https://\",\"t.me/\"],\"action\":\"delete\"}"},
+		"keyword":{"keyword_filter","关键词过滤示例","{\"words\":[\"加我\",\"私聊我\"],\"action\":\"delete\"}"},
+		"anti_spam":{"anti_spam","基础刷屏限制","{\"max_messages\":6,\"window_seconds\":10,\"action\":\"delete\"}"},
+		"verify":{"join_verification","数学入群验证","{\"challenge_type\":\"math\",\"timeout_seconds\":180,\"failure_action\":\"kick\",\"required_channels\":[]}"},
+	}
+	item,ok:=presets[preset];if !ok{return}
+	_,err:=p.botService.CreateGroupRule(ctx,bot.tenantID,groupID,bots.GroupRuleInput{RuleType:item.kind,Name:item.name,Enabled:true,Priority:100,Config:[]byte(item.config)})
+	if err!=nil {
+		if errors.Is(err,bots.ErrGroupRuleConflict) { _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"该预设规则已经存在。可在规则列表中启用或停用。"},nil) } else { p.logger.Warn("create Telegram group rule preset","group_id",groupID,"preset",preset,"error",err);_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"创建规则失败，请稍后重试。"},nil) }
+		return
+	}
+	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"规则已创建并启用："+item.name},nil)
+	p.sendGroupRules(ctx,bot,groupID,chatID,token)
+}
+
+func parseGroupRuleDeleteCallback(data string) (stage,ruleID string,ok bool) {
+	parts:=strings.Split(data,":")
+	if len(parts)!=5 || parts[0]!="group" || parts[1]!="delete" || (parts[2]!="ask" && parts[2]!="confirm") || !validRuleUUID(parts[3]) || parts[4]!="rule" { return "","",false }
+	return parts[2],parts[3],true
+}
+
+func (p *Poller) handleGroupRuleDelete(ctx context.Context,bot managedBot,groupID string,chatID int64,data,token string) {
+	stage,ruleID,ok:=parseGroupRuleDeleteCallback(data)
+	if !ok { return }
+	if stage=="ask" {
+		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"确定删除这条群规吗？历史执行记录会保留。","reply_markup":map[string]any{"inline_keyboard":[][]map[string]string{
+			{{"text":"确认删除","callback_data":"group:delete:confirm:"+ruleID+":rule"}},
+			{{"text":"取消","callback_data":"group:rules"}},
+		}}},nil)
+		return
+	}
+	if p.botService==nil{return}
+	if err:=p.botService.DeleteGroupRule(ctx,bot.tenantID,groupID,ruleID);err!=nil { p.logger.Warn("delete Telegram group rule","group_id",groupID,"rule_id",ruleID,"error",err);_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"删除失败，该规则可能已不存在。"},nil);return }
+	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"群规已删除，历史执行记录仍保留。"},nil)
+	p.sendGroupRules(ctx,bot,groupID,chatID,token)
+}
+
+func (p *Poller) sendGroupRuleEvents(ctx context.Context,bot managedBot,groupID string,chatID int64,token string) {
+	if p.botService==nil{return}
+	events,err:=p.botService.ListGroupRuleEvents(ctx,bot.tenantID,groupID,20)
+	if err!=nil{p.logger.Warn("list Telegram group rule events","group_id",groupID,"error",err);return}
+	lines:=[]string{"最近 20 条群规执行记录："}
+	if len(events)==0{lines=append(lines,"暂无执行记录。")}
+	for i,event:=range events {
+		detail:=strings.TrimSpace(event.Detail);if len([]rune(detail))>100{detail=string([]rune(detail)[:100])+"…"}
+		lines=append(lines,fmt.Sprintf("%d. %s | %s | %s",i+1,event.Action,event.Status,detail))
+	}
+	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\n"),"reply_markup":map[string]any{"inline_keyboard":[][]map[string]string{
+		{{"text":"刷新记录","callback_data":"group:rule-events"},{"text":"返回规则","callback_data":"group:rules"}},
+	}}},nil)
+}
+
 func (p *Poller) sendGroupStatus(ctx context.Context,bot managedBot,groupID string,chatID int64,token string) {
 	var telegramChatID,telegramBotID int64
 	err:=p.pool.QueryRow(ctx,"SELECT g.telegram_chat_id,b.telegram_bot_id FROM telegram_groups g JOIN telegram_bots b ON b.id=g.bot_id AND b.tenant_id=g.tenant_id WHERE g.tenant_id=$1 AND g.id=$2 AND g.status='active' AND b.status='active'",bot.tenantID,groupID).Scan(&telegramChatID,&telegramBotID)
