@@ -79,3 +79,13 @@ func TestLoadReadsTelegramAuthBotConfiguration(t *testing.T) {
         t.Fatalf("unexpected Telegram auth Bot config: %+v",got)
     }
 }
+
+func TestLoadRejectsUnsafeTelegramBotUsername(t *testing.T) {
+    t.Setenv("TG_GROUP_HTTP_PORT","8080")
+    t.Setenv("CAP_BASE_URL","")
+    t.Setenv("CAP_SITE_KEY","")
+    t.Setenv("CAP_SECRET","")
+    t.Setenv("TELEGRAM_AUTH_BOT_TOKEN","123:token")
+    t.Setenv("TELEGRAM_AUTH_BOT_USERNAME","evil.example/bot")
+    if _,err:=Load();err==nil { t.Fatal("Load() error = nil, want invalid Telegram Bot username error") }
+}
