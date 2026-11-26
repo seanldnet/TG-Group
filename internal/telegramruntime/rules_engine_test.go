@@ -53,6 +53,7 @@ func TestParseGroupBotCommand(t *testing.T) {
 		{"/start","start"},
 		{"/help@sample_bot","help"},
 		{"/rules extra","rules"},
+		{"/members","members"},
 		{"hello",""},
 		{"start",""},
 		{"/",""},
@@ -101,6 +102,8 @@ func TestParseGroupMemberCallback(t *testing.T) {
 	}{
 		{name: "ask mute", data: "group:member:ask:mute:123456", stage: "ask", action: "mute", targetID: 123456, wantOK: true},
 		{name: "confirm ban", data: "group:member:confirm:ban:987654", stage: "confirm", action: "ban", targetID: 987654, wantOK: true},
+		{name: "ask unmute", data: "group:member:ask:unmute:123", stage: "ask", action: "unmute", targetID: 123, wantOK: true},
+		{name: "confirm unban", data: "group:member:confirm:unban:456", stage: "confirm", action: "unban", targetID: 456, wantOK: true},
 		{name: "reject zero id", data: "group:member:confirm:ban:0", wantOK: false},
 		{name: "reject negative id", data: "group:member:ask:mute:-1", wantOK: false},
 		{name: "reject unsupported action", data: "group:member:ask:kick:123", wantOK: false},
