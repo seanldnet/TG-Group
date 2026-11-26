@@ -81,3 +81,12 @@ func TestCaptchaVerifierTreatsServerFailureAsUnavailable(t *testing.T) {
 		t.Fatalf("Verify() error = %v, want service unavailable error", err)
 	}
 }
+
+func TestCaptchaVerifierValidatesWidgetAssetURL(t *testing.T) {
+	if _, err := NewCaptchaVerifier("https://captcha.example.com", "site", "secret", "http://cdn.example.com/widget.js"); err == nil {
+		t.Fatal("remote HTTP widget URL should be rejected")
+	}
+	if _, err := NewCaptchaVerifier("https://captcha.example.com", "site", "secret", "http://127.0.0.1:3000/assets/widget.js"); err != nil {
+		t.Fatalf("loopback HTTP widget URL should be allowed in development: %v", err)
+	}
+}
