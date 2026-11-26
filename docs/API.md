@@ -12,6 +12,18 @@ Authorization: Bearer <token>
 
 返回 `200` 和服务状态。该端点不代表数据库一定可用。
 
+## CAP.js 人机验证
+
+CAP 采用官方 Cap Standalone 服务端和官方 `cap-widget` Web Component。服务端配置 `CAP_BASE_URL`、`CAP_SITE_KEY`、`CAP_SECRET` 三项环境变量后启用；三项必须同时设置。公网地址必须使用 HTTPS，只有 localhost/loopback 开发地址允许 HTTP。
+
+- `GET /api/v1/security/captcha`：公开读取是否启用及前端组件 endpoint；绝不返回站点 secret。
+- 网站注册、登录请求在启用时必须携带 `captcha_token`。
+- Go 服务端向 Cap Standalone 的 `/{site_key}/siteverify` 发送 `secret` 与 `response`，仅接受 HTTP 成功且 JSON `success=true`；验证服务超时/不可用时失败关闭，不创建会话。
+- CAP token 一次性使用；注册或登录业务失败后，前端重新加载组件获取新 token。
+- 前端固定使用官方 `cap-widget@0.1.58`，CAP 站点 URL 必须可由用户浏览器访问，并在 Cap 的 CORS 设置中允许 TG-Group 网站域名。
+
+`CAP_SECRET` 只保存在后端环境变量/密钥管理系统中。不要放入前端变量、代码仓库或 API 响应。Telegram 群内无法直接渲染浏览器组件，入群验证当前继续使用 Telegram Inline Keyboard 数学题与频道成员校验；CAP.js 不替代该流程。
+
 ## 注册
 
 `POST /api/v1/auth/register`
@@ -22,7 +34,8 @@ Authorization: Bearer <token>
 {
   "email": "owner@example.com",
   "password": "at-least-10-characters",
-  "display_name": "社群管理员"
+  "display_name": "社群管理员",
+  "captcha_token": "仅在 CAP 启用时必填"
 }
 ```
 
@@ -41,7 +54,8 @@ Authorization: Bearer <token>
 ```json
 {
   "email": "owner@example.com",
-  "password": "at-least-10-characters"
+  "password": "at-least-10-characters",
+  "captcha_token": "仅在 CAP 启用时必填"
 }
 ```
 
