@@ -74,6 +74,7 @@ func NewHandlerWithPlatformBot(logger *slog.Logger, authService *auth.Service, b
 	mux.HandleFunc("DELETE /api/v1/groups/{groupID}/member-lists/{userID}",h.deleteGroupMemberList)
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/members/{userID}/warnings",h.listGroupMemberWarnings)
 	mux.HandleFunc("POST /api/v1/groups/{groupID}/members/{userID}/warnings",h.addGroupMemberWarning)
+	mux.HandleFunc("DELETE /api/v1/groups/{groupID}/members/{userID}/warnings",h.clearGroupMemberWarnings)
 	mux.HandleFunc("POST /api/v1/bots",h.addBot)
 	mux.HandleFunc("PATCH /api/v1/bots/{botID}/status",h.setBotStatus)
 	mux.HandleFunc("PUT /api/v1/bots/{botID}/token",h.rotateBotToken)
@@ -521,6 +522,14 @@ func (h *Handler) listGroupMemberWarnings(w http.ResponseWriter,r *http.Request)
 	if err!=nil{h.writeGroupRuleError(w,err);return}
 	writeJSON(w,http.StatusOK,map[string]any{"items":items})
 }
+func (h *Handler) clearGroupMemberWarnings(w http.ResponseWriter,r *http.Request) {
+	if !h.botServicesReady(w){return}; user,ok:=h.currentUser(w,r);if !ok{return}
+	userID,err:=strconv.ParseInt(r.PathValue("userID"),10,64);if err!=nil||userID<=0{writeError(w,http.StatusBadRequest,"invalid Telegram user ID");return}
+	count,err:=h.bots.ClearGroupMemberWarnings(r.Context(),user.TenantID,r.PathValue("groupID"),userID)
+	if err!=nil{h.writeGroupRuleError(w,err);return}
+	writeJSON(w,http.StatusOK,map[string]any{"ok":true,"deleted":count})
+}
+
 func (h *Handler) addGroupMemberWarning(w http.ResponseWriter,r *http.Request) {
 	if !h.botServicesReady(w){return}; user,ok:=h.currentUser(w,r);if !ok{return}
 	userID,err:=strconv.ParseInt(r.PathValue("userID"),10,64);if err!=nil||userID<=0{writeError(w,http.StatusBadRequest,"invalid Telegram user ID");return}
