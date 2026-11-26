@@ -11,6 +11,9 @@ type Config struct {
 	Environment string
 	DatabaseURL string
 	BotTokenEncryptionKey string
+	CAPBaseURL string
+	CAPSiteKey string
+	CAPSecret string
 }
 
 func Load() (Config, error) {
@@ -22,7 +25,12 @@ func Load() (Config, error) {
 	}
 	environment := os.Getenv("TG_GROUP_ENV")
 	if environment == "" { environment = "development" }
+	capBaseURL, capSiteKey, capSecret := os.Getenv("CAP_BASE_URL"), os.Getenv("CAP_SITE_KEY"), os.Getenv("CAP_SECRET")
+	if (capBaseURL != "") != (capSiteKey != "") || (capSiteKey != "") != (capSecret != "") {
+		return Config{}, fmt.Errorf("CAP_BASE_URL, CAP_SITE_KEY and CAP_SECRET must be configured together")
+	}
 	return Config{
+		CAPBaseURL: capBaseURL, CAPSiteKey: capSiteKey, CAPSecret: capSecret,
 		HTTPAddr: fmt.Sprintf(":%d", portNumber),
 		Environment: environment,
 		DatabaseURL: os.Getenv("DATABASE_URL"),
