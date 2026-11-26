@@ -15,6 +15,7 @@ var (
     ErrTelegramAlreadyLinked = errors.New("Telegram account is already linked")
     ErrTelegramChallengeExpired = errors.New("Telegram binding challenge is invalid or expired")
     ErrTelegramAlreadyBound = errors.New("user already has a Telegram account linked")
+	ErrTelegramNotLinked = errors.New("user has no Telegram account linked")
 )
 
 const telegramLinkLifetime = 5 * time.Minute
@@ -108,7 +109,7 @@ func (s *Service) UnlinkTelegramIdentity(ctx context.Context, userID string) err
     var telegramID int64
     var tenantID string
     err = tx.QueryRow(ctx, "SELECT telegram_id,tenant_id::text FROM users WHERE id=$1 AND telegram_id IS NOT NULL FOR UPDATE", userID).Scan(&telegramID,&tenantID)
-    if errors.Is(err,pgx.ErrNoRows) { return ErrTelegramAlreadyBound }
+    if errors.Is(err,pgx.ErrNoRows) { return ErrTelegramNotLinked }
     if err != nil { return fmt.Errorf("load Telegram identity for unlink: %w",err) }
     if _,err:=tx.Exec(ctx,"UPDATE users SET telegram_id=NULL,updated_at=now() WHERE id=$1",userID);err!=nil{return fmt.Errorf("unlink Telegram identity: %w",err)}
     if _,err:=tx.Exec(ctx,`INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,metadata)
