@@ -18,13 +18,15 @@ type Handler struct {
 	logger *slog.Logger
 	auth *auth.Service
 	bots *bots.Service
+	captcha *CaptchaVerifier
 }
 
-func NewHandler(logger *slog.Logger, authService *auth.Service, botService *bots.Service) http.Handler {
+func NewHandler(logger *slog.Logger, authService *auth.Service, botService *bots.Service, captcha *CaptchaVerifier) http.Handler {
 	if logger == nil { logger = slog.Default() }
-	h := &Handler{logger:logger,auth:authService,bots:botService}
+	h := &Handler{logger:logger,auth:authService,bots:botService,captcha:captcha}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz",h.health)
+	mux.HandleFunc("GET /api/v1/security/captcha",h.captchaConfig)
 	mux.HandleFunc("POST /api/v1/auth/register",h.register)
 	mux.HandleFunc("POST /api/v1/auth/login",h.login)
 	mux.HandleFunc("POST /api/v1/auth/logout",h.logout)
@@ -54,11 +56,30 @@ type healthResponse struct {
 type credentialsRequest struct {
 	Email string `json:"email"`
 	Password string `json:"password"`
+	CaptchaToken string `json:"captcha_token"`
 }
 type registerRequest struct {
 	Email string `json:"email"`
 	Password string `json:"password"`
 	DisplayName string `json:"display_name"`
+	CaptchaToken string `json:"captcha_token"`
+}
+
+func (h *Handler) captchaConfig(w http.ResponseWriter,r *http.Request) {
+	if h.captcha == nil { writeJSON(w,http.StatusOK,map[string]any{"enabled":false});return }
+	writeJSON(w,http.StatusOK,h.captcha.PublicConfig())
+}
+func (h *Handler) verifyCaptcha(r *http.Request,token string) error {
+	if h.captcha == nil { return nil }
+	return h.captcha.Verify(r.Context(),token)
+}
+func (h *Handler) writeCaptchaError(w http.ResponseWriter,err error) {
+	if errors.Is(err,ErrCaptchaRejected) {
+		writeError(w,http.StatusBadRequest,"人机验证未通过，请重新完成验证")
+		return
+	}
+	h.logger.Error("CAP verification unavailable","error",err)
+	writeError(w,http.StatusServiceUnavailable,"人机验证服务暂时不可用，请稍后重试")
 }
 
 func (h *Handler) health(w http.ResponseWriter,r *http.Request) {
@@ -74,6 +95,7 @@ func (h *Handler) register(w http.ResponseWriter,r *http.Request) {
 	if !h.requireAuthStore(w) { return }
 	var input registerRequest
 	if !decodeJSON(w,r,&input) { return }
+	if err:=h.verifyCaptcha(r,input.CaptchaToken);err!=nil { h.writeCaptchaError(w,err);return }
 	session,err:=h.auth.Register(r.Context(),input.Email,input.Password,input.DisplayName,r.UserAgent(),r.RemoteAddr)
 	if err!=nil { h.writeAuthError(w,err);return }
 	writeJSON(w,http.StatusCreated,session)
@@ -83,6 +105,7 @@ func (h *Handler) login(w http.ResponseWriter,r *http.Request) {
 	if !h.requireAuthStore(w) { return }
 	var input credentialsRequest
 	if !decodeJSON(w,r,&input) { return }
+	if err:=h.verifyCaptcha(r,input.CaptchaToken);err!=nil { h.writeCaptchaError(w,err);return }
 	session,err:=h.auth.Login(r.Context(),input.Email,input.Password,r.UserAgent(),r.RemoteAddr)
 	if err!=nil { h.writeAuthError(w,err);return }
 	writeJSON(w,http.StatusOK,session)
