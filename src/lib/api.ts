@@ -431,3 +431,32 @@ export function revokeAccountSession(sessionID: string) {
     headers: authenticatedHeaders(),
   })
 }
+
+
+export type PlatformTelegramBotStatus = {
+  configured: boolean
+  username: string
+  running: boolean
+  updated_at?: string
+}
+
+export function getPlatformTelegramBotStatus() {
+  return request<PlatformTelegramBotStatus>("/api/v1/admin/platform/telegram-auth-bot", {
+    headers: authenticatedHeaders(),
+  })
+}
+
+export function savePlatformTelegramBot(input: { token: string; username: string }) {
+  return request<PlatformTelegramBotStatus>("/api/v1/admin/platform/telegram-auth-bot", {
+    method: "PUT",
+    headers: authenticatedHeaders(),
+    body: JSON.stringify(input),
+  })
+}
+
+export function clearPlatformTelegramBot() {
+  return request<PlatformTelegramBotStatus>("/api/v1/admin/platform/telegram-auth-bot", {
+    method: "DELETE",
+    headers: authenticatedHeaders(),
+  })
+}
