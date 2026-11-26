@@ -139,6 +139,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
             <h1 className="text-3xl font-semibold tracking-tight">群成员</h1>
             <p className="mt-2 text-sm text-muted-foreground">群组 ID：<span className="font-mono">{groupID}</span></p>
           </div>
+          <Button variant="outline" asChild><a href={`/dashboard/groups/${groupID}/member-lists`}>黑白名单</a></Button>
           <Button variant="outline" onClick={() => void refresh(true)} disabled={refreshing}>
             <RefreshCw className={`mr-2 size-4 ${refreshing ? "animate-spin" : ""}`} />
             刷新成员
