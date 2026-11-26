@@ -1124,7 +1124,7 @@ func (p *Poller) sendGroupMemberLists(ctx context.Context,bot managedBot,groupID
 	}
 	if len(items)==0 {lines=append(lines,"暂无名单条目。请从成员详情添加。")}
 	keyboard=append(keyboard,[]map[string]string{{"text":"刷新","callback_data":"group:lists"},{"text":"返回菜单","callback_data":"group:home"}})
-	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\\n"),"reply_markup":map[string]any{"inline_keyboard":keyboard}},nil)
+	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\n"),"reply_markup":map[string]any{"inline_keyboard":keyboard}},nil)
 }
 
 func (p *Poller) handleGroupMemberListAdd(ctx context.Context,bot managedBot,groupID string,query telegramCallbackQuery,token string) {
