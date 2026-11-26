@@ -635,11 +635,11 @@ func (p *Poller) handleGroupSettings(ctx context.Context,bot managedBot,groupID 
  case "group:settings:invite":
   var chatID int64
   if err:=p.pool.QueryRow(ctx,"SELECT telegram_chat_id FROM telegram_groups WHERE tenant_id=$1 AND id=$2 AND status='active'",bot.tenantID,groupID).Scan(&chatID);err!=nil{return}
-  var result struct { InviteLink string "json:\"invite_link\"" }
-  if err:=p.callTelegram(ctx,token,"exportChatInviteLink",map[string]any{"chat_id":chatID},&result);err!=nil {
+  var inviteLink string
+  if err:=p.callTelegram(ctx,token,"exportChatInviteLink",map[string]any{"chat_id":chatID},&inviteLink);err!=nil {
    _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"生成邀请链接失败，请检查 Bot 的邀请成员权限。"},nil);return
   }
-  _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"群组邀请链接：\n"+result.InviteLink},nil)
+  _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"群组邀请链接：\n"+inviteLink},nil)
  default:return
  }
 }
