@@ -82,6 +82,17 @@ func (p *Poller) handleMessage(ctx context.Context, message *struct {
     Text string `json:"text"`
 }) {
     if message == nil || message.From == nil || message.From.IsBot || message.Chat.Type != "private" || message.From.ID != message.Chat.ID { return }
+    command := strings.TrimSpace(message.Text)
+    if command == "/account" || command == "账号信息" {
+        account, err := p.auth.TelegramAccount(ctx,message.From.ID)
+        if err != nil {
+            _ = p.sendMessage(ctx,message.Chat.ID,"当前 Telegram 尚未绑定平台账号。发送 /start 可以注册新账号，或先登录网站后在账号安全中发起绑定。")
+            return
+        }
+        text := "TG-Group 账号信息\\n用户 ID："+account.UserID+"\\n登录账号："+account.UserID+"\\n邮箱："+account.Email+"\\n昵称："+account.DisplayName+"\\n角色："+account.Role
+        if err := p.sendMessage(ctx,message.Chat.ID,text); err != nil { p.logger.Warn("send Telegram account summary failed","error",err) }
+        return
+    }
     parts := strings.Fields(message.Text)
     if len(parts) == 0 || parts[0] != "/start" { return }
     identity := auth.TelegramIdentity{
