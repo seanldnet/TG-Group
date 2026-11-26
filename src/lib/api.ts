@@ -328,7 +328,7 @@ export function moderateGroupMember(
 export type TelegramGroupRule = {
   id: string
   group_id: string
-  rule_type: "keyword_filter" | "sensitive_word" | "anti_spam" | "anti_ad" | "welcome" | "leave_notice" | "join_verification"
+  rule_type: "keyword_filter" | "sensitive_word" | "anti_spam" | "anti_ad" | "welcome" | "leave_notice" | "join_verification" | "qa" | "warning_escalation"
   name: string
   enabled: boolean
   priority: number
