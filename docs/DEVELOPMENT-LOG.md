@@ -350,3 +350,13 @@
 - **验证状态**：代码已提交 main；等待 GitHub Actions Go/PostgreSQL 测试、go vet 和前端构建结果。
 
 - **CI 验证**：账号安全审计代码提交 `4173d49d1fda44c3291773d155ca012dbab7f0e5` 对应 Actions run `45738879169` 的 Go 格式检查、Go/PostgreSQL 集成测试、go vet 和前端 TypeScript 生产构建均 success。覆盖认证事件查询、退出审计、当前用户事件隔离和前端安全记录展示。
+
+
+### 登录设备管理与单设备撤销（第十六批第六阶段，首批实现）
+- **服务端**：新增 `GET /api/v1/auth/sessions?limit=20`，列出当前用户最近登录会话，返回设备 User-Agent、来源 IP、创建/过期/撤销时间和当前设备标记；不返回任何 Token 或 Token 哈希。
+- **撤销 API**：新增 `DELETE /api/v1/auth/sessions/{sessionID}`，只允许撤销当前账号的其他有效设备；拒绝撤销当前请求所用会话，撤销目标 access session 并同步撤销其 refresh-token family。跨用户会话 ID 不可操作。
+- **审计**：成功撤销其他设备时写入 `auth.session_revoke`，并在账号安全记录中显示。
+- **前端**：工作台增加“登录设备管理”，可查看设备/IP/登录时间和当前/已退出状态，并单独退出其他设备。
+- **测试**：PostgreSQL 集成测试覆盖当前设备保护、其他设备 access/refresh token 失效及审计事件；HTTP 测试覆盖 sessions API 在数据库未配置时返回 503。
+- **文档**：更新 API、LOCAL-TESTING 和 DEVELOPMENT-PLAN。
+- **验证状态**：代码已提交 main；等待 GitHub Actions Go/PostgreSQL 测试、go vet 和前端生产构建结果。
