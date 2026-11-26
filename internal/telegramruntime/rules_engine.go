@@ -648,7 +648,7 @@ func (p *Poller) beginGroupRuleCustomEdit(ctx context.Context,bot managedBot,gro
   action="rule_channels";prompt="请发送必需加入的频道列表，每行一个。支持 @频道用户名 或 -100 开头的频道 ID；最多 10 个。清空请发送 none。"
  }
  if err:=p.saveGroupPendingInput(ctx,bot,groupID,userID,action,ruleID); err!=nil { p.logger.Warn("save Telegram group edit session","group_id",groupID,"error",err); return }
- _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":prompt+"\n本次输入等待 5 分钟；发送后自动校验并保存。","reply_markup":map[string]any{"force_reply":true,"selective":true}},nil)
+ _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":prompt+"\n本次输入等待 5 分钟；发送后自动校验并保存。","reply_markup":map[string]any{"force_reply":true}},nil)
 }
 func (p *Poller) beginGroupAnnouncement(ctx context.Context,bot managedBot,groupID string,userID,chatID int64,token string) {
  if userID<=0 { return }
