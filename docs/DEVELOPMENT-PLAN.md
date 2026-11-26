@@ -29,7 +29,8 @@
 - [ ] Telegram ID 绑定首批代码已写入：一次性挑战、Telegram 官方 Update 自动取 ID、全局唯一绑定、解除绑定与审计；Go/PostgreSQL 测试、go vet、前端构建 CI 已通过；待平台 Bot 真实配置验收。
 - [x] 网站首页、注册页、登录页和账号工作台已连接第一版 Go 认证 API。
 - [x] Telegram 注册管理 Bot 第一阶段：私聊 `/start` 展示用途介绍与菜单；用户明确点击“开始注册”后才创建普通平台账号、唯一绑定 Telegram ID、生成随机初始密码并返回用户 ID/密码；网站支持用户 ID 登录；账号信息通过 Inline Keyboard 查询。
-- [ ] Telegram 注册管理 Bot 第二阶段：Inline Keyboard 主菜单、账号/套餐查询、群管 Bot Token 提交与账户管理；平台 Bot Token 目前仍通过环境变量配置，管理员可视化配置页待开发。
+- [x] Telegram 注册管理 Bot 欢迎介绍与常驻 Reply Keyboard 菜单；首次注册仍需显式点击，账号信息/添加 Bot/帮助均可从聊天输入框下方菜单进入。
+- [ ] Telegram 注册管理 Bot 后续：套餐查询/购买、订单支付、账户管理对话；平台 Bot Token 管理页已实现，继续补齐管理与审计能力。
 - [ ] 密码找回、邮箱验证。
 - [ ] Telegram 身份绑定已进入代码实现阶段；需要配置专用平台 Bot Token/username 后真实联调。
 - [x] 完成 Telegram Bot Token 验证、AES-256-GCM 加密存储、租户范围查询、启停、同 Bot 身份 Token 轮换与解绑 API。
@@ -42,6 +43,7 @@
 - [ ] 扩展统一规则执行/权限/审计模型：chat_member 事件通知、自动处罚队列与重试策略。
 - [ ] 按需求矩阵逐项实现群管功能，并完成网站与 Telegram 双端配置。
 - [x] 群管 Bot 主人统一身份：同一租户下所有群管 Bot 自动使用已绑定 Telegram ID 的活跃平台账号作为主人；未绑定时提示先完成“账号设置 → 账号关联”，非主人不能调用群管菜单/规则/权限状态操作。
+- [x] Telegram 群管 Inline Keyboard 可查看最多 20 条群规并直接启用/停用；变更按 tenant/group/rule 三重范围约束，主人身份校验后执行。
 - [ ] 扩展 Telegram 群管 Inline Keyboard：规则创建/编辑、成员管理、处罚确认/取消、操作审计及群/租户/主人三重权限校验。
 - [ ] 接入 USDT、EPUSDT、GMPay 支付适配器并完成沙箱/真实联调。
 - [x] 接入官方 Cap Standalone siteverify 与网站注册/登录服务端校验，前端固定使用官方 cap-widget。
