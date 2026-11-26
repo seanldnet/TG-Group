@@ -339,3 +339,12 @@
 
 - **密码修改 CI 验证**：代码提交 `6d6a8db68d262d15ba089a5976d2788c558af562` 对应 Actions run `45737793039` 的 Go/PostgreSQL 测试、gofmt、go vet 和前端生产构建均通过。
 - **登录限流 CI 修复与最终验证**：首轮 CI 曾因错误变量定义提交顺序导致短暂编译失败，已补齐 `ErrLoginRateLimited` 后重新运行。代码提交 `ec9c08c9ffd4907157df63ddfdec87bef6f946d8` 对应 run `45738314492` 的 Go 格式检查、Go/PostgreSQL 集成测试、go vet 和前端 TypeScript 生产构建全部 success；邮箱/IP 双维度限流集成测试通过。
+
+
+### 账号安全审计记录查询（第十六批第五阶段，首批实现）
+- **服务端**：新增 `GET /api/v1/auth/security-events?limit=20`，按当前认证用户的 actor_user_id 查询 `audit_logs` 中的 `auth.*` 事件，默认 20 条、最大 100 条；不会暴露同租户其他用户的登录历史。
+- **审计补齐**：退出登录事务现在同步写入 `auth.logout`，记录来源 IP；若审计写入失败，撤销操作事务回滚，避免成功退出却没有审计记录。
+- **前端**：账号工作台增加“账号安全记录”列表，显示注册、登录、退出、续期、密码修改、Telegram 绑定/解绑事件及来源 IP/时间。UI 继续使用现有 shadcn/ui 官方 Card、Badge。
+- **测试**：PostgreSQL 集成测试验证登录、续期、退出、密码修改、Telegram 绑定/解绑记录可查询；HTTP 测试覆盖无数据库时安全记录路由返回 503。
+- **文档**：更新 API、LOCAL-TESTING 和 DEVELOPMENT-PLAN。
+- **验证状态**：代码已提交 main；等待 GitHub Actions Go/PostgreSQL 测试、go vet 和前端构建结果。
