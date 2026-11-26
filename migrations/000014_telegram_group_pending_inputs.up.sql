@@ -2,7 +2,7 @@ CREATE TABLE telegram_group_pending_inputs (
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     group_id UUID NOT NULL REFERENCES telegram_groups(id) ON DELETE CASCADE,
     telegram_user_id BIGINT NOT NULL,
-    action VARCHAR(24) NOT NULL CHECK (action IN ('rule_text','rule_words','rule_patterns','announcement')),
+    action VARCHAR(24) NOT NULL CHECK (action IN ('rule_text','rule_words','rule_patterns','rule_channels','announcement','group_title','group_description')),
     rule_id UUID,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     expires_at TIMESTAMPTZ NOT NULL,
