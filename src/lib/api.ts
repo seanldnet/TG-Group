@@ -124,6 +124,14 @@ export function currentUser() {
   })
 }
 
+export function changePassword(input: { current_password: string; new_password: string }) {
+  return request<AuthSession>("/api/v1/auth/password/change", {
+    method: "POST",
+    headers: authenticatedHeaders(),
+    body: JSON.stringify(input),
+  })
+}
+
 export function logout() {
   const token = getToken()
   return request<void>("/api/v1/auth/logout", {
