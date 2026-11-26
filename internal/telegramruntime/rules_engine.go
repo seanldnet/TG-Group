@@ -215,7 +215,8 @@ func (p *Poller) sendGroupMenu(ctx context.Context,chatID,messageID int64,token 
 	keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{
 		{{"text":"规则管理","callback_data":"group:rules"},{"text":"成员管理","callback_data":"group:members"}},
 		{{"text":"消息管理","callback_data":"group:messages"},{"text":"检查 Bot 权限","callback_data":"group:status"}},
-		{{"text":"群公告","callback_data":"group:announce"},{"text":"刷新菜单","callback_data":"group:home"}},
+		{{"text":"群公告","callback_data":"group:announce"},{"text":"群组设置","callback_data":"group:settings"}},
+		{{"text":"刷新菜单","callback_data":"group:home"}},
 	}}
 	payload:=map[string]any{"chat_id":chatID,"text":"TG-Group 群管 Bot 已连接。请直接点击下方按钮管理本群规则、成员和 Bot 权限。所有管理操作仅限已绑定的平台主人。"}
 	if messageID>0 { payload["reply_to_message_id"]=messageID }
@@ -236,6 +237,8 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 	case query.Data=="group:rule-events": p.sendGroupRuleEvents(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:messages": p.sendGroupMessages(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:announce": p.beginGroupAnnouncement(ctx,bot,groupID,query.From.ID,query.Message.Chat.ID,token)
+	case query.Data=="group:settings": p.sendGroupSettings(ctx,query.Message.Chat.ID,token)
+	case strings.HasPrefix(query.Data,"group:settings:"): p.handleGroupSettings(ctx,bot,groupID,query,token)
 	case strings.HasPrefix(query.Data,"group:ec:"): p.beginGroupRuleCustomEdit(ctx,bot,groupID,query.From.ID,query.Message.Chat.ID,query.Data,token)
 	case strings.HasPrefix(query.Data,"group:msg:"): p.handleGroupMessageAction(ctx,bot,groupID,query,token)
 	case strings.HasPrefix(query.Data,"group:create:"): p.createGroupRulePreset(ctx,bot,groupID,query.Message.Chat.ID,strings.TrimPrefix(query.Data,"group:create:"),token)
@@ -614,6 +617,33 @@ func groupRuleEditConfig(kind,preset string) []byte {
 	return nil
 }
 
+func (p *Poller) sendGroupSettings(ctx context.Context,chatID int64,token string) {
+ keyboard:=[][]map[string]string{
+  {{"text":"修改群名称","callback_data":"group:settings:title"},{"text":"修改群简介","callback_data":"group:settings:description"}},
+  {{"text":"生成邀请链接","callback_data":"group:settings:invite"}},
+  {{"text":"返回菜单","callback_data":"group:home"}},
+ }
+ _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"群组设置：请选择要执行的操作。","reply_markup":map[string]any{"inline_keyboard":keyboard}},nil)
+}
+func (p *Poller) handleGroupSettings(ctx context.Context,bot managedBot,groupID string,query telegramCallbackQuery,token string) {
+ switch query.Data {
+ case "group:settings:title","group:settings:description":
+  action,prompt:="group_title","请回复新的群名称（1–128 个字符）。"
+  if query.Data=="group:settings:description" { action="group_description";prompt="请回复新的群简介（最多 255 个字符）；发送 clear 可清空简介。" }
+  if err:=p.saveGroupPendingInput(ctx,bot,groupID,query.From.ID,action,"");err!=nil { p.logger.Warn("save Telegram group settings input","group_id",groupID,"error",err);return }
+  _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":prompt+"\n输入等待 5 分钟。","reply_markup":map[string]any{"force_reply":true}},nil)
+ case "group:settings:invite":
+  var chatID int64
+  if err:=p.pool.QueryRow(ctx,"SELECT telegram_chat_id FROM telegram_groups WHERE tenant_id=$1 AND id=$2 AND status='active'",bot.tenantID,groupID).Scan(&chatID);err!=nil{return}
+  var result struct { InviteLink string "json:\"invite_link\"" }
+  if err:=p.callTelegram(ctx,token,"exportChatInviteLink",map[string]any{"chat_id":chatID},&result);err!=nil {
+   _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"生成邀请链接失败，请检查 Bot 的邀请成员权限。"},nil);return
+  }
+  _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"群组邀请链接：\n"+result.InviteLink},nil)
+ default:return
+ }
+}
+
 func parseGroupRuleCustomEditCallback(data string)(ruleID,field string,ok bool) {
  parts:=strings.Split(data,":")
  if len(parts)!=4 || parts[0]!="group" || parts[1]!="ec" || !validRuleUUID(parts[2]) { return "", "", false }
@@ -671,6 +701,20 @@ func (p *Poller) processPendingGroupInput(ctx context.Context,bot managedBot,gro
  value:=strings.TrimSpace(message.Text); if value=="" { value=strings.TrimSpace(message.Caption) }
  if value=="" || len([]rune(value))>4000 { _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":message.Chat.ID,"text":"输入不能为空，且不能超过 4000 个字符。请重新发送。"},nil); return true }
  switch action {
+ case "group_title","group_description":
+  var targetChatID int64
+  if err:=p.pool.QueryRow(ctx,"SELECT telegram_chat_id FROM telegram_groups WHERE tenant_id=$1 AND id=$2 AND status='active'",bot.tenantID,groupID).Scan(&targetChatID);err!=nil{return true}
+  method:="editChatTitle";auditAction:="group.settings.title"
+  if action=="group_description" { method="editChatDescription";auditAction="group.settings.description";if strings.EqualFold(value,"clear"){value=""};if len([]rune(value))>255 { _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":message.Chat.ID,"text":"群简介最多 255 个字符，请重新发送。"},nil);return true } } else if len([]rune(value))>128 { _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":message.Chat.ID,"text":"群名称最多 128 个字符，请重新发送。"},nil);return true }
+  if action=="group_title" && value=="" { return true }
+  if err:=p.callTelegram(ctx,token,method,map[string]any{"chat_id":targetChatID,map[string]string{"group_title":"title","group_description":"description"}[action]:value},nil);err!=nil {
+   _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":message.Chat.ID,"text":"修改失败，请检查 Bot 是否具备管理群组权限。"},nil);return true
+  }
+  var actorID string
+  if err:=p.pool.QueryRow(ctx,"SELECT id::text FROM users WHERE tenant_id=$1 AND telegram_id=$2 AND status='active'",bot.tenantID,message.From.ID).Scan(&actorID);err==nil {
+   _,_=p.pool.Exec(ctx,"INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id) VALUES($1,$2,$3,'telegram_group',$4)",bot.tenantID,actorID,auditAction,groupID)
+  }
+  _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":message.Chat.ID,"text":"群组资料已更新。"},nil)
  case "announcement":
   var targetChatID,botID int64
   if err:=p.pool.QueryRow(ctx,"SELECT g.telegram_chat_id,b.telegram_bot_id FROM telegram_groups g JOIN telegram_bots b ON b.id=g.bot_id AND b.tenant_id=g.tenant_id WHERE g.tenant_id=$1 AND g.id=$2 AND g.status='active' AND b.status='active'",bot.tenantID,groupID).Scan(&targetChatID,&botID); err!=nil { return true }
