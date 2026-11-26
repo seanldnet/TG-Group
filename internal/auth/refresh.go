@@ -114,7 +114,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken, userAgent, remoteAd
 		return Session{}, fmt.Errorf("create refreshed access session: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id)
-		VALUES($1,$2,'auth.refresh','session',$2)`, user.TenantID,user.ID); err != nil {
+		VALUES($1,$2,'auth.refresh','session',$2::text)`, user.TenantID,user.ID); err != nil {
 		return Session{}, fmt.Errorf("audit session refresh: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
