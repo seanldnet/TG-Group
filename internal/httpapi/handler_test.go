@@ -12,7 +12,7 @@ import (
 )
 
 func TestHealthEndpoint(t *testing.T) {
-	handler := NewHandler(slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil)
+	handler := NewHandler(slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	response := httptest.NewRecorder()
 
@@ -38,7 +38,7 @@ func TestHealthEndpoint(t *testing.T) {
 }
 
 func TestUnknownRouteReturnsNotFound(t *testing.T) {
-	handler := NewHandler(slog.Default(), nil, nil)
+	handler := NewHandler(slog.Default(), nil, nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/missing", nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -49,7 +49,7 @@ func TestUnknownRouteReturnsNotFound(t *testing.T) {
 }
 
 func TestAuthEndpointsRequireDatabase(t *testing.T) {
-	handler := NewHandler(slog.Default(), nil, nil)
+	handler := NewHandler(slog.Default(), nil, nil, nil)
 	for _, route := range []struct{ method, path string }{
 		{http.MethodPost, "/api/v1/auth/register"},
 		{http.MethodPost, "/api/v1/auth/login"},
@@ -66,7 +66,7 @@ func TestAuthEndpointsRequireDatabase(t *testing.T) {
 }
 
 func TestBotEndpointsRequireConfiguredServices(t *testing.T) {
-	handler := NewHandler(slog.Default(), nil, nil)
+	handler := NewHandler(slog.Default(), nil, nil, nil)
 	for _, route := range []struct{ method, path string }{
 		{http.MethodGet, "/api/v1/bots"},
 		{http.MethodGet, "/api/v1/groups"},
