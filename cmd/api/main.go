@@ -16,6 +16,7 @@ import (
 	"github.com/seanldnet/tg-group/internal/database"
 	"github.com/seanldnet/tg-group/internal/httpapi"
 	"github.com/seanldnet/tg-group/internal/telegramruntime"
+	"github.com/seanldnet/tg-group/internal/telegramauthbot"
 )
 
 func main() {
@@ -39,8 +40,10 @@ func main() {
 	var authService *auth.Service
 	var botService *bots.Service
 	var botPoller *telegramruntime.Poller
+	var telegramIdentityPoller *telegramauthbot.Poller
 	if db != nil {
 		authService = auth.NewService(db.Pool)
+		if cfg.TelegramAuthBotToken != "" { telegramIdentityPoller = telegramauthbot.New(cfg.TelegramAuthBotToken, authService, logger) }
 		if cfg.BotTokenEncryptionKey != "" {
 			botService, err = bots.NewService(db.Pool, cfg.BotTokenEncryptionKey)
 			if err != nil { logger.Error("configure Telegram bot token encryption", "error", err); os.Exit(1) }
@@ -52,7 +55,7 @@ func main() {
 	captchaVerifier, err := httpapi.NewCaptchaVerifier(cfg.CAPBaseURL, cfg.CAPSiteKey, cfg.CAPSecret, cfg.CAPWidgetURL)
 	if err != nil { logger.Error("configure CAP.js verification", "error", err); os.Exit(1) }
 	if captchaVerifier != nil { logger.Info("CAP.js server-side verification enabled") }
-	handler := httpapi.NewHandler(logger, authService, botService, captchaVerifier)
+	handler := httpapi.NewHandlerWithTelegramAuthBot(logger, authService, botService, captchaVerifier, cfg.TelegramAuthBotUsername)
 	server := &http.Server{
 		Addr: cfg.HTTPAddr, Handler: handler,
 		ReadHeaderTimeout: 5*time.Second, IdleTimeout: 60*time.Second,
@@ -65,6 +68,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	var pollerDone chan struct{}
+	var identityPollerDone chan struct{}
+	if telegramIdentityPoller != nil {
+		identityPollerDone = make(chan struct{})
+		go func() { defer close(identityPollerDone); telegramIdentityPoller.Run(ctx) }()
+		logger.Info("Telegram identity Bot polling manager started")
+	}
 	if botPoller != nil {
 		pollerDone = make(chan struct{})
 		go func() {
@@ -80,6 +89,7 @@ func main() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil { logger.Error("graceful shutdown failed", "error", err); os.Exit(1) }
+		if identityPollerDone != nil { select { case <-identityPollerDone: case <-shutdownCtx.Done(): logger.Warn("Telegram identity Bot worker did not stop before shutdown deadline") } }
 		if pollerDone != nil {
 			select {
 			case <-pollerDone:
