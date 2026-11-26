@@ -299,6 +299,15 @@ func (s *Service) ListGroupMemberWarnings(ctx context.Context, tenantID, groupID
 	return items,rows.Err()
 }
 
+func (s *Service) ClearGroupMemberWarnings(ctx context.Context, tenantID, groupID string, userID int64) (int64, error) {
+	if userID <= 0 { return 0, ErrInvalidGroupRule }
+	tag, err := s.pool.Exec(ctx, `DELETE FROM telegram_group_member_warnings w USING telegram_groups g
+		WHERE w.tenant_id=$1 AND w.group_id=$2 AND w.telegram_user_id=$3
+		AND g.id=w.group_id AND g.tenant_id=w.tenant_id`, tenantID, groupID, userID)
+	if err != nil { return 0, fmt.Errorf("clear group member warnings: %w", err) }
+	return tag.RowsAffected(), nil
+}
+
 func nullableTelegramActor(id int64) any {
 	if id <= 0 { return nil }
 	return id
