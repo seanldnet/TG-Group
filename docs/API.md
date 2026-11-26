@@ -114,6 +114,11 @@ CAP 采用官方 Cap Standalone 服务端和官方 `cap-widget` Web Component。
 
 退出操作会写入 `auth.logout` 审计事件。
 
+## 登录会话管理
+
+- `GET /api/v1/auth/sessions?limit=20`：列出当前用户最近的登录会话，默认 20 条、最大 100 条。响应包含会话 ID、User-Agent、来源 IP、创建/过期/撤销时间及 `current` 标识；不返回 Token 或 Token 哈希。
+- `DELETE /api/v1/auth/sessions/{sessionID}`：撤销当前用户的一台其他设备会话，并同时撤销该会话的 refresh-token family。不能撤销当前正在使用的会话；其他用户/租户的会话不可访问。成功返回 `204`，撤销操作写入 `auth.session_revoke` 审计事件。
+
 ## 账号安全记录
 
 `GET /api/v1/auth/security-events?limit=20`
