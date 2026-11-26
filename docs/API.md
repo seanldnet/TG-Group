@@ -14,7 +14,7 @@ Authorization: Bearer <token>
 
 ## CAP.js 人机验证
 
-CAP 采用官方 Cap Standalone 服务端和官方 `cap-widget` Web Component。服务端配置 `CAP_BASE_URL`、`CAP_SITE_KEY`、`CAP_SECRET` 三项环境变量后启用；三项必须同时设置。公网地址必须使用 HTTPS，只有 localhost/loopback 开发地址允许 HTTP。
+CAP 采用官方 Cap Standalone 服务端和官方 `cap-widget` Web Component。服务端配置 `CAP_BASE_URL`、`CAP_SITE_KEY`、`CAP_SECRET` 三项环境变量后启用；三项必须同时设置。可选 `CAP_WIDGET_URL` 用于指定官方 widget 脚本的自托管/镜像地址，默认固定使用官方 `cap-widget@0.1.58` CDN。公网地址必须使用 HTTPS，只有 localhost/loopback 开发地址允许 HTTP。
 
 - `GET /api/v1/security/captcha`：公开读取是否启用及前端组件 endpoint；绝不返回站点 secret。
 - 网站注册、登录请求在启用时必须携带 `captcha_token`。
