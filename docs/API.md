@@ -234,3 +234,35 @@ openssl rand -base64 32
 - 当前 token 是 30 天有效期的随机不透明 Bearer token；数据库只保存 SHA-256 摘要，不保存明文 token。
 - 暂未实现 refresh token、密码找回、邮箱验证、登录限流、Telegram ID 绑定和基于角色的业务授权。
 - 注册会话与 Bot 生命周期 PostgreSQL 集成测试已纳入 GitHub Actions；Bot 管理 API 仍需真实 Telegram Token 和部署环境进行端到端验收。
+
+
+## Telegram 身份绑定
+
+平台身份 Bot 与用户自行接入的群管 Bot 是两套独立配置。启动 API 时同时配置：
+
+- `TELEGRAM_AUTH_BOT_TOKEN`：平台专用身份 Bot Token，仅后端读取。
+- `TELEGRAM_AUTH_BOT_USERNAME`：该 Bot 的用户名，不含前导 `@` 也可以，服务会自动去掉前导 `@`。
+
+配置两项后，API 进程启动独立的 Telegram `getUpdates` 长轮询 worker。该专用 Bot 不得同时配置 webhook，也不要将同一个 Token 添加为租户群管 Bot。
+
+### 查询绑定状态
+
+`GET /api/v1/auth/telegram`
+
+需要 Bearer 登录。返回 `linked` 和 Telegram 官方 Update 获取的用户资料。
+
+### 创建绑定链接
+
+`POST /api/v1/auth/telegram/link`
+
+需要 Bearer 登录，不需要请求体。服务端生成 5 分钟有效的一次性随机挑战值，数据库只保存 SHA-256 摘要，并返回 `https://t.me/{bot_username}?start={challenge}`。
+
+用户跳转平台身份 Bot 并点击 Start。后端只接受私聊消息，且必须满足 Telegram Update 的 `message.from.id == message.chat.id`；绑定的 Telegram ID、用户名和名称全部取自 Telegram 官方 Update，网站请求不能提交或覆盖这些字段。成功后挑战立即消费，并在同一数据库事务中更新用户资料与写入审计记录。
+
+### 解除绑定
+
+`DELETE /api/v1/auth/telegram`
+
+需要 Bearer 登录。解除绑定会清空 Telegram ID 与资料，并写入审计日志。Telegram ID 全局唯一；同一个 Telegram 账号不能同时绑定多个网站账号。
+
+**安全边界**：挑战码短时有效、只保存摘要、一次性消费；旧挑战在创建新挑战时失效。真实 Telegram Bot Token、用户名和网络可达性需要部署环境配置并完成真实 Telegram 联调后，才算端到端验收。
