@@ -266,12 +266,12 @@ func (p *Poller) sendGroupCategory(ctx context.Context,bot managedBot,groupID st
 	keyboard:=[][]map[string]string{}
 	switch category {
 	case "basic": keyboard=append(keyboard,[]map[string]string{{"text":"成员管理","callback_data":"group:members"}})
-	case "notices": keyboard=append(keyboard,[]map[string]string{{"text":"群规与欢迎语","callback_data":"group:rules"},{"text":"发布群公告","callback_data":"group:announce"}})
-	case "spam": keyboard=append(keyboard,[]map[string]string{{"text":"刷屏限制规则","callback_data":"group:rules"}})
-	case "ads": keyboard=append(keyboard,[]map[string]string{{"text":"广告拦截规则","callback_data":"group:rules"}})
+	case "notices": keyboard=append(keyboard,[]map[string]string{{"text":"欢迎语与离群通知","callback_data":"group:rules:notices"},{"text":"发布群公告","callback_data":"group:announce"}})
+	case "spam": keyboard=append(keyboard,[]map[string]string{{"text":"刷屏限制规则","callback_data":"group:rules:spam"}})
+	case "ads": keyboard=append(keyboard,[]map[string]string{{"text":"广告拦截与关键词规则","callback_data":"group:rules:ads"}})
 	case "retract": keyboard=append(keyboard,[]map[string]string{{"text":"最近群消息","callback_data":"group:messages"}})
 	case "admins": keyboard=append(keyboard,[]map[string]string{{"text":"查看 Bot 权限","callback_data":"group:status"}})
-	case "verify": keyboard=append(keyboard,[]map[string]string{{"text":"入群验证规则","callback_data":"group:rules"}})
+	case "verify": keyboard=append(keyboard,[]map[string]string{{"text":"入群验证规则","callback_data":"group:rules:verify"}})
 	case "settings": keyboard=append(keyboard,[]map[string]string{{"text":"打开群组设置","callback_data":"group:settings"}})
 	}
 	if len(keyboard)==0 { keyboard=append(keyboard,[]map[string]string{{"text":"返回菜单","callback_data":"group:home"}}) } else { keyboard=append(keyboard,[]map[string]string{{"text":"返回菜单","callback_data":"group:home"}}) }
@@ -286,6 +286,9 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 	case strings.HasPrefix(query.Data,"group:cat:"):
 		p.sendGroupCategory(ctx,bot,groupID,query.Message.Chat.ID,strings.TrimPrefix(query.Data,"group:cat:"),token)
 	case query.Data=="group:rules": p.sendGroupRules(ctx,bot,groupID,query.Message.Chat.ID,token)
+	case strings.HasPrefix(query.Data,"group:rules:"):
+		category:=strings.TrimPrefix(query.Data,"group:rules:")
+		if category=="notices"||category=="spam"||category=="ads"||category=="verify" { p.sendGroupRulesForCategory(ctx,bot,groupID,query.Message.Chat.ID,category,token) }
 	case query.Data=="group:members" || strings.HasPrefix(query.Data,"group:members:page:"):
 		offset:=0
 		if query.Data!="group:members" { parsed,err:=strconv.Atoi(strings.TrimPrefix(query.Data,"group:members:page:"));if err!=nil||parsed<0||parsed>100000{return};offset=parsed }
@@ -574,30 +577,58 @@ func validRuleUUID(value string) bool {
 }
 
 func (p *Poller) sendGroupRules(ctx context.Context,bot managedBot,groupID string,chatID int64,token string) {
-	rows,err:=p.pool.Query(ctx,"SELECT id::text,name,rule_type,enabled FROM telegram_group_rules WHERE tenant_id=$1 AND group_id=$2 ORDER BY priority,created_at LIMIT 20",bot.tenantID,groupID)
+	p.sendGroupRulesForCategory(ctx,bot,groupID,chatID,"all",token)
+}
+
+// sendGroupRulesForCategory keeps each feature page limited to its own rule types.
+func (p *Poller) sendGroupRulesForCategory(ctx context.Context,bot managedBot,groupID string,chatID int64,category,token string) {
+	allowed:=map[string]map[string]bool{
+		"notices":{"welcome":true,"leave_notice":true},
+		"spam":{"anti_spam":true},
+		"ads":{"anti_ad":true,"keyword_filter":true,"sensitive_word":true},
+		"verify":{"join_verification":true},
+	}
+	rows,err:=p.pool.Query(ctx,"SELECT id::text,name,rule_type,enabled FROM telegram_group_rules WHERE tenant_id=$1 AND group_id=$2 ORDER BY priority,created_at LIMIT 100",bot.tenantID,groupID)
 	if err!=nil { p.logger.Error("load rules for Telegram group menu","group_id",groupID,"error",err);return }
 	defer rows.Close()
-	lines:=[]string{"群组规则管理（最多显示 20 条）："}
+	title:="群组规则管理"
+	switch category { case "notices": title="提示设置";case "spam":title="刷屏检测";case "ads":title="广告检测";case "verify":title="入群验证设置" }
+	lines:=[]string{title+"："}
 	keyboard:=[][]map[string]string{}
 	count:=0
 	for rows.Next(){
 		var id,name,kind string;var enabled bool
 		if err:=rows.Scan(&id,&name,&kind,&enabled);err!=nil{p.logger.Error("read rules for Telegram group menu","error",err);return}
+		if category!="all" && !allowed[category][kind] { continue }
 		count++;state:="已停用";action:="启用";if enabled{state="运行中";action="停用"}
 		lines=append(lines,fmt.Sprintf("%d. %s（%s）- %s",count,name,kind,state))
 		keyboard=append(keyboard,[]map[string]string{{"text":action+"："+name,"callback_data":"group:toggle:"+id},{"text":"编辑："+name,"callback_data":"group:ed:"+id}})
 		keyboard=append(keyboard,[]map[string]string{{"text":"删除："+name,"callback_data":"group:delete:ask:"+id+":rule"}})
 	}
 	if err:=rows.Err();err!=nil{p.logger.Error("iterate Telegram group rules for Telegram group menu","group_id",groupID,"error",err);return}
-	if count==0 { lines=append(lines,"暂无群组规则。点击下方预设按钮即可快速添加。") }
-	keyboard=append(keyboard,[]map[string]string{{"text":"添加欢迎语","callback_data":"group:create:welcome"},{"text":"离群通知","callback_data":"group:create:leave"}})
-	keyboard=append(keyboard,[]map[string]string{{"text":"广告拦截","callback_data":"group:create:anti_ad"},{"text":"关键词过滤","callback_data":"group:create:keyword"}})
-	keyboard=append(keyboard,[]map[string]string{{"text":"刷屏限制","callback_data":"group:create:anti_spam"},{"text":"数学入群验证","callback_data":"group:create:verify"}})
-	keyboard=append(keyboard,[]map[string]string{{"text":"执行记录","callback_data":"group:rule-events"},{"text":"刷新规则","callback_data":"group:rules"}})
-	keyboard=append(keyboard,[]map[string]string{{"text":"返回菜单","callback_data":"group:home"}})
+	if count==0 {
+		if category=="all" { lines=append(lines,"暂无群组规则。") } else { lines=append(lines,"当前分类还没有配置规则。") }
+	}
+	switch category {
+	case "notices":
+		keyboard=append(keyboard,[]map[string]string{{"text":"添加欢迎语","callback_data":"group:create:welcome"},{"text":"添加离群通知","callback_data":"group:create:leave"}})
+	case "spam":
+		keyboard=append(keyboard,[]map[string]string{{"text":"添加刷屏限制","callback_data":"group:create:anti_spam"}})
+	case "ads":
+		keyboard=append(keyboard,[]map[string]string{{"text":"添加广告拦截","callback_data":"group:create:anti_ad"},{"text":"添加关键词过滤","callback_data":"group:create:keyword"}})
+	case "verify":
+		lines=append(lines,"当前已开放：数学验证、验证超时、失败处理、必需频道成员核验。")
+		keyboard=append(keyboard,[]map[string]string{{"text":"添加数学入群验证","callback_data":"group:create:verify"}})
+	case "all":
+		keyboard=append(keyboard,[]map[string]string{{"text":"添加欢迎语","callback_data":"group:create:welcome"},{"text":"离群通知","callback_data":"group:create:leave"}})
+		keyboard=append(keyboard,[]map[string]string{{"text":"广告拦截","callback_data":"group:create:anti_ad"},{"text":"关键词过滤","callback_data":"group:create:keyword"}})
+		keyboard=append(keyboard,[]map[string]string{{"text":"刷屏限制","callback_data":"group:create:anti_spam"},{"text":"数学入群验证","callback_data":"group:create:verify"}})
+	}
+	if category=="all" { keyboard=append(keyboard,[]map[string]string{{"text":"执行记录","callback_data":"group:rule-events"}}) }
+	refresh:="group:rules";if category!="all"{refresh="group:rules:"+category}
+	keyboard=append(keyboard,[]map[string]string{{"text":"刷新","callback_data":refresh},{"text":"返回菜单","callback_data":"group:home"}})
 	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\n"),"reply_markup":map[string]any{"inline_keyboard":keyboard}},nil)
 }
-
 
 func (p *Poller) createGroupRulePreset(ctx context.Context,bot managedBot,groupID string,chatID int64,preset,token string) {
 	if p.botService==nil { return }
