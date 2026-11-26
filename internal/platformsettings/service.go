@@ -6,29 +6,29 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"encoding/json"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
- ErrInvalidConfig = errors.New("invalid Telegram platform Bot configuration")
- ErrTelegramRejected = errors.New("Telegram rejected the platform Bot credentials")
- ErrTelegramUnavailable = errors.New("Telegram verification is unavailable")
+	ErrInvalidConfig = errors.New("invalid Telegram platform Bot configuration")
+	ErrTelegramRejected = errors.New("Telegram rejected the platform Bot credentials")
+	ErrTelegramUnavailable = errors.New("Telegram verification is unavailable")
 )
 
 type Service struct { pool *pgxpool.Pool; aead cipher.AEAD }
 
 type Status struct {
 	Configured bool `json:"configured"`
+	Managed bool `json:"managed"`
 	Username string `json:"username"`
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 }
@@ -49,55 +49,27 @@ func normalizeUsername(value string)(string,error){
 	return value,nil
 }
 
-func (s *Service) Status(ctx context.Context)(Status,error){
-	var status Status
-	var updatedAt time.Time
-	err:=s.pool.QueryRow(ctx,`SELECT username,updated_at FROM platform_telegram_auth_bot_settings WHERE id=1`).Scan(&status.Username,&updatedAt)
-	status.UpdatedAt=&updatedAt
-	if err!=nil {
-		if errors.Is(err,pgx.ErrNoRows) { return Status{Configured:false},nil }
-		return Status{},fmt.Errorf("read platform Telegram Bot settings: %w",err)
-	}
-	status.Configured=true
-	return status,nil
-}
-
-func (s *Service) Save(ctx context.Context,token,username,actorID string) error {
-	token=strings.TrimSpace(token)
-	username,err:=normalizeUsername(username)
-	if err!=nil||len(token)<20||len(token)>256||strings.ContainsAny(token," \r\n\t") { return ErrInvalidConfig }
-	nonce:=make([]byte,s.aead.NonceSize())
-	if _,err:=rand.Read(nonce);err!=nil{return fmt.Errorf("generate platform Bot nonce: %w",err)}
-	ciphertext:=s.aead.Seal(nil,nonce,[]byte(token),[]byte("tg-group/platform-auth-bot/v1"))
-	_,err=s.pool.Exec(ctx,`INSERT INTO platform_telegram_auth_bot_settings(id,token_ciphertext,token_nonce,username,updated_by,updated_at)
-		VALUES(1,$1,$2,$3,$4,now()) ON CONFLICT(id) DO UPDATE SET token_ciphertext=EXCLUDED.token_ciphertext,
-		token_nonce=EXCLUDED.token_nonce,username=EXCLUDED.username,updated_by=EXCLUDED.updated_by,updated_at=now()`,ciphertext,nonce,username,actorID)
-	if err!=nil{return fmt.Errorf("save encrypted platform Telegram Bot settings: %w",err)}
-	return nil
-}
-
-func (s *Service) LoadToken(ctx context.Context)(string,string,error){
-	var ciphertext,nonce []byte
-	var username string
-	err:=s.pool.QueryRow(ctx,`SELECT token_ciphertext,token_nonce,username FROM platform_telegram_auth_bot_settings WHERE id=1`).Scan(&ciphertext,&nonce,&username)
-	if err!=nil{return "","",err}
-	token,err:=s.aead.Open(nil,nonce,ciphertext,[]byte("tg-group/platform-auth-bot/v1"))
-	if err!=nil{return "","",errors.New("stored platform Telegram Bot token could not be decrypted")}
-	return string(token),username,nil
-}
-
-func (s *Service) Clear(ctx context.Context)error{
-	_,err:=s.pool.Exec(ctx,`DELETE FROM platform_telegram_auth_bot_settings WHERE id=1`)
-	if err!=nil{return fmt.Errorf("clear platform Telegram Bot settings: %w",err)}
-	return nil
-}
-
 func validTokenShape(token string) bool {
 	if len(token)<30||len(token)>256||strings.ContainsAny(token," \r\n\t") {return false}
 	parts:=strings.Split(token,":")
 	if len(parts)!=2||len(parts[0])<5||len(parts[1])<20{return false}
 	for _,r:=range parts[0]{if r<'0'||r>'9'{return false}}
 	return true
+}
+
+func (s *Service) Status(ctx context.Context)(Status,error){
+	var status Status
+	var updatedAt time.Time
+	var enabled bool
+	err:=s.pool.QueryRow(ctx,`SELECT username,updated_at,enabled FROM platform_telegram_auth_bot_settings WHERE id=1`).Scan(&status.Username,&updatedAt,&enabled)
+	if err!=nil {
+		if errors.Is(err,pgx.ErrNoRows) { return Status{Configured:false,Managed:false},nil }
+		return Status{},fmt.Errorf("read platform Telegram Bot settings: %w",err)
+	}
+	status.Managed=true
+	status.Configured=enabled
+	if enabled {status.UpdatedAt=&updatedAt} else {status.Username=""}
+	return status,nil
 }
 
 func (s *Service) VerifyToken(ctx context.Context,token,username string) error {
@@ -108,9 +80,41 @@ func (s *Service) VerifyToken(ctx context.Context,token,username string) error {
 	response,err:=client.Do(req);if err!=nil{return ErrTelegramUnavailable}
 	defer response.Body.Close()
 	data,err:=io.ReadAll(io.LimitReader(response.Body,1<<20));if err!=nil{return ErrTelegramUnavailable}
-	var result struct{OK bool `json:"ok"`;Description string `json:"description"`;Result struct{Username string `json:"username"`} `json:"result"`}
+	var result struct{OK bool `json:"ok"`;Result struct{Username string `json:"username"`} `json:"result"`}
 	if json.Unmarshal(data,&result)!=nil{return ErrTelegramUnavailable}
 	if response.StatusCode!=http.StatusOK||!result.OK{return ErrTelegramRejected}
 	if !strings.EqualFold(result.Result.Username,username){return ErrInvalidConfig}
+	return nil
+}
+
+func (s *Service) Save(ctx context.Context,token,username,actorID string) error {
+	token=strings.TrimSpace(token)
+	username,err:=normalizeUsername(username)
+	if err!=nil||!validTokenShape(token) { return ErrInvalidConfig }
+	nonce:=make([]byte,s.aead.NonceSize())
+	if _,err:=rand.Read(nonce);err!=nil{return fmt.Errorf("generate platform Bot nonce: %w",err)}
+	ciphertext:=s.aead.Seal(nil,nonce,[]byte(token),[]byte("tg-group/platform-auth-bot/v1"))
+	_,err=s.pool.Exec(ctx,`INSERT INTO platform_telegram_auth_bot_settings(id,token_ciphertext,token_nonce,username,enabled,updated_by,updated_at)
+		VALUES(1,$1,$2,$3,TRUE,$4,now()) ON CONFLICT(id) DO UPDATE SET token_ciphertext=EXCLUDED.token_ciphertext,
+		token_nonce=EXCLUDED.token_nonce,username=EXCLUDED.username,enabled=TRUE,updated_by=EXCLUDED.updated_by,updated_at=now()`,ciphertext,nonce,username,actorID)
+	if err!=nil{return fmt.Errorf("save encrypted platform Telegram Bot settings: %w",err)}
+	return nil
+}
+
+func (s *Service) LoadToken(ctx context.Context)(string,string,error){
+	var ciphertext,nonce []byte
+	var username string
+	err:=s.pool.QueryRow(ctx,`SELECT token_ciphertext,token_nonce,username FROM platform_telegram_auth_bot_settings WHERE id=1 AND enabled=TRUE`).Scan(&ciphertext,&nonce,&username)
+	if err!=nil{return "","",err}
+	token,err:=s.aead.Open(nil,nonce,ciphertext,[]byte("tg-group/platform-auth-bot/v1"))
+	if err!=nil{return "","",errors.New("stored platform Telegram Bot token could not be decrypted")}
+	return string(token),username,nil
+}
+
+func (s *Service) Clear(ctx context.Context)error{
+	_,err:=s.pool.Exec(ctx,`INSERT INTO platform_telegram_auth_bot_settings(id,token_ciphertext,token_nonce,username,enabled,updated_at)
+		VALUES(1,''::bytea,''::bytea,'',FALSE,now()) ON CONFLICT(id) DO UPDATE SET token_ciphertext=''::bytea,
+		token_nonce=''::bytea,username='',enabled=FALSE,updated_at=now()`)
+	if err!=nil{return fmt.Errorf("disable platform Telegram Bot settings: %w",err)}
 	return nil
 }
