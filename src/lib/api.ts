@@ -460,3 +460,35 @@ export function clearPlatformTelegramBot() {
     headers: authenticatedHeaders(),
   })
 }
+
+export type AdminUser = {
+  id: string
+  tenant_id: string
+  tenant_name: string
+  tenant_status: string
+  email: string
+  display_name: string
+  role: "user" | "agent" | "admin"
+  status: "active" | "locked" | "deleted"
+  telegram_id: number | null
+  telegram_username: string
+  telegram_first_name: string
+  telegram_last_name: string
+  bot_count: number
+  created_at: string
+}
+
+export function listAdminUsers(search = "", limit = 25, offset = 0) {
+  const params = new URLSearchParams({ search, limit: String(limit), offset: String(offset) })
+  return request<{ items: AdminUser[]; total: number; limit: number; offset: number }>(
+    `/api/v1/admin/users?${params.toString()}`,
+    { headers: authenticatedHeaders() },
+  )
+}
+
+export function setAdminUserStatus(userID: string, status: "active" | "locked") {
+  return request<{ ok: boolean; status: string }>(
+    `/api/v1/admin/users/${encodeURIComponent(userID)}/status`,
+    { method: "PATCH", headers: authenticatedHeaders(), body: JSON.stringify({ status }) },
+  )
+}
