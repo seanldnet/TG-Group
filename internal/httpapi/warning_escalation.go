@@ -32,12 +32,11 @@ func (h *Handler) retryWarningEscalation(w http.ResponseWriter, r *http.Request)
 	if err != nil || userID <= 0 { writeError(w,http.StatusBadRequest,"invalid Telegram user ID"); return }
 	executionID, err := strconv.ParseInt(r.PathValue("executionID"),10,64)
 	if err != nil || executionID <= 0 { writeError(w,http.StatusBadRequest,"invalid execution ID"); return }
-	item, err := h.bots.RetryWarningEscalation(r.Context(),user.TenantID,user.ID,r.PathValue("groupID"),executionID)
+	item, err := h.bots.RetryWarningEscalation(r.Context(),user.TenantID,user.ID,r.PathValue("groupID"),userID,executionID)
 	if err != nil {
 		if err == bots.ErrWarningEscalationNotRetryable { writeError(w,http.StatusConflict,"该执行记录不存在、已处理或当前不可重试"); return }
 		h.writeGroupRuleError(w,err)
 		return
 	}
-	if item.TelegramUserID != userID { writeError(w,http.StatusNotFound,"warning escalation execution not found"); return }
 	writeJSON(w,http.StatusOK,item)
 }
