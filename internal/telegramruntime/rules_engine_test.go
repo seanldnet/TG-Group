@@ -207,6 +207,31 @@ func TestSplitRuleTerms(t *testing.T) {
 func TestSplitRuleTermsDeduplicatesAndTrims(t *testing.T) { got:=splitRuleTerms(" @news, @News\n -1001234567890 "); if len(got)!=2 || got[0]!="@news" || got[1]!="-1001234567890" { t.Fatalf("unexpected terms: %#v",got) } }
 
 
+
+func TestResolveGroupMemberListPolicyPrecedence(t *testing.T) {
+	tests := []struct {
+		name string
+		lists []string
+		blacklisted bool
+		bypassVerification bool
+	}{
+		{name: "no entry"},
+		{name: "blacklist", lists: []string{"blacklist"}, blacklisted: true},
+		{name: "whitelist bypasses verification", lists: []string{"whitelist"}, bypassVerification: true},
+		{name: "exempt bypasses verification", lists: []string{"exempt"}, bypassVerification: true},
+		{name: "blacklist overrides whitelist", lists: []string{"whitelist", "blacklist"}, blacklisted: true, bypassVerification: true},
+		{name: "blacklist overrides exempt", lists: []string{"exempt", "blacklist"}, blacklisted: true, bypassVerification: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveGroupMemberListPolicy(tt.lists)
+			if got.blacklisted != tt.blacklisted || got.bypassVerification != tt.bypassVerification {
+				t.Fatalf("policy = %+v, want blacklisted=%v bypassVerification=%v", got, tt.blacklisted, tt.bypassVerification)
+			}
+		})
+	}
+}
+
 func TestValidGroupCategory(t *testing.T) {
 	valid:=[]string{"qa","review","notices","basic","spam","ads","retract","admins","lists","verify","warnings","profile","schedule","polls","stats","settings"}
 	for _,category:=range valid { if !validGroupCategory(category) { t.Errorf("category %q should be valid",category) } }
