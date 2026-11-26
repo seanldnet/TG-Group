@@ -252,9 +252,10 @@ export type TelegramGroupMember = {
   last_seen_at: string
 }
 
-export function listGroupMembers(groupID: string, limit = 200) {
-  return request<{ items: TelegramGroupMember[] }>(
-    `/api/v1/groups/${encodeURIComponent(groupID)}/members?limit=${limit}`,
+export function listGroupMembers(groupID: string, limit = 20, offset = 0) {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  return request<{ items: TelegramGroupMember[]; total: number; limit: number; offset: number }>(
+    `/api/v1/groups/${encodeURIComponent(groupID)}/members?${params.toString()}`,
     { headers: authenticatedHeaders() },
   )
 }
