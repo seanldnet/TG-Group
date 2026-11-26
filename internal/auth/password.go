@@ -66,7 +66,7 @@ func (s *Service) ChangePassword(ctx context.Context, accessToken, currentPasswo
 		return Session{}, ErrCurrentPasswordInvalid
 	}
 
-	if _, err := tx.Exec(ctx, "UPDATE users SET password_hash=$2,updated_at=now() WHERE id=$1", user.ID, string(newHash)); err != nil {
+	if _, err := tx.Exec(ctx, "UPDATE users SET password_hash=$2 WHERE id=$1", user.ID, string(newHash)); err != nil {
 		return Session{}, fmt.Errorf("update account password: %w", err)
 	}
 	if _, err := tx.Exec(ctx, "UPDATE user_sessions SET revoked_at=COALESCE(revoked_at,now()) WHERE user_id=$1", user.ID); err != nil {
