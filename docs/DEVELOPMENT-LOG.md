@@ -290,3 +290,15 @@
 - **文档同步**：校准开发计划日期与后续顺序；修正 README 和首页介绍中过期的功能状态，避免把未开发功能宣传为已交付。
 - **验证**：本次仅修改文档，未运行新代码测试；本次提交后的 CI 结果为准。
 - **下一步**：从账号体系补齐开始，优先设计可信 Telegram ID 绑定和会话安全；涉及外部邮件/注册 Bot 凭据的流程在配置提供前不宣称完成。
+
+
+### Telegram 身份自动绑定（第十六批第一阶段，首批代码）
+- **数据库**：新增 migration 000010，建立 `telegram_identity_link_challenges`，并给 users 增加 Telegram username/first_name/last_name 字段；internal 与根目录 up/down SQL 同步。
+- **绑定服务**：新增 `internal/auth/telegram_link.go`。网站登录用户可创建 5 分钟有效的一次性挑战；数据库仅存 SHA-256 摘要，新挑战会使旧挑战失效。绑定事务锁定挑战、校验未过期/未消费、写入 Telegram ID 和资料、消费挑战并写入审计日志。
+- **身份来源**：新增独立 `internal/telegramauthbot` 长轮询 worker。只处理 Telegram 私聊消息中的 `/start <challenge>`，要求 `message.from.id == message.chat.id` 且发送者不是 Bot；ID、用户名和姓名字段均来自 Telegram 官方 Update。该 Bot 与租户自行添加的群管 Bot 分离。
+- **API**：新增 `GET /api/v1/auth/telegram`、`POST /api/v1/auth/telegram/link`、`DELETE /api/v1/auth/telegram`。网站 API 不接收 Telegram ID。解除绑定会清空资料、使待处理挑战失效并写审计日志。
+- **前端**：账号工作台新增 Telegram 身份绑定卡片，显示绑定状态，点击后跳转 Telegram 官方 Bot；已绑定时可解除绑定。继续使用现有 shadcn/ui 官方 Button/Card 组件。
+- **配置**：新增 `TELEGRAM_AUTH_BOT_TOKEN` 与 `TELEGRAM_AUTH_BOT_USERNAME`，必须同时设置；Token 仅在后端使用。平台 Bot 必须独立于租户群管 Bot，采用 getUpdates 时不能同时配置 webhook。
+- **测试**：增加绑定/解绑/重复绑定/挑战重放 PostgreSQL 集成测试和 Telegram Bot 配置测试；HTTP 测试增加身份 API 在无数据库时的 503 检查。
+- **文档**：更新 README、API、LOCAL-TESTING 和 DEVELOPMENT-PLAN，明确真实 Telegram Bot Token 尚未提供，代码/CI 验证不等于 Telegram 端到端验收。
+- **验证状态**：源码与文档已提交 main；等待 GitHub Actions Go/PostgreSQL 测试、go vet 与前端构建结果。真实 Bot 联调待平台身份 Bot Token/username 配置后进行。
