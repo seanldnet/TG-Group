@@ -1,7 +1,7 @@
 ## 2026-11-26（Telegram 平台 Bot 欢迎菜单优化与群规双端控制）
 
 - **欢迎文案与换行**：修复平台 Bot 欢迎消息中 `\\n` 被当作普通字符显示的问题，改为 Go 字符串中的真实换行转义；文案补充平台定位、多 Bot/多群管理方式、已实现功能范围和注册→添加 Bot→加入群组→授予权限的使用步骤。
-- **常驻菜单**：在欢迎消息的 Inline Keyboard 之外，单独发送 Telegram ReplyKeyboardMarkup，将平台介绍、账号信息、添加群管 Bot、使用帮助和取消操作固定在聊天输入框下方。Inline Keyboard 与 Reply Keyboard 分开发送，避免 Telegram API 不支持的混合键盘结构。
+- **常驻菜单**：在欢迎消息的 Inline Keyboard 之外，单独发送 Telegram ReplyKeyboardMarkup，将平台介绍、开始注册、账号信息、添加群管 Bot、使用帮助和取消操作固定在聊天输入框下方。Inline Keyboard 与 Reply Keyboard 分开发送，避免 Telegram API 不支持的混合键盘结构。
 - **菜单交互**：常驻菜单文本被映射到与 Inline Keyboard 相同的处理动作；账号已存在的用户再次 `/start` 也会重新展示欢迎介绍与菜单。
 - **群管功能增量**：群组菜单“规则管理”列出当前群最多 20 条规则及启用状态；绑定主人可直接通过按钮启用/停用规则。更新语句按 tenant_id、group_id 和规则 UUID 限定，避免跨群/跨租户写入；创建和编辑规则内容仍通过网站完成。
 - **安全与测试**：回调必须来自已绑定主人；增加规则 UUID 校验，并防止 callback sender 缺失时解引用；新增欢迎文案真实换行/功能介绍、常驻键盘结构和规则 UUID 测试。
