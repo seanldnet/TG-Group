@@ -29,7 +29,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const session = await login({ email, password, captcha_token: captchaToken })
-      saveToken(session.token)
+      saveToken(session.token, session.refresh_token)
       window.location.assign("/dashboard")
     } catch (cause) {
       setCaptchaToken("")
