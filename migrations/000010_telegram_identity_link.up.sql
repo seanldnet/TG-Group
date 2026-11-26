@@ -11,3 +11,7 @@ CREATE INDEX telegram_identity_link_challenges_user_created_idx
 CREATE INDEX telegram_identity_link_challenges_expiry_idx
     ON telegram_identity_link_challenges(expires_at)
     WHERE consumed_at IS NULL;
+
+ALTER TABLE users ADD COLUMN telegram_username VARCHAR(64) NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN telegram_first_name VARCHAR(120) NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN telegram_last_name VARCHAR(120) NOT NULL DEFAULT '';
