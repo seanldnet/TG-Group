@@ -101,8 +101,8 @@ func (s *Service) claimWarningEscalation(ctx context.Context) (pendingWarningEsc
 				AND attempt_count < $1
 			)
 			ORDER BY COALESCE(next_retry_at, processing_started_at), id
-			FOR UPDATE SKIP LOCKED
 			LIMIT 1
+			FOR UPDATE SKIP LOCKED
 		)
 		UPDATE telegram_group_warning_escalations e
 		SET status = 'processing',
@@ -112,9 +112,11 @@ func (s *Service) claimWarningEscalation(ctx context.Context) (pendingWarningEsc
 			detail = 'automatic retry attempt ' || (e.attempt_count + 1)::text,
 			updated_at = now()
 		FROM candidate
-		JOIN telegram_groups g ON g.id = e.group_id
 		WHERE e.id = candidate.id
-			AND g.tenant_id = e.tenant_id
+			AND EXISTS (
+				SELECT 1 FROM telegram_groups g
+				WHERE g.id = e.group_id AND g.tenant_id = e.tenant_id
+			)
 		RETURNING e.id, e.tenant_id::text, e.group_id::text,
 			e.telegram_user_id, e.action, e.duration_minutes, e.attempt_count
 	`, warningEscalationMaxAttempts, warningEscalationLease.String()).Scan(
