@@ -328,3 +328,11 @@
 - **测试**：新增 PostgreSQL 集成测试，覆盖原密码错误、弱密码、重复旧密码、成功修改、旧密码无法登录、其他设备 access session 失效、旧 refresh token 失效和新密码登录；HTTP 路由增加未配置数据库时 503 覆盖。
 - **文档**：同步 API、LOCAL-TESTING、DEVELOPMENT-PLAN。
 - **验证状态**：代码已提交 main；等待 GitHub Actions Go/PostgreSQL 测试、go vet、前端 TypeScript 生产构建完成后再确认验收。
+
+
+### 登录失败频率限制（第十六批第四阶段，首批实现）
+- **数据库**：新增 migration `000012_login_rate_limit`，建立登录失败记录表及邮箱/IP/时间索引；内部 embed migrations 与根目录部署迁移 up/down 文件同步。
+- **限流策略**：同一规范化邮箱或同一来源 IP，在滚动 15 分钟内累计 5 次密码验证失败后，后续登录返回 HTTP 429；响应包含 `Retry-After: 900`。失败计数按两个维度分别判断，任一维度达到阈值即限制。
+- **隐私与并发**：邮箱和 IP 先加作用域前缀再计算 SHA-256，数据库只保存摘要；同一邮箱/IP 的并发登录通过 PostgreSQL advisory transaction lock 串行检查和记数，避免并发请求越过阈值。失败记录超过 24 小时后分批清理。
+- **实现边界**：限流直接使用 PostgreSQL，不假设 Redis 已接入；来源 IP 取 HTTP RemoteAddr，不信任客户端提供的 X-Forwarded-For。若部署在反向代理后，需在未来单独实现可信代理配置后再启用代理 IP 解析。
+- **测试**：新增 PostgreSQL 集成测试覆盖邮箱维度、IP 维度、新邮箱/IP 放行；HTTP 单测覆盖 429 和 Retry-After 响应。等待 CI 验证。
