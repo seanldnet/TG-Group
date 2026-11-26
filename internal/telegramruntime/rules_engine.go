@@ -1170,7 +1170,11 @@ func (p *Poller) handleGroupMemberWarning(ctx context.Context,bot managedBot,gro
 		userID,err:=strconv.ParseInt(parts[3],10,64);if err!=nil||userID<=0{return}
 		item,err:=p.botService.AddGroupMemberWarning(ctx,bot.tenantID,groupID,userID,query.From.ID,"管理员手动警告","manual")
 		if err!=nil {p.logger.Warn("add group member warning","error",err);_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"添加警告失败，请稍后重试。"},nil);return}
-		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":fmt.Sprintf("已记录用户 %d 的警告（记录 #%d）。当前仅记录，不会触发自动处罚。",userID,item.ID)},nil)
+		escalationErr:=p.botService.ApplyWarningEscalation(ctx,bot.tenantID,groupID,userID)
+		if escalationErr!=nil { p.logger.Warn("warning recorded but escalation failed","group_id",groupID,"user_id",userID,"error",escalationErr) }
+		message:=fmt.Sprintf("已记录用户 %d 的警告（记录 #%d）。",userID,item.ID)
+		if escalationErr!=nil { message+=" 自动处罚未执行成功，请检查 Bot 权限及群组成员状态。" } else { message+=" 已检查递进处罚策略。" }
+		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":message},nil)
 		p.sendGroupMemberDetail(ctx,bot,groupID,query.Message.Chat.ID,fmt.Sprintf("group:member:detail:%d",userID),token)
 		return
 	}
