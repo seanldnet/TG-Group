@@ -50,7 +50,7 @@ rm -f "$APP_DIR/compose.yaml" "$APP_DIR/compose.yml"
 read_env_value() {
   local key="$1"
   if [[ -f .env ]]; then
-    sed -n "s/^\${key}=//p" .env | tail -n 1
+    sed -n "s/^${key}=//p" .env | tail -n 1
   fi
 }
 
