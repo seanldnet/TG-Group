@@ -205,3 +205,10 @@ func TestSplitRuleTerms(t *testing.T) {
 }
 
 func TestSplitRuleTermsDeduplicatesAndTrims(t *testing.T) { got:=splitRuleTerms(" @news, @News\n -1001234567890 "); if len(got)!=2 || got[0]!="@news" || got[1]!="-1001234567890" { t.Fatalf("unexpected terms: %#v",got) } }
+
+
+func TestValidGroupCategory(t *testing.T) {
+	valid:=[]string{"qa","review","notices","basic","spam","ads","retract","admins","lists","verify","warnings","profile","schedule","polls","stats","settings"}
+	for _,category:=range valid { if !validGroupCategory(category) { t.Errorf("category %q should be valid",category) } }
+	for _,category:=range []string{"","unknown","members","group:settings","../admins"} { if validGroupCategory(category) { t.Errorf("category %q should be rejected",category) } }
+}
