@@ -238,10 +238,10 @@ func groupOwnerAccess(hasLinkedOwner,isOwner bool) string {
 
 func (p *Poller) sendGroupMenu(ctx context.Context,chatID,messageID int64,token string) {
 	keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{
-		{{"text":"规则管理","callback_data":"group:rules"},{"text":"检查 Bot 权限","callback_data":"group:status"}},
-		{{"text":"使用帮助","callback_data":"group:help"}},
+		{{"text":"规则管理","callback_data":"group:rules"},{"text":"成员管理","callback_data":"group:members"}},
+		{{"text":"检查 Bot 权限","callback_data":"group:status"},{"text":"使用帮助","callback_data":"group:help"}},
 	}}
-	_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"reply_to_message_id":messageID,"text":"TG-Group 群管 Bot 已连接。请选择下方操作。已启用的群规会自动执行。","reply_markup":keyboard},nil)
+	_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"reply_to_message_id":messageID,"text":"TG-Group 群管 Bot 已连接。可在这里管理本群规则、查看成员并执行成员操作。所有管理操作仅限已绑定的平台主人。","reply_markup":keyboard},nil)
 }
 
 func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID string,query telegramCallbackQuery,token string) {
@@ -250,6 +250,7 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 	if !p.requireGroupOwner(ctx,bot,query.From.ID,query.Message.Chat.ID,token) { return }
 	switch {
 	case query.Data=="group:rules": p.sendGroupRules(ctx,bot,groupID,query.Message.Chat.ID,token)
+	case query.Data=="group:members": p.sendGroupMembers(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:status": p.sendGroupStatus(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:help": p.sendGroupMenu(ctx,query.Message.Chat.ID,query.Message.MessageID,token)
 	case strings.HasPrefix(query.Data,"group:toggle:"):
@@ -259,7 +260,79 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 		err:=p.pool.QueryRow(ctx,"UPDATE telegram_group_rules SET enabled=NOT enabled,updated_at=now() WHERE tenant_id=$1 AND group_id=$2 AND id=$3::uuid RETURNING enabled",bot.tenantID,groupID,ruleID).Scan(&enabled)
 		if err!=nil { p.logger.Warn("toggle Telegram group rule failed","group_id",groupID,"rule_id",ruleID,"error",err);_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"规则更新失败，请刷新网站确认规则是否仍存在。"},nil);return }
 		p.sendGroupRules(ctx,bot,groupID,query.Message.Chat.ID,token)
+	default:
+		stage,action,targetID,ok:=parseGroupMemberCallback(query.Data)
+		if !ok { return }
+		if stage=="ask" {
+			label:="禁言 30 分钟"
+			if action=="ban" { label="封禁" }
+			keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{
+				{{"text":"确认"+label,"callback_data":fmt.Sprintf("group:member:confirm:%s:%d",action,targetID)}},
+				{{"text":"取消","callback_data":"group:members"}},
+			}}
+			_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":fmt.Sprintf("请确认对 Telegram 用户 %d 执行：%s。",targetID,label),"reply_markup":keyboard},nil)
+			return
+		}
+		if p.botService==nil { _ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"成员管理服务暂不可用，请稍后重试。"},nil);return }
+		var actorID string
+		if err:=p.pool.QueryRow(ctx,"SELECT id::text FROM users WHERE tenant_id=$1 AND telegram_id=$2 AND status='active'",bot.tenantID,query.From.ID).Scan(&actorID);err!=nil {
+			p.logger.Warn("resolve Telegram group owner for member action","tenant_id",bot.tenantID,"error",err)
+			_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"无法确认平台主人账号，请重新绑定 Telegram 身份后重试。"},nil)
+			return
+		}
+		duration:=0
+		if action=="mute" { duration=30 }
+		if err:=p.botService.ModerateGroupMember(ctx,bot.tenantID,actorID,groupID,targetID,action,duration);err!=nil {
+			p.logger.Warn("Telegram inline member moderation failed","group_id",groupID,"telegram_user_id",targetID,"action",action,"error",err)
+			_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"操作未完成。请检查 Bot 是否拥有管理成员权限、目标成员是否为普通成员，并在网站成员管理页查看详细状态。"},nil)
+			return
+		}
+		label:="禁言 30 分钟"
+		if action=="ban" { label="封禁" }
+		_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":fmt.Sprintf("已完成：用户 %d，%s。操作已记录审计日志。",targetID,label)},nil)
+		p.sendGroupMembers(ctx,bot,groupID,query.Message.Chat.ID,token)
 	}
+}
+
+
+// parseGroupMemberCallback validates the compact callback payload before any action.
+func parseGroupMemberCallback(data string) (stage,action string,targetID int64,ok bool) {
+	parts:=strings.Split(data,":")
+	if len(parts)!=5 || parts[0]!="group" || parts[1]!="member" { return "", "", 0, false }
+	if parts[2]!="ask" && parts[2]!="confirm" { return "", "", 0, false }
+	if parts[3]!="mute" && parts[3]!="ban" { return "", "", 0, false }
+	id,err:=strconv.ParseInt(parts[4],10,64)
+	if err!=nil || id<=0 { return "", "", 0, false }
+	return parts[2],parts[3],id,true
+}
+
+func (p *Poller) sendGroupMembers(ctx context.Context,bot managedBot,groupID string,chatID int64,token string) {
+	rows,err:=p.pool.Query(ctx,`SELECT telegram_user_id,username,first_name,last_name FROM telegram_group_members
+		WHERE tenant_id=$1 AND group_id=$2 AND status='member' AND is_bot=false
+		ORDER BY last_seen_at DESC,id DESC LIMIT 10`,bot.tenantID,groupID)
+	if err!=nil { p.logger.Error("load Telegram members for inline menu","group_id",groupID,"error",err);return }
+	defer rows.Close()
+	lines:=[]string{"群成员管理（最近活跃的普通成员）："}
+	keyboard:=[][]map[string]string{}
+	count:=0
+	for rows.Next() {
+		var id int64
+		var username,firstName,lastName string
+		if err:=rows.Scan(&id,&username,&firstName,&lastName);err!=nil { p.logger.Error("read Telegram member for inline menu","error",err);return }
+		name:=strings.TrimSpace(firstName+" "+lastName)
+		if username!="" { name+=" (@"+username+")" }
+		if name=="" { name=strconv.FormatInt(id,10) }
+		count++
+		lines=append(lines,fmt.Sprintf("%d. %s（ID: %d）",count,name,id))
+		keyboard=append(keyboard,[]map[string]string{
+			{"text":"禁言30分","callback_data":fmt.Sprintf("group:member:ask:mute:%d",id)},
+			{"text":"封禁","callback_data":fmt.Sprintf("group:member:ask:ban:%d",id)},
+		})
+	}
+	if err:=rows.Err();err!=nil { p.logger.Error("iterate Telegram members for inline menu","group_id",groupID,"error",err);return }
+	if count==0 { lines=append(lines,"暂无已采集的普通成员。成员数据会在 Bot 收到群成员更新后逐步建立。") }
+	keyboard=append(keyboard,[]map[string]string{{"text":"刷新成员","callback_data":"group:members"},{"text":"返回菜单","callback_data":"group:help"}})
+	_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\n"),"reply_markup":map[string]any{"inline_keyboard":keyboard}},nil)
 }
 
 func validRuleUUID(value string) bool {
