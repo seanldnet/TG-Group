@@ -98,39 +98,54 @@ func (s *Service) Register(ctx context.Context, email, password, displayName, us
 
 func (s *Service) Login(ctx context.Context, email, password, userAgent, remoteAddr string) (Session, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
-	var user User
-	var passwordHash, status, tenantStatus string
-	err := s.pool.QueryRow(ctx, `SELECT u.id::text,u.tenant_id::text,u.email,u.display_name,u.role,u.password_hash,u.status,u.created_at,t.status
-		FROM users u JOIN tenants t ON t.id=u.tenant_id WHERE u.email=$1`, email).Scan(&user.ID,&user.TenantID,&user.Email,&user.DisplayName,&user.Role,&passwordHash,&status,&user.CreatedAt,&tenantStatus)
-	if err != nil { return Session{}, ErrInvalidCredentials }
-	if bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password)) != nil { return Session{}, ErrInvalidCredentials }
-	if status != "active" || tenantStatus != "active" { return Session{}, ErrAccountInactive }
-
-	token, tokenHash, err := newToken()
-	if err != nil { return Session{}, err }
-	refreshToken, refreshHash, err := newToken()
-	if err != nil { return Session{}, err }
-	now := time.Now().UTC()
-	expires := now.Add(accessSessionLifetime)
-	refreshExpires := now.Add(refreshTokenLifetime)
 	ip := clientIP(remoteAddr)
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil { return Session{}, fmt.Errorf("begin login session: %w", err) }
+	identifiers := loginIdentifiers(email,ip)
+
+	tx,err:=s.pool.BeginTx(ctx,pgx.TxOptions{})
+	if err!=nil { return Session{},fmt.Errorf("begin login transaction: %w",err) }
 	defer tx.Rollback(ctx)
+	if err:=lockLoginIdentifiers(ctx,tx,identifiers);err!=nil { return Session{},err }
+	limited,err:=loginRateLimited(ctx,tx,identifiers)
+	if err!=nil { return Session{},err }
+	if limited {
+		if err:=tx.Commit(ctx);err!=nil { return Session{},fmt.Errorf("commit rate-limited login: %w",err) }
+		return Session{},ErrLoginRateLimited
+	}
+
+	var user User
+	var passwordHash,status,tenantStatus string
+	err=tx.QueryRow(ctx,`SELECT u.id::text,u.tenant_id::text,u.email,u.display_name,u.role,u.password_hash,u.status,u.created_at,t.status
+		FROM users u JOIN tenants t ON t.id=u.tenant_id WHERE u.email=$1`,email).
+		Scan(&user.ID,&user.TenantID,&user.Email,&user.DisplayName,&user.Role,&passwordHash,&status,&user.CreatedAt,&tenantStatus)
+	if err!=nil || bcrypt.CompareHashAndPassword([]byte(passwordHash),[]byte(password))!=nil {
+		if err:=recordLoginFailure(ctx,tx,identifiers);err!=nil { return Session{},err }
+		if err:=tx.Commit(ctx);err!=nil { return Session{},fmt.Errorf("commit failed login attempt: %w",err) }
+		return Session{},ErrInvalidCredentials
+	}
+	if status!="active" || tenantStatus!="active" { return Session{},ErrAccountInactive }
+
+	token,tokenHash,err:=newToken()
+	if err!=nil { return Session{},err }
+	refreshToken,refreshHash,err:=newToken()
+	if err!=nil { return Session{},err }
+	now:=time.Now().UTC()
+	expires:=now.Add(accessSessionLifetime)
+	refreshExpires:=now.Add(refreshTokenLifetime)
 	var familyID string
-	if err := tx.QueryRow(ctx, `INSERT INTO user_refresh_tokens(user_id,token_hash,expires_at,user_agent,ip_address)
-		VALUES($1,$2,$3,$4,NULLIF($5,'')::inet) RETURNING family_id::text`, user.ID,refreshHash,refreshExpires,userAgent,ip).Scan(&familyID); err != nil {
-		return Session{}, fmt.Errorf("create login refresh token: %w", err)
+	if err:=tx.QueryRow(ctx,`INSERT INTO user_refresh_tokens(user_id,token_hash,expires_at,user_agent,ip_address)
+		VALUES($1,$2,$3,$4,NULLIF($5,'')::inet) RETURNING family_id::text`,
+		user.ID,refreshHash,refreshExpires,userAgent,ip).Scan(&familyID);err!=nil {
+		return Session{},fmt.Errorf("create login refresh token: %w",err)
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO user_sessions(user_id,family_id,token_hash,expires_at,user_agent,ip_address)
-		VALUES($1,$2,$3,$4,$5,NULLIF($6,'')::inet)`, user.ID,familyID,tokenHash,expires,userAgent,ip); err != nil {
-		return Session{}, fmt.Errorf("create login session: %w", err)
+	if _,err:=tx.Exec(ctx,`INSERT INTO user_sessions(user_id,family_id,token_hash,expires_at,user_agent,ip_address)
+		VALUES($1,$2,$3,$4,$5,NULLIF($6,'')::inet)`,user.ID,familyID,tokenHash,expires,userAgent,ip);err!=nil {
+		return Session{},fmt.Errorf("create login session: %w",err)
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,ip_address)
-		VALUES($1,$2,'auth.login','user',$3,NULLIF($4,'')::inet)`, user.TenantID,user.ID,user.ID,ip); err != nil {
-		return Session{}, fmt.Errorf("audit login: %w", err)
+	if _,err:=tx.Exec(ctx,`INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,ip_address)
+		VALUES($1,$2,'auth.login','user',$3,NULLIF($4,'')::inet)`,user.TenantID,user.ID,user.ID,ip);err!=nil {
+		return Session{},fmt.Errorf("audit login: %w",err)
 	}
-	if err := tx.Commit(ctx); err != nil { return Session{}, fmt.Errorf("commit login: %w", err) }
+	if err:=tx.Commit(ctx);err!=nil { return Session{},fmt.Errorf("commit login: %w",err) }
 	return Session{Token:token,ExpiresAt:expires,RefreshToken:refreshToken,RefreshExpiresAt:refreshExpires,User:user},nil
 }
 
