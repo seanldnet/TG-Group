@@ -520,7 +520,9 @@ func (h *Handler) listGroupMemberWarnings(w http.ResponseWriter,r *http.Request)
 	userID,err:=strconv.ParseInt(r.PathValue("userID"),10,64);if err!=nil||userID<=0{writeError(w,http.StatusBadRequest,"invalid Telegram user ID");return}
 	items,err:=h.bots.ListGroupMemberWarnings(r.Context(),user.TenantID,r.PathValue("groupID"),userID)
 	if err!=nil{h.writeGroupRuleError(w,err);return}
-	writeJSON(w,http.StatusOK,map[string]any{"items":items})
+	total,err:=h.bots.CountGroupMemberWarnings(r.Context(),user.TenantID,r.PathValue("groupID"),userID)
+	if err!=nil{h.writeGroupRuleError(w,err);return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":items,"total":total})
 }
 func (h *Handler) clearGroupMemberWarnings(w http.ResponseWriter,r *http.Request) {
 	if !h.botServicesReady(w){return}; user,ok:=h.currentUser(w,r);if !ok{return}
