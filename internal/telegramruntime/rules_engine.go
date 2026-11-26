@@ -71,7 +71,8 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 		}
 	}
 
-	if p.handleJoinVerificationText(ctx,bot,groupID,message,token) { return }\n\tif content=="" || senderID==nil || message.From.IsBot { return }
+	if p.handleJoinVerificationText(ctx,bot,groupID,message,token) { return }
+	if content=="" || senderID==nil || message.From.IsBot { return }
 	var matched *executableRule
 	for i:=range rules {
 		rule:=&rules[i]
