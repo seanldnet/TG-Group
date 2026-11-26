@@ -54,6 +54,7 @@ func TestAuthEndpointsRequireDatabase(t *testing.T) {
 		{http.MethodPost, "/api/v1/auth/register"},
 		{http.MethodPost, "/api/v1/auth/login"},
 		{http.MethodPost, "/api/v1/auth/refresh"},
+		{http.MethodPost, "/api/v1/auth/password/change"},
 		{http.MethodPost, "/api/v1/auth/logout"},
 		{http.MethodGet, "/api/v1/auth/me"},
 		{http.MethodGet, "/api/v1/auth/telegram"},
