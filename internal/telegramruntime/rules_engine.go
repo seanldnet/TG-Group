@@ -309,7 +309,7 @@ func parseGroupMessageActionCallback(data string)(action,stage string,messageID 
 	parts:=strings.Split(data,":")
 	if len(parts)!=5 || parts[0]!="group" || parts[1]!="msg" { return "", "", 0, false }
 	if parts[2]!="delete" && parts[2]!="pin" { return "", "", 0, false }
-	if parts[3]!="ask" && parts[3]!="confirm" && !(parts[2]=="pin" && parts[3]=="run") { return "", "", 0, false }
+	if (parts[2]=="delete" && parts[3]!="ask" && parts[3]!="confirm") || (parts[2]=="pin" && parts[3]!="run") { return "", "", 0, false }
 	messageID,err:=strconv.ParseInt(parts[4],10,64);if err!=nil || messageID<=0 { return "", "", 0, false }
 	return parts[2],parts[3],messageID,true
 }
