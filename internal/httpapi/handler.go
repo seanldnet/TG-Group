@@ -38,6 +38,7 @@ func NewHandlerWithTelegramAuthBot(logger *slog.Logger, authService *auth.Servic
 	mux.HandleFunc("POST /api/v1/auth/password/change",h.changePassword)
 	mux.HandleFunc("POST /api/v1/auth/logout",h.logout)
 	mux.HandleFunc("GET /api/v1/auth/me",h.me)
+	mux.HandleFunc("GET /api/v1/auth/security-events",h.securityEvents)
 	mux.HandleFunc("GET /api/v1/auth/telegram",h.telegramIdentity)
 	mux.HandleFunc("POST /api/v1/auth/telegram/link",h.createTelegramLink)
 	mux.HandleFunc("DELETE /api/v1/auth/telegram",h.unlinkTelegramIdentity)
@@ -173,7 +174,7 @@ func (h *Handler) logout(w http.ResponseWriter,r *http.Request) {
 	if !h.requireAuthStore(w) { return }
 	token:=bearerToken(r)
 	if token=="" { writeError(w,http.StatusUnauthorized,"unauthorized");return }
-	if err:=h.auth.Logout(r.Context(),token);err!=nil { h.logger.Error("logout failed","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return }
+	if err:=h.auth.Logout(r.Context(),token,r.RemoteAddr);err!=nil { h.logger.Error("logout failed","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return }
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -182,6 +183,21 @@ func (h *Handler) me(w http.ResponseWriter,r *http.Request) {
 	user,err:=h.auth.Authenticate(r.Context(),bearerToken(r))
 	if err!=nil { writeError(w,http.StatusUnauthorized,"unauthorized");return }
 	writeJSON(w,http.StatusOK,user)
+}
+
+func (h *Handler) securityEvents(w http.ResponseWriter,r *http.Request) {
+	if !h.requireAuthStore(w) { return }
+	user,err:=h.auth.Authenticate(r.Context(),bearerToken(r))
+	if err!=nil { writeError(w,http.StatusUnauthorized,"unauthorized");return }
+	limit:=20
+	if raw:=r.URL.Query().Get("limit");raw!="" {
+		value,parseErr:=strconv.Atoi(raw)
+		if parseErr!=nil || value<1 || value>100 { writeError(w,http.StatusBadRequest,"limit must be between 1 and 100");return }
+		limit=value
+	}
+	events,err:=h.auth.ListSecurityEvents(r.Context(),user.ID,limit)
+	if err!=nil { h.logger.Error("list account security events","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return }
+	writeJSON(w,http.StatusOK,map[string]any{"items":events})
 }
 
 func (h *Handler) telegramIdentity(w http.ResponseWriter,r *http.Request) {
