@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { Bot, LogOut, ShieldCheck, UsersRound } from "lucide-react"
 
-import { clearToken, currentUser, logout, type User } from "@/lib/api"
+import { clearToken, currentUser, logout, getTelegramIdentity, createTelegramLink, unlinkTelegramIdentity, type TelegramIdentityStatus, type User } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -17,12 +17,15 @@ export default function DashboardPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
   const [signingOut, setSigningOut] = useState(false)
+  const [telegram, setTelegram] = useState<TelegramIdentityStatus | null>(null)
+  const [telegramBusy, setTelegramBusy] = useState(false)
+  const [telegramError, setTelegramError] = useState("")
 
   useEffect(() => {
     let active = true
     currentUser()
       .then((value) => {
-        if (active) setUser(value)
+        if (active) { setUser(value); setTelegram(telegramValue) }
       })
       .catch((cause: unknown) => {
         clearToken()
@@ -38,6 +41,32 @@ export default function DashboardPage() {
       active = false
     }
   }, [])
+
+  async function handleTelegramLink() {
+    setTelegramBusy(true)
+    setTelegramError("")
+    try {
+      const challenge = await createTelegramLink()
+      window.location.assign(challenge.url)
+    } catch (cause) {
+      setTelegramError(cause instanceof Error ? cause.message : "创建 Telegram 绑定链接失败")
+      setTelegramBusy(false)
+    }
+  }
+
+  async function handleTelegramUnlink() {
+    if (!window.confirm("确定解除当前账号的 Telegram 绑定吗？")) return
+    setTelegramBusy(true)
+    setTelegramError("")
+    try {
+      await unlinkTelegramIdentity()
+      setTelegram(await getTelegramIdentity())
+    } catch (cause) {
+      setTelegramError(cause instanceof Error ? cause.message : "解除 Telegram 绑定失败")
+    } finally {
+      setTelegramBusy(false)
+    }
+  }
 
   async function handleLogout() {
     setSigningOut(true)
@@ -91,6 +120,32 @@ export default function DashboardPage() {
           <p className="mt-2 text-sm text-muted-foreground">
             账号已通过身份认证。可在工作台管理 Bot，并查看自动发现的 Telegram 群组。
           </p>
+        </div>
+
+        <div className="mb-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Telegram 身份绑定</CardTitle>
+              <CardDescription>通过平台官方 Telegram Bot 自动验证身份，不需要手动填写 Telegram ID。</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {telegram?.linked ? (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="text-sm">
+                    <p className="font-medium">{telegram.telegram.username ? "@"+telegram.telegram.username : [telegram.telegram.first_name,telegram.telegram.last_name].filter(Boolean).join(" ") || "Telegram 用户"}</p>
+                    <p className="text-xs text-muted-foreground">Telegram ID：{telegram.telegram.id}</p>
+                  </div>
+                  <Button variant="outline" size="sm" disabled={telegramBusy} onClick={handleTelegramUnlink}>解除绑定</Button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">尚未绑定 Telegram。点击后跳转官方 Bot，按提示点击 Start 即可自动完成绑定。</p>
+                  <Button size="sm" disabled={telegramBusy} onClick={handleTelegramLink}>{telegramBusy ? "正在创建链接..." : "绑定 Telegram"}</Button>
+                </div>
+              )}
+              {telegramError && <p role="alert" className="text-sm text-destructive">{telegramError}</p>}
+            </CardContent>
+          </Card>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
