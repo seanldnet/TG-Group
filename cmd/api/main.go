@@ -43,6 +43,8 @@ func main() {
 	var telegramIdentityPoller *telegramauthbot.Poller
 	if db != nil {
 		authService = auth.NewService(db.Pool)
+		if err := authService.EnsureDemoAdmin(startupCtx); err != nil { logger.Error("bootstrap demo administrator", "error", err); os.Exit(1) }
+		logger.Info("demo administrator bootstrap checked (admin / 123456; existing password is never reset)")
 		if cfg.TelegramAuthBotToken != "" { telegramIdentityPoller = telegramauthbot.New(cfg.TelegramAuthBotToken, authService, logger) }
 		if cfg.BotTokenEncryptionKey != "" {
 			botService, err = bots.NewService(db.Pool, cfg.BotTokenEncryptionKey)
