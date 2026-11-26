@@ -344,3 +344,4 @@ openssl rand -base64 32
 加密密钥复用部署时生成的 `BOT_TOKEN_ENCRYPTION_KEY`（Base64 编码的 32 字节密钥）。平台 Bot 设置表为单例配置；网站页面只允许管理员访问，Token 字段不会回显。运行状态表示本进程轮询管理器已启动，不等价于 Telegram 端长期在线或真实业务验收。
 
 管理员保存/停用操作分别写入 `audit_logs`：`platform.telegram_auth_bot.update` 与 `platform.telegram_auth_bot.disable`。审计记录只保存 Bot Username，不记录 Token。
+平台注册 Bot 现在会在私聊回复中附带持久化主菜单键盘：`账号信息` 和 `使用帮助`；也支持 `/menu` 与 `/help`。群管 Bot Token 仍通过网站「机器人管理」模块添加，不会与平台注册 Bot Token 混用。
