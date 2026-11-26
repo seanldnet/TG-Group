@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -22,9 +23,19 @@ var (
 	ErrInvalidConfig = errors.New("invalid Telegram platform Bot configuration")
 	ErrTelegramRejected = errors.New("Telegram rejected the platform Bot credentials")
 	ErrTelegramUnavailable = errors.New("Telegram verification is unavailable")
+	ErrSchemaNotReady = errors.New("platform Telegram Bot settings migration is not applied")
 )
 
 type Service struct { pool *pgxpool.Pool; aead cipher.AEAD }
+
+func classifyDatabaseError(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "42P01" {
+		return fmt.Errorf("%w: %v", ErrSchemaNotReady, err)
+	}
+	return err
+}
+
 
 type Status struct {
 	Configured bool `json:"configured"`
@@ -64,7 +75,7 @@ func (s *Service) Status(ctx context.Context)(Status,error){
 	err:=s.pool.QueryRow(ctx,`SELECT username,updated_at,enabled FROM platform_telegram_auth_bot_settings WHERE id=1`).Scan(&status.Username,&updatedAt,&enabled)
 	if err!=nil {
 		if errors.Is(err,pgx.ErrNoRows) { return Status{Configured:false,Managed:false},nil }
-		return Status{},fmt.Errorf("read platform Telegram Bot settings: %w",err)
+		return Status{},fmt.Errorf("read platform Telegram Bot settings: %w",classifyDatabaseError(err))
 	}
 	status.Managed=true
 	status.Configured=enabled
@@ -99,7 +110,7 @@ func (s *Service) Save(ctx context.Context,token,username,actorID string) error 
 	_,err=tx.Exec(ctx,`INSERT INTO platform_telegram_auth_bot_settings(id,token_ciphertext,token_nonce,username,enabled,updated_by,updated_at)
 		VALUES(1,$1,$2,$3,TRUE,$4,now()) ON CONFLICT(id) DO UPDATE SET token_ciphertext=EXCLUDED.token_ciphertext,
 		token_nonce=EXCLUDED.token_nonce,username=EXCLUDED.username,enabled=TRUE,updated_by=EXCLUDED.updated_by,updated_at=now()`,ciphertext,nonce,username,actorID)
-	if err!=nil{return fmt.Errorf("save encrypted platform Telegram Bot settings: %w",err)}
+	if err!=nil{return fmt.Errorf("save encrypted platform Telegram Bot settings: %w",classifyDatabaseError(err))}
 	_,err=tx.Exec(ctx,`INSERT INTO audit_logs(actor_user_id,action,resource_type,resource_id,metadata)
 		VALUES($1,'platform.telegram_auth_bot.update','platform_setting','telegram_auth_bot',jsonb_build_object('username',$2))`,actorID,username)
 	if err!=nil{return fmt.Errorf("audit platform Telegram Bot update: %w",err)}
@@ -123,7 +134,7 @@ func (s *Service) Clear(ctx context.Context,actorID string)error{
 	_,err=tx.Exec(ctx,`INSERT INTO platform_telegram_auth_bot_settings(id,token_ciphertext,token_nonce,username,enabled,updated_by,updated_at)
 		VALUES(1,''::bytea,''::bytea,'',FALSE,$1,now()) ON CONFLICT(id) DO UPDATE SET token_ciphertext=''::bytea,
 		token_nonce=''::bytea,username='',enabled=FALSE,updated_by=EXCLUDED.updated_by,updated_at=now()`,actorID)
-	if err!=nil{return fmt.Errorf("disable platform Telegram Bot settings: %w",err)}
+	if err!=nil{return fmt.Errorf("disable platform Telegram Bot settings: %w",classifyDatabaseError(err))}
 	_,err=tx.Exec(ctx,`INSERT INTO audit_logs(actor_user_id,action,resource_type,resource_id)
 		VALUES($1,'platform.telegram_auth_bot.disable','platform_setting','telegram_auth_bot')`,actorID)
 	if err!=nil{return fmt.Errorf("audit platform Telegram Bot disable: %w",err)}
