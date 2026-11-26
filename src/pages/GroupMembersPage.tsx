@@ -46,6 +46,9 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
   const [warningUserID, setWarningUserID] = useState<number | null>(null)
   const [warnings, setWarnings] = useState<TelegramGroupMemberWarning[]>([])
   const [warningTotal, setWarningTotal] = useState(0)
+  const [warningPage, setWarningPage] = useState(1)
+  const warningPageSize = 10
+  const warningPageCount = Math.max(1, Math.ceil(warningTotal / warningPageSize))
   const [warningBusy, setWarningBusy] = useState(false)
   const [escalations, setEscalations] = useState<TelegramWarningEscalationExecution[]>([])
 
@@ -75,9 +78,10 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
     setWarningBusy(true)
     setError("")
     try {
-      const [response, executions] = await Promise.all([listGroupMemberWarnings(groupID, userID), listWarningEscalations(groupID, userID)])
+      const [response, executions] = await Promise.all([listGroupMemberWarnings(groupID, userID, warningPageSize, 0), listWarningEscalations(groupID, userID)])
       setWarnings(response.items)
       setWarningTotal(response.total)
+      setWarningPage(1)
       setEscalations(executions.items)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "加载警告记录失败")
@@ -96,9 +100,10 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
     setError("")
     try {
       await addGroupMemberWarning(groupID, warningUserID, reason.trim())
-      const [response, executions] = await Promise.all([listGroupMemberWarnings(groupID, warningUserID), listWarningEscalations(groupID, warningUserID)])
+      const [response, executions] = await Promise.all([listGroupMemberWarnings(groupID, warningUserID, warningPageSize, 0), listWarningEscalations(groupID, warningUserID)])
       setWarnings(response.items)
       setWarningTotal(response.total)
+      setWarningPage(1)
       setEscalations(executions.items)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "添加警告失败")
@@ -131,6 +136,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
       await clearGroupMemberWarnings(groupID, warningUserID)
       setWarnings([])
       setWarningTotal(0)
+      setWarningPage(1)
       setEscalations([])
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "清零警告失败")
@@ -287,6 +293,29 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
                   </div>
                 ))}
               </div>
+              {warnings.length > 0 && (
+                <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+                  <span>警告记录第 {warningPage} / {warningPageCount} 页，共 {warningTotal} 条</span>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" disabled={warningBusy || warningPage <= 1} onClick={async () => {
+                      if (warningUserID === null) return
+                      const nextPage = warningPage - 1
+                      setWarningBusy(true)
+                      try { const response = await listGroupMemberWarnings(groupID, warningUserID, warningPageSize, (nextPage - 1) * warningPageSize); setWarnings(response.items); setWarningPage(nextPage) }
+                      catch (cause) { setError(cause instanceof Error ? cause.message : "读取警告记录失败") }
+                      finally { setWarningBusy(false) }
+                    }}>上一页</Button>
+                    <Button size="sm" variant="outline" disabled={warningBusy || warningPage >= warningPageCount} onClick={async () => {
+                      if (warningUserID === null) return
+                      const nextPage = warningPage + 1
+                      setWarningBusy(true)
+                      try { const response = await listGroupMemberWarnings(groupID, warningUserID, warningPageSize, (nextPage - 1) * warningPageSize); setWarnings(response.items); setWarningPage(nextPage) }
+                      catch (cause) { setError(cause instanceof Error ? cause.message : "读取警告记录失败") }
+                      finally { setWarningBusy(false) }
+                    }}>下一页</Button>
+                  </div>
+                </div>
+              )}
               {warningBusy ? <p className="text-sm text-muted-foreground">正在处理...</p> : warnings.length === 0 ? (
                 <p className="text-sm text-muted-foreground">该成员在当前群组暂无警告记录。</p>
               ) : (
