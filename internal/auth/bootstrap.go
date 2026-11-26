@@ -35,7 +35,7 @@ func (s *Service) EnsureDemoAdmin(ctx context.Context) error {
 		return fmt.Errorf("create demo admin: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id)
-		VALUES($1,$2,'auth.bootstrap_admin','user',$2::text)`, tenantID,userID); err != nil {
+		VALUES($1,$2,'auth.bootstrap_admin','user',$3)`, tenantID,userID,userID); err != nil {
 		return fmt.Errorf("audit demo admin bootstrap: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil { return fmt.Errorf("commit demo admin bootstrap: %w", err) }
