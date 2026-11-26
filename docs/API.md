@@ -168,7 +168,7 @@ openssl rand -base64 32
 
 ### 群组规则配置（第一阶段：配置管理）
 
-规则数据按当前登录用户的租户和群组隔离。支持以下类型：`keyword_filter`、`sensitive_word`、`anti_spam`、`anti_ad`、`welcome`、`leave_notice`。
+规则数据按当前登录用户的租户和群组隔离。支持以下类型：`keyword_filter`、`sensitive_word`、`anti_spam`、`anti_ad`、`welcome`、`leave_notice`、`join_verification`。
 
 - `GET /api/v1/groups/{groupID}/rules`：查询当前群组规则。
 - `POST /api/v1/groups/{groupID}/rules`：创建规则。
@@ -189,11 +189,13 @@ openssl rand -base64 32
 
 配置由服务端按规则类型进行严格字段校验。关键词/敏感词使用 `words` 数组；反广告使用 `patterns` 数组；反刷屏使用 `max_messages`、`window_seconds`；过滤动作目前仅接受安全子集 `delete`；欢迎和离群通知使用 `text`。优先级范围为 0–1000，数值越小越靠前。同一群组内同类型规则名称不可重复。
 
+入群验证配置示例：`{"challenge_type":"math","timeout_seconds":120,"failure_action":"kick"}`。仅支持 `math` 数学题，超时 30–600 秒；超时处理支持 `restrict`（保持禁言）或 `kick`（封禁后立即解封，实现移出群组）。当前仅对 Telegram supergroup 执行；Bot 必须是群管理员/群主且具备 `can_restrict_members`。新成员入群后立即限制发言，Bot 发送带 Inline Keyboard 的随机加法题；仅该成员本人可点击验证按钮。答对后读取群组默认权限并按默认权限恢复，不会授予超出群组默认设置的权限。挑战过期由后台长轮询 worker 周期处理。若 Bot 缺少权限、群组不是 supergroup 或无法读取群默认权限，会跳过或保留限制并记录服务端日志。
+
 规则执行引擎已接入长轮询消息持久化流程：新消息事件成功插入后才执行规则，重复 update 不会重复执行。关键词/敏感词和反广告按不区分大小写的子串匹配；反刷屏按同一群组、同一发送者在配置时间窗内的已记录消息数量触发。过滤类规则当前只执行删除当前命中消息，并在调用 Telegram 前实时检查 Bot 是否为群管理员且具备 `can_delete_messages`；权限不足时跳过并记录原因。欢迎和离群通知分别基于消息中的 `new_chat_members` 与 `left_chat_member` 事件发送，模板支持 `{user}`、`{username}`、`{group}` 占位符。执行结果写入 `telegram_group_rule_events`，并以群组、update、规则、动作和目标用户做幂等保护。规则执行失败不会阻塞已持久化消息的 update offset。
 
 `GET /api/v1/groups/{groupID}/rule-events?limit=50` 返回当前群组最近的规则动作记录，limit 范围 1–100，包含动作、状态、目标用户/消息 ID、执行时间和失败/跳过原因；网站在规则管理页提供“执行记录”入口。查询按当前租户与群组双重过滤。
 
-当前执行边界：反广告使用配置的简单子串匹配，不是正则或语义识别；反刷屏只删除触发阈值的当前消息，不会批量清理历史消息或自动禁言；尚未实现 chat_member 更新驱动的离群通知、频道关注验证、CAP、人机验证或自动处罚。真实 Telegram 权限与消息联调仍需在测试群组验收。
+当前执行边界：反广告使用配置的简单子串匹配，不是正则或语义识别；反刷屏只删除触发阈值的当前消息，不会批量清理历史消息或自动禁言；尚未实现 chat_member 更新驱动的离群通知、频道关注验证、CAP.js 官方服务端验证和高级人机验证；入群数学题是基础验证，不代表 CAP 已接入。真实 Telegram 权限与消息联调仍需在测试群组验收。
 
 ### 当前边界
 
