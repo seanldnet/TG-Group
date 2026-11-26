@@ -261,13 +261,15 @@ func (h *Handler) createTelegramLink(w http.ResponseWriter,r *http.Request) {
     if !h.requireAuthStore(w) { return }
     user,err:=h.auth.Authenticate(r.Context(),bearerToken(r))
     if err!=nil { writeError(w,http.StatusUnauthorized,"unauthorized");return }
-    if h.telegramAuthBotUsername=="" { writeError(w,http.StatusServiceUnavailable,"平台 Telegram 身份 Bot 尚未配置");return }
+    username:=h.telegramAuthBotUsername
+	if h.telegramAuthBotManager!=nil {if configured,_:=h.telegramAuthBotManager.Status();configured!="" {username=configured}}
+	if username=="" { writeError(w,http.StatusServiceUnavailable,"平台 Telegram 身份 Bot 尚未配置");return }
     identity,err:=h.auth.TelegramIdentity(r.Context(),user.ID)
     if err!=nil { h.logger.Error("read Telegram identity before link","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return }
     if identity.ID!=nil { writeError(w,http.StatusConflict,"该账号已经绑定 Telegram");return }
     challenge,err:=h.auth.CreateTelegramLinkChallenge(r.Context(),user.ID)
     if err!=nil { h.logger.Error("create Telegram link challenge","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return }
-    writeJSON(w,http.StatusCreated,map[string]any{"url":"https://t.me/"+h.telegramAuthBotUsername+"?start="+challenge.Token,"expires_at":challenge.ExpiresAt})
+    writeJSON(w,http.StatusCreated,map[string]any{"url":"https://t.me/"+username+"?start="+challenge.Token,"expires_at":challenge.ExpiresAt})
 }
 
 func (h *Handler) unlinkTelegramIdentity(w http.ResponseWriter,r *http.Request) {
