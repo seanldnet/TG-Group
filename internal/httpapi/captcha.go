@@ -63,6 +63,10 @@ func (v *CaptchaVerifier) Verify(ctx context.Context, token string) error {
 	response, err := v.client.Do(req)
 	if err != nil { return fmt.Errorf("CAP verification service unavailable: %w", err) }
 	defer response.Body.Close()
+	if response.StatusCode >= 500 || response.StatusCode == http.StatusTooManyRequests {
+		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 64<<10))
+		return fmt.Errorf("CAP verification service returned HTTP %d", response.StatusCode)
+	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 64<<10))
 		return ErrCaptchaRejected
