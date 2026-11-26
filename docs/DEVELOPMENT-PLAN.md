@@ -13,9 +13,11 @@
 - [x] 建立 PostgreSQL pgx 连接池、Ping、版本化迁移执行器与身份/租户基础 schema（尚未完成 Redis 和后台任务）。
 - [x] 增加 PostgreSQL 16 / Redis 7 本地开发 Compose 配置与启动文档（Compose 本身尚未在当前执行环境启动验证；Redis 暂未接入 Go 服务）。
 - [x] 完成邮箱注册/登录、bcrypt 密码哈希、30 天 Bearer 会话、当前用户查询和退出撤销 API；租户/用户状态参与会话鉴权。
-- [ ] 补齐 refresh token、密码找回、邮箱验证、登录限流、Telegram ID 绑定、角色授权及跨租户资源访问测试。
+- [ ] 补齐 refresh token、密码找回、邮箱验证、登录限流、角色授权及跨租户资源访问测试。
+- [ ] Telegram ID 绑定首批代码已写入：一次性挑战、Telegram 官方 Update 自动取 ID、全局唯一绑定、解除绑定与审计；待 CI 和平台 Bot 真实配置验收。
 - [x] 网站首页、注册页、登录页和账号工作台已连接第一版 Go 认证 API。
-- [ ] Telegram 注册管理 Bot、refresh token、密码找回、邮箱验证、登录限流和 Telegram ID 绑定。
+- [ ] Telegram 注册管理 Bot、refresh token、密码找回、邮箱验证、登录限流。
+- [ ] Telegram 身份绑定已进入代码实现阶段；需要配置专用平台 Bot Token/username 后真实联调。
 - [x] 完成 Telegram Bot Token 验证、AES-256-GCM 加密存储、租户范围查询、启停、同 Bot 身份 Token 轮换与解绑 API。
 - [x] 完成网站 Bot 管理页面：列表、添加、启停、轮换、解绑，使用官方 shadcn/ui 组件（前端 CI build 已通过）。
 - [x] 建立 Telegram Bot getUpdates 长轮询运行时、群组自动发现和网站群组列表；消息事件日志、群成员增量采集、实时 Bot 权限检测、手动成员处罚 API 与网站操作入口已实现。Webhook 模式仍待完成。
@@ -149,3 +151,15 @@
 5. 赞助商及用户自配置 AI Provider/审核。
 6. CAP 公网验收、真实 Telegram 联调、业务测试。
 7. 云端预构建镜像、生产 Compose、持久化五位数端口及初始化流程。
+
+
+## 最近增量：Telegram 身份自动绑定（首批实现，待验证）
+- 网站账号工作台增加 Telegram 身份绑定状态、绑定跳转和解除绑定入口；没有手动填写 Telegram ID 的输入项。
+- 新增一次性绑定挑战表，挑战码随机生成、5 分钟有效、数据库只保存 SHA-256 摘要；生成新挑战会使旧挑战失效。
+- 新增平台专用 Telegram 身份 Bot 长轮询进程，与用户自行接入的群管 Bot 完全分离。只接受私聊 `/start <challenge>`，并要求 Telegram Update 的 `from.id` 与私聊 `chat.id` 一致。
+- Telegram ID、username、first_name、last_name 仅从 Telegram 官方 Update 读取；网站 API 不接收任何 Telegram ID 字段。
+- 绑定事务执行挑战消费、users.telegram_id 全局唯一更新和审计日志；解除绑定清空 Telegram 资料、作废待处理挑战并写审计日志。
+- 新增 API：`GET /api/v1/auth/telegram`、`POST /api/v1/auth/telegram/link`、`DELETE /api/v1/auth/telegram`。
+- 新增配置：`TELEGRAM_AUTH_BOT_TOKEN` 与 `TELEGRAM_AUTH_BOT_USERNAME`，必须同时配置；Token 仅后端读取。
+- 新增 PostgreSQL migration 000010（internal 与根目录 up/down 文件同步）、服务集成测试和配置测试；同步 API 与本地测试文档。
+- **状态**：代码已提交 main；尚未确认 CI 结果，也没有真实平台 Bot Token，因此不得标记真实 Telegram 联调完成。
