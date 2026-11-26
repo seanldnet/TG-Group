@@ -617,7 +617,7 @@ func groupRuleEditConfig(kind,preset string) []byte {
 func parseGroupRuleCustomEditCallback(data string)(ruleID,field string,ok bool) {
  parts:=strings.Split(data,":")
  if len(parts)!=4 || parts[0]!="group" || parts[1]!="ec" || !validRuleUUID(parts[2]) { return "", "", false }
- if parts[3]!="text" && parts[3]!="words" && parts[3]!="patterns" { return "", "", false }
+ if parts[3]!="text" && parts[3]!="words" && parts[3]!="patterns" && parts[3]!="channels" { return "", "", false }
  return parts[2],parts[3],true
 }
 func (p *Poller) saveGroupPendingInput(ctx context.Context,bot managedBot,groupID string,userID int64,action,ruleID string) error {
@@ -643,6 +643,9 @@ func (p *Poller) beginGroupRuleCustomEdit(ctx context.Context,bot managedBot,gro
  case "patterns":
   if current.RuleType!="anti_ad" { return }
   action="rule_patterns";prompt="请发送广告匹配内容，每行一条，也可以用逗号分隔。最多 100 条，每条不超过 100 个字符。"
+ case "channels":
+  if current.RuleType!="join_verification" { return }
+  action="rule_channels";prompt="请发送必需加入的频道列表，每行一个。支持 @频道用户名 或 -100 开头的频道 ID；最多 10 个。清空请发送 none。"
  }
  if err:=p.saveGroupPendingInput(ctx,bot,groupID,userID,action,ruleID); err!=nil { p.logger.Warn("save Telegram group edit session","group_id",groupID,"error",err); return }
  _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":prompt+"\n本次输入等待 5 分钟；发送后自动校验并保存。","reply_markup":map[string]any{"force_reply":true,"selective":true}},nil)
@@ -683,7 +686,7 @@ func (p *Poller) processPendingGroupInput(ctx context.Context,bot managedBot,gro
   }
   status:="公告已发布并置顶。"; if !pinned { status="公告已发布，但 Bot 缺少置顶权限或置顶失败。" }
   _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":message.Chat.ID,"text":status},nil)
- case "rule_text","rule_words","rule_patterns":
+ case "rule_text","rule_words","rule_patterns","rule_channels":
   if p.botService==nil || !validRuleUUID(ruleID) { return true }
   rules,err:=p.botService.ListGroupRules(ctx,bot.tenantID,groupID); if err!=nil { return true }
   var current *bots.GroupRule
@@ -697,6 +700,12 @@ func (p *Poller) processPendingGroupInput(ctx context.Context,bot managedBot,gro
    if current.RuleType!="keyword_filter" && current.RuleType!="sensitive_word" { return true }; config["words"]=splitRuleTerms(value); config["action"]="delete"
   case "rule_patterns":
    if current.RuleType!="anti_ad" { return true }; config["patterns"]=splitRuleTerms(value); config["action"]="delete"
+  case "rule_channels":
+   if current.RuleType!="join_verification" { return true }
+   var existing struct { ChallengeType string "json:\"challenge_type\""; TimeoutSeconds int "json:\"timeout_seconds\""; FailureAction string "json:\"failure_action\"" }
+   if json.Unmarshal(current.Config,&existing)!=nil { return true }
+   channels:=[]string{};if strings.ToLower(value)!="none" { channels=splitRuleTerms(value) }
+   config["challenge_type"]=existing.ChallengeType;config["timeout_seconds"]=existing.TimeoutSeconds;config["failure_action"]=existing.FailureAction;config["required_channels"]=channels
   }
   encoded,err:=json.Marshal(config); if err!=nil { return true }
   _,err=p.botService.UpdateGroupRule(ctx,bot.tenantID,groupID,ruleID,bots.GroupRuleInput{RuleType:current.RuleType,Name:current.Name,Enabled:current.Enabled,Priority:current.Priority,Config:encoded})
@@ -729,7 +738,7 @@ func (p *Poller) handleGroupRuleEdit(ctx context.Context,bot managedBot,groupID 
 		case "join_verification": add("验证超时：60秒","v1");add("验证超时：180秒","v2");add("验证超时：300秒","v3");add("失败后：限制发言","vr");add("失败后：移出群组","vk")
 		default: return
 		}
-		switch current.RuleType { case "welcome","leave_notice": rows=append(rows,[]map[string]string{{"text":"自定义输入文案","callback_data":"group:ec:"+ruleID+":text"}}); case "keyword_filter","sensitive_word": rows=append(rows,[]map[string]string{{"text":"自定义关键词","callback_data":"group:ec:"+ruleID+":words"}}); case "anti_ad": rows=append(rows,[]map[string]string{{"text":"自定义广告匹配内容","callback_data":"group:ec:"+ruleID+":patterns"}}) }
+		switch current.RuleType { case "welcome","leave_notice": rows=append(rows,[]map[string]string{{"text":"自定义输入文案","callback_data":"group:ec:"+ruleID+":text"}}); case "keyword_filter","sensitive_word": rows=append(rows,[]map[string]string{{"text":"自定义关键词","callback_data":"group:ec:"+ruleID+":words"}}); case "anti_ad": rows=append(rows,[]map[string]string{{"text":"自定义广告匹配内容","callback_data":"group:ec:"+ruleID+":patterns"}}); case "join_verification": rows=append(rows,[]map[string]string{{"text":"设置必需加入的频道","callback_data":"group:ec:"+ruleID+":channels"}}) }
 		rows=append(rows,[]map[string]string{{"text":"返回规则列表","callback_data":"group:rules"}})
 		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"编辑规则："+current.Name+"\n请选择要应用的配置预设。保存后立即生效；原配置会被所选预设整体替换。","reply_markup":map[string]any{"inline_keyboard":rows}},nil)
 		return
