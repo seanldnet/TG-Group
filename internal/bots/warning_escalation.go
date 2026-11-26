@@ -45,8 +45,8 @@ func (s *Service) ApplyWarningEscalation(ctx context.Context, tenantID, groupID 
 	for _, item := range candidates {
 		var executionID int64
 		err := s.pool.QueryRow(ctx, `INSERT INTO telegram_group_warning_escalations
-			(tenant_id,group_id,rule_id,telegram_user_id,warning_count,action,duration_minutes,status)
-			VALUES($1,$2,$3,$4,$5,$6,$7,'processing')
+			(tenant_id,group_id,rule_id,telegram_user_id,warning_count,action,duration_minutes,status,processing_started_at)
+			VALUES($1,$2,$3,$4,$5,$6,$7,'processing',now())
 			ON CONFLICT(tenant_id,group_id,rule_id,telegram_user_id,warning_count) DO NOTHING
 			RETURNING id`, tenantID,groupID,item.id,userID,warningCount,item.action,item.duration).Scan(&executionID)
 		if errors.Is(err,pgx.ErrNoRows) { continue }
@@ -57,7 +57,7 @@ func (s *Service) ApplyWarningEscalation(ctx context.Context, tenantID, groupID 
 			status,detail = "failed",actionErr.Error()
 			if len([]rune(detail))>500 { detail=string([]rune(detail)[:500]) }
 		}
-		if _,err:=s.pool.Exec(ctx,`UPDATE telegram_group_warning_escalations SET status=$2,detail=$3,updated_at=$4 WHERE id=$1`,executionID,status,detail,time.Now().UTC());err!=nil {
+		if _,err:=s.pool.Exec(ctx,`UPDATE telegram_group_warning_escalations SET status=$2,detail=$3,updated_at=$4,processing_started_at=NULL,next_retry_at=$5 WHERE id=$1`,executionID,status,detail,time.Now().UTC(),func() any { if actionErr != nil { return time.Now().UTC().Add(WarningEscalationRetryDelay(1)) }; return nil }());err!=nil {
 			return fmt.Errorf("update warning escalation execution %d: %w",executionID,err)
 		}
 		if actionErr != nil { return fmt.Errorf("warning escalation %s failed: %w",item.action,actionErr) }
