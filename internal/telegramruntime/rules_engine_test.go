@@ -237,21 +237,33 @@ func TestFormatJoinVerificationSummary(t *testing.T) {
 }
 
 func TestGenerateJoinChallengeModes(t *testing.T) {
-	for _,mode:=range []string{"math","letters","alphanumeric"} {
-		answer,prompt,options,numeric,err:=generateJoinChallenge(mode)
-		if err!=nil { t.Fatalf("%s: %v",mode,err) }
-		if answer=="" || prompt=="" { t.Fatalf("%s returned empty challenge",mode) }
-		if mode=="math" {
-			if len(options)!=3 || numeric<2 || numeric>18 { t.Fatalf("math challenge options=%v numeric=%d",options,numeric) }
+	for _, mode := range []string{"math", "letters", "alphanumeric"} {
+		answer, prompt, options, numeric, err := generateJoinChallenge(mode)
+		if err != nil {
+			t.Fatalf("%s: %v", mode, err)
+		}
+		if answer == "" || prompt == "" {
+			t.Fatalf("%s returned empty challenge", mode)
+		}
+		if mode == "math" {
+			if len(options) != 3 || numeric < 2 || numeric > 18 {
+				t.Fatalf("math challenge options=%v numeric=%d", options, numeric)
+			}
 			continue
 		}
-		if len(answer)!=4 || len(options)!=0 || numeric!=2 || !strings.Contains(prompt,"tg-spoiler") {
-			t.Fatalf("%s challenge answer=%q prompt=%q options=%v numeric=%d",mode,answer,prompt,options,numeric)
+		if len(answer) != 4 || len(options) != 0 || numeric != 2 || !strings.Contains(prompt, "tg-spoiler") {
+			t.Fatalf("%s challenge answer=%q prompt=%q options=%v numeric=%d", mode, answer, prompt, options, numeric)
 		}
-		for _,r:=range answer {
-			if mode=="letters" && !strings.ContainsRune("ABCDEFGHJKLMNPQRSTUVWXYZ",r) { t.Fatalf("letters challenge contains invalid rune %q",r) }
-			if mode=="alphanumeric" && !strings.ContainsRune("ABCDEFGHJKLMNPQRSTUVWXYZ23456789",r) { t.Fatalf("alphanumeric challenge contains invalid rune %q",r) }
+		for _, r := range answer {
+			if mode == "letters" && !strings.ContainsRune("ABCDEFGHJKLMNPQRSTUVWXYZ", r) {
+				t.Fatalf("letters challenge contains invalid rune %q", r)
+			}
+			if mode == "alphanumeric" && !strings.ContainsRune("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", r) {
+				t.Fatalf("alphanumeric challenge contains invalid rune %q", r)
+			}
 		}
 	}
-	if _,_,_,_,err:=generateJoinChallenge("captcha");err==nil { t.Fatal("unsupported CAPTCHA mode should fail closed") }
+	if _, _, _, _, err := generateJoinChallenge("captcha"); err == nil {
+		t.Fatal("unsupported CAPTCHA mode should fail closed")
+	}
 }
