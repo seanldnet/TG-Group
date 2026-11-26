@@ -336,3 +336,6 @@
 - **隐私与并发**：邮箱和 IP 先加作用域前缀再计算 SHA-256，数据库只保存摘要；同一邮箱/IP 的并发登录通过 PostgreSQL advisory transaction lock 串行检查和记数，避免并发请求越过阈值。失败记录超过 24 小时后分批清理。
 - **实现边界**：限流直接使用 PostgreSQL，不假设 Redis 已接入；来源 IP 取 HTTP RemoteAddr，不信任客户端提供的 X-Forwarded-For。若部署在反向代理后，需在未来单独实现可信代理配置后再启用代理 IP 解析。
 - **测试**：新增 PostgreSQL 集成测试覆盖邮箱维度、IP 维度、新邮箱/IP 放行；HTTP 单测覆盖 429 和 Retry-After 响应。等待 CI 验证。
+
+- **密码修改 CI 验证**：代码提交 `6d6a8db68d262d15ba089a5976d2788c558af562` 对应 Actions run `45737793039` 的 Go/PostgreSQL 测试、gofmt、go vet 和前端生产构建均通过。
+- **登录限流 CI 修复与最终验证**：首轮 CI 曾因错误变量定义提交顺序导致短暂编译失败，已补齐 `ErrLoginRateLimited` 后重新运行。代码提交 `ec9c08c9ffd4907157df63ddfdec87bef6f946d8` 对应 run `45738314492` 的 Go 格式检查、Go/PostgreSQL 集成测试、go vet 和前端 TypeScript 生产构建全部 success；邮箱/IP 双维度限流集成测试通过。
