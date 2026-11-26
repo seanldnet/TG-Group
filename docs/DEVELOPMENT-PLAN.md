@@ -167,7 +167,7 @@
 - **状态**：代码已提交 main；CI 已通过；尚未配置真实平台 Bot Token，因此不得标记真实 Telegram 联调完成。
 
 
-## 最近增量：Refresh Token 会话续期（代码已实现，待 CI 验证）
+## 最近增量：Refresh Token 会话续期（代码已实现，Go/PostgreSQL 测试、go vet 和前端构建 CI 已通过）
 - 新增 migration 000011：访问会话关联 refresh family，新增 refresh token 哈希存储、过期时间、撤销时间及轮换指针。
 - 注册和登录签发 15 分钟 access token 与 30 天 refresh token；数据库只保存 SHA-256 摘要。
 - 新增 `POST /api/v1/auth/refresh`，每次续期同时轮换 access/refresh token。
