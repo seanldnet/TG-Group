@@ -211,3 +211,8 @@
 - [x] 平台 Bot 配置保存和停用与管理员审计日志在同一数据库事务提交；审计元数据不包含 Token。
 - [x] 平台注册 Bot 增加私聊主菜单键盘、账号信息快捷入口和使用帮助命令。
 - [ ] 下一步：支持用户通过平台 Bot 安全提交群管 Bot Token（先删除含 Token 的私聊消息，再验证并绑定当前用户租户），并补充失败回滚和安全提示。
+
+- [x] 平台 Bot 主菜单加入“添加群管 Bot”，支持 `/addbot <Bot Token>` 私聊提交。
+- [x] 提交前要求 Telegram API 成功删除原始含 Token 消息；删除失败拒绝处理，避免 Token 留在聊天记录。
+- [x] 使用绑定账号的 TenantID/UserID 调用现有 Bot 注册服务，Token 由现有 AES-256-GCM 加密机制保存并写入 Bot 审计。
+- [ ] 真实 Telegram 联调：确认目标 Bot 私聊 `deleteMessage` 权限/行为，并验证 Bot 被添加到群后的发现和规则处理。
