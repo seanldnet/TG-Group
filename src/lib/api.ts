@@ -391,3 +391,19 @@ export function unlinkTelegramIdentity() {
     headers: authenticatedHeaders(),
   })
 }
+
+export type AccountSecurityEvent = {
+  id: number
+  action: string
+  resource_type: string
+  resource_id: string
+  ip_address: string
+  created_at: string
+}
+
+export function listSecurityEvents(limit = 20) {
+  return request<{ items: AccountSecurityEvent[] }>(
+    `/api/v1/auth/security-events?limit=${limit}`,
+    { headers: authenticatedHeaders() },
+  )
+}
