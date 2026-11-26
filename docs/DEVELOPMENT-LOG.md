@@ -253,3 +253,12 @@
 
 - **CI 验证结果**：最新代码提交 `dff3d8f5f623bb92f558a05f142cf994e27747e1` 对应 GitHub Actions run `45725882924` 两个 Job 均 success：Go 格式检查、PostgreSQL 集成测试、`go vet ./...` 和前端生产构建通过。前端 Job 已通过；Go 测试包含新增规则配置与数学题选项边界测试。该结果不替代真实 Telegram supergroup 联调。
 - **测试文档**：`docs/LOCAL-TESTING.md` 增加入群验证人工验收步骤，覆盖 Bot 权限、本人答题、超时踢出/持续限制及数据库状态检查。
+
+
+### 入群验证增加频道关注校验（第十五批第二阶段）
+- **配置扩展**：`join_verification` 增加可选 `required_channels`，最多 10 个，接受公开频道用户名 `@name` 或 Telegram 数字频道 ID（`-100...`）；拒绝非法格式和重复频道。
+- **数据迁移**：新增 `000009_join_verification_channels`，挑战表保存本次验证所需频道列表，internal 与根目录 up/down SQL 同步。
+- **运行时校验**：数学题答对后，逐个调用 Telegram `getChatMember` 检查该用户是否已加入全部指定频道；任一频道未加入时不解除群组发言限制，并提示用户先加入频道。Telegram 无法查询频道成员状态时失败关闭。
+- **安全限制**：Bot 必须加入目标频道，建议授予频道管理员身份，以确保 Telegram 允许查询其他用户的成员状态。频道用户名和数字 ID 均可配置；私密邀请链接本身不能作为频道 ID 使用。
+- **测试**：增加频道引用格式校验、频道成员状态识别、Telegram API 权限失败关闭和提示文本单测；通过可注入 Telegram API base URL 的 httptest server 模拟 Telegram 响应。
+- **文档**：更新 API、开发计划和人工验收步骤。CAP.js 官方服务端验证仍未接入。
