@@ -58,6 +58,21 @@ func (s *Service) RunWarningEscalationRetries(ctx context.Context, logger *slog.
 }
 
 func (s *Service) processDueWarningEscalations(ctx context.Context, logger *slog.Logger) {
+	if _, err := s.pool.Exec(ctx, `
+		UPDATE telegram_group_warning_escalations
+		SET status = 'failed',
+			detail = 'automatic retry limit reached while processing lease expired',
+			next_retry_at = NULL, processing_started_at = NULL, updated_at = now()
+		WHERE status = 'processing'
+			AND attempt_count >= $1
+			AND processing_started_at IS NOT NULL
+			AND processing_started_at <= now() - ($2 * interval '1 second')
+	`, warningEscalationMaxAttempts, int64(warningEscalationLease.Seconds())); err != nil {
+		if ctx.Err() == nil {
+			logger.Error("expire exhausted warning escalation leases", "error", err)
+		}
+		return
+	}
 	for ctx.Err() == nil {
 		item, err := s.claimWarningEscalation(ctx)
 		if errors.Is(err, pgx.ErrNoRows) {
