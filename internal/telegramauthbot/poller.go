@@ -11,6 +11,7 @@ import (
     "net/url"
     "strconv"
     "strings"
+    "sync"
     "time"
 
     "github.com/seanldnet/tg-group/internal/auth"
@@ -23,6 +24,8 @@ type Poller struct {
     bots *bots.Service
     logger *slog.Logger
     client *http.Client
+    stateMu sync.Mutex
+    awaitingBotToken map[int64]bool
 }
 
 type telegramUser struct {
@@ -39,11 +42,18 @@ type telegramMessage struct {
     Chat telegramChat `json:"chat"`
     Text string `json:"text"`
 }
+type telegramCallbackQuery struct {
+    ID string `json:"id"`
+    From *telegramUser `json:"from"`
+    Message *telegramMessage `json:"message"`
+    Data string `json:"data"`
+}
 type updateBatch struct {
     OK bool `json:"ok"`
     Result []struct {
         UpdateID int64 `json:"update_id"`
         Message *telegramMessage `json:"message"`
+        CallbackQuery *telegramCallbackQuery `json:"callback_query"`
     } `json:"result"`
 }
 
@@ -52,13 +62,13 @@ func New(token string, service *auth.Service, logger *slog.Logger) *Poller {
 }
 func NewWithBotService(token string,service *auth.Service,botService *bots.Service,logger *slog.Logger)*Poller{
     if logger==nil {logger=slog.Default()}
-    return &Poller{token:token,auth:service,bots:botService,logger:logger,client:&http.Client{Timeout:40*time.Second}}
+    return &Poller{token:token,auth:service,bots:botService,logger:logger,client:&http.Client{Timeout:40*time.Second},awaitingBotToken:make(map[int64]bool)}
 }
 
 func (p *Poller) Run(ctx context.Context) {
     var offset int64
     for ctx.Err() == nil {
-        query := url.Values{"timeout":{"25"},"allowed_updates":{ "[\"message\"]" }}
+        query := url.Values{"timeout":{"25"},"allowed_updates":{ "[\"message\",\"callback_query\"]" }}
         if offset > 0 { query.Set("offset", strconv.FormatInt(offset,10)) }
         req, err := http.NewRequestWithContext(ctx,http.MethodGet,"https://api.telegram.org/bot"+p.token+"/getUpdates?"+query.Encode(),nil)
         if err != nil { p.logger.Error("create Telegram auth Bot request failed"); return }
@@ -81,102 +91,108 @@ func (p *Poller) Run(ctx context.Context) {
         }
         for _, item := range batch.Result {
             if item.UpdateID >= offset { offset = item.UpdateID+1 }
-            p.handleMessage(ctx,item.Message)
+            if item.CallbackQuery != nil { p.handleCallback(ctx,item.CallbackQuery) }; p.handleMessage(ctx,item.Message)
         }
     }
 }
 
 func (p *Poller) handleMessage(ctx context.Context,message *telegramMessage) {
     if message == nil || message.From == nil || message.From.IsBot || message.Chat.Type != "private" || message.From.ID != message.Chat.ID { return }
-    command := strings.TrimSpace(message.Text)
-    if command=="/menu" || command=="主菜单" { _ = p.sendMessage(ctx,message.Chat.ID,"TG-Group 平台主菜单：请选择账号信息、添加群管 Bot 或查看使用帮助。"); return }
-    if command=="添加群管 Bot" { _ = p.sendMessage(ctx,message.Chat.ID,"请发送命令：/addbot <Bot Token>。为保护凭据，平台会先删除这条私聊消息，再验证并加密保存 Token。"); return }
-    if command=="使用帮助" || command=="/help" { _ = p.sendMessage(ctx,message.Chat.ID,"TG-Group 使用帮助：\n/start：注册账号或完成网站账号绑定\n/account：查询当前绑定账号\n/addbot <Bot Token>：添加群管 Bot\n网站控制台可管理群组和安全规则。"); return }
-    if strings.HasPrefix(command,"/addbot") { p.addUserBot(ctx,message); return }
-    if command == "/account" || command == "账号信息" {
-        account, err := p.auth.TelegramAccount(ctx,message.From.ID)
-        if err != nil {
-            _ = p.sendMessage(ctx,message.Chat.ID,"当前 Telegram 尚未绑定平台账号。发送 /start 可以注册新账号，或先登录网站后在账号安全中发起绑定。")
-            return
-        }
-        text := "TG-Group 账号信息\\n用户 ID："+account.UserID+"\\n登录账号："+account.UserID+"\\n邮箱："+account.Email+"\\n昵称："+account.DisplayName+"\\n角色："+account.Role
-        if err := p.sendMessage(ctx,message.Chat.ID,text); err != nil { p.logger.Warn("send Telegram account summary failed","error",err) }
+    if p.consumeBotTokenPrompt(message.From.ID) {
+        p.addUserBot(ctx,message,strings.TrimSpace(message.Text))
         return
     }
-    parts := strings.Fields(message.Text)
-    if len(parts) == 0 || parts[0] != "/start" { return }
-    identity := auth.TelegramIdentity{
-        ID:message.From.ID, Username:message.From.Username, FirstName:message.From.FirstName, LastName:message.From.LastName,
-    }
-    if len(parts) == 1 {
-        registration, err := p.auth.RegisterTelegramAccount(ctx, identity)
-        if err != nil {
-            if err == auth.ErrTelegramAlreadyLinked {
-                _ = p.sendMessage(ctx,message.Chat.ID,"这个 Telegram 账号已经注册或绑定过 TG-Group。请使用原账号登录网站，或在账号安全中发起绑定。")
+    text := strings.TrimSpace(message.Text)
+    parts := strings.Fields(text)
+    if len(parts)>0 && parts[0]=="/start" {
+        identity := auth.TelegramIdentity{ID:message.From.ID,Username:message.From.Username,FirstName:message.From.FirstName,LastName:message.From.LastName}
+        if len(parts)==2 {
+            payload:=strings.TrimSpace(parts[1])
+            if payload!="" && len(payload)<=128 {
+                if err:=p.auth.CompleteTelegramLink(ctx,payload,identity);err!=nil {
+                    p.logger.Info("Telegram account binding was not completed","telegram_user_id",message.From.ID,"reason",safeReason(err))
+                    _=p.sendMessage(ctx,message.Chat.ID,"绑定未完成：链接可能已过期，或账号已绑定。请返回网站重新发起绑定。")
+                } else { _=p.sendMessage(ctx,message.Chat.ID,"Telegram 账号绑定成功。") }
+                return
+            }
+        }
+        account,lookupErr:=p.auth.TelegramAccount(ctx,message.From.ID)
+        if lookupErr==nil {
+            _=p.sendMessage(ctx,message.Chat.ID,"欢迎回来，"+account.DisplayName+"。请选择要执行的操作。")
+            return
+        }
+        registration,err:=p.auth.RegisterTelegramAccount(ctx,identity)
+        if err!=nil {
+            if errors.Is(err,auth.ErrTelegramAlreadyLinked) {
+                _=p.sendMessage(ctx,message.Chat.ID,"这个 Telegram 账号已经注册。请使用原账号登录网站，或从网站账号设置发起绑定。")
                 return
             }
             p.logger.Error("Telegram platform registration failed","telegram_user_id",message.From.ID,"error",err)
-            _ = p.sendMessage(ctx,message.Chat.ID,"注册暂时无法完成，请稍后重试或联系平台管理员。")
+            _=p.sendMessage(ctx,message.Chat.ID,"注册暂时无法完成，请稍后重试或联系平台管理员。")
             return
         }
-        text := "TG-Group 账号注册成功！\n用户 ID："+registration.UserID+"\n登录账号："+registration.UserID+"\n初始密码："+registration.Password+"\n请立即登录网站并修改初始密码。"
-        if err := p.sendMessage(ctx,message.Chat.ID,text); err != nil {
-            p.logger.Warn("send Telegram registration credentials failed","error",err)
-        }
+        _=p.sendMessage(ctx,message.Chat.ID,"账号注册成功！\n用户 ID："+registration.UserID+"\n初始密码："+registration.Password+"\n请登录网站后立即修改初始密码。")
         return
     }
-    if len(parts) != 2 { return }
-    payload := strings.TrimSpace(parts[1])
-    if payload == "" || len(payload) > 128 { return }
-    err := p.auth.CompleteTelegramLink(ctx,payload,identity)
-    if err != nil {
-        p.logger.Info("Telegram account binding was not completed","telegram_user_id",message.From.ID,"reason",safeReason(err))
-        if sendErr := p.sendMessage(ctx,message.Chat.ID,"绑定未完成：绑定链接可能已过期，或该 Telegram 账号/平台账号已绑定。请返回网站重新发起绑定。"); sendErr != nil {
-            p.logger.Warn("send Telegram binding error failed","error",sendErr)
-        }
-        return
-    }
-    if err := p.sendMessage(ctx,message.Chat.ID,"Telegram 账号绑定成功。你可以返回 TG-Group 网站查看绑定状态。"); err != nil {
-        p.logger.Warn("send Telegram binding confirmation failed","error",err)
+    // All day-to-day actions are button-driven. Ignore legacy slash commands.
+}
+func (p *Poller) consumeBotTokenPrompt(userID int64) bool {
+    p.stateMu.Lock(); defer p.stateMu.Unlock()
+    if !p.awaitingBotToken[userID] { return false }
+    delete(p.awaitingBotToken,userID)
+    return true
+}
+func (p *Poller) handleCallback(ctx context.Context,query *telegramCallbackQuery) {
+    if query==nil || query.From==nil || query.From.IsBot || query.Message==nil || query.Message.Chat.Type!="private" || query.Message.Chat.ID!=query.From.ID { return }
+    _=p.answerCallback(ctx,query.ID)
+    switch query.Data {
+    case "menu:account":
+        account,err:=p.auth.TelegramAccount(ctx,query.From.ID)
+        if err!=nil { _=p.sendMessage(ctx,query.Message.Chat.ID,"当前 Telegram 尚未关联平台账号。请先在网站“账号设置 → 账号关联”完成绑定，或使用开始按钮注册。");return }
+        _=p.sendMessage(ctx,query.Message.Chat.ID,"账号信息\n用户 ID："+account.UserID+"\n邮箱："+account.Email+"\n昵称："+account.DisplayName+"\n角色："+account.Role)
+    case "menu:addbot":
+        if _,err:=p.auth.TelegramAccount(ctx,query.From.ID);err!=nil { _=p.sendMessage(ctx,query.Message.Chat.ID,"请先完成平台账号注册或 Telegram 账号关联，再添加群管 Bot。");return }
+        if p.bots==nil { _=p.sendMessage(ctx,query.Message.Chat.ID,"群管 Bot 管理服务暂不可用，请联系管理员。");return }
+        p.stateMu.Lock();p.awaitingBotToken[query.From.ID]=true;p.stateMu.Unlock()
+        _=p.sendMessage(ctx,query.Message.Chat.ID,"请直接发送要添加的 Bot Token。收到后会先尝试删除这条消息，再验证并加密保存。若无法删除，系统将拒绝处理。")
+    case "menu:help":
+        _=p.sendMessage(ctx,query.Message.Chat.ID,"使用帮助\n• 账号信息：查看当前绑定的平台账号\n• 添加群管 Bot：点击按钮后直接发送 BotFather 提供的 Token\n• 网站控制台：管理群组、成员、规则和安全设置\n所有日常操作请使用下方按钮，无需输入命令。")
+    case "menu:cancel":
+        p.stateMu.Lock();delete(p.awaitingBotToken,query.From.ID);p.stateMu.Unlock()
+        _=p.sendMessage(ctx,query.Message.Chat.ID,"已取消当前操作。")
     }
 }
-
-func (p *Poller) addUserBot(ctx context.Context,message *telegramMessage) {
-    parts:=strings.Fields(message.Text)
-    if len(parts)!=2 || (parts[0]!="/addbot" && !strings.HasPrefix(parts[0],"/addbot@")) {
-        _ = p.sendMessage(ctx,message.Chat.ID,"用法：/addbot <Bot Token>。请从 BotFather 复制完整 Token。")
-        return
-    }
-    if p.bots==nil {
-        _ = p.sendMessage(ctx,message.Chat.ID,"当前平台暂未启用群管 Bot Token 管理服务，请联系管理员。")
-        return
-    }
+func (p *Poller) addUserBot(ctx context.Context,message *telegramMessage,token string) {
+    if p.bots==nil { _=p.sendMessage(ctx,message.Chat.ID,"群管 Bot 管理服务暂不可用，请联系管理员。");return }
     account,err:=p.auth.TelegramAccount(ctx,message.From.ID)
-    if err!=nil {
-        _ = p.sendMessage(ctx,message.Chat.ID,"请先使用 /start 注册平台账号，或在网站账号安全中绑定 Telegram 后再添加群管 Bot。")
-        return
-    }
-    token:=parts[1]
+    if err!=nil { _=p.sendMessage(ctx,message.Chat.ID,"请先完成平台账号注册或 Telegram 账号关联。");return }
     if err:=p.deleteMessage(ctx,message.Chat.ID,message.MessageID);err!=nil {
         p.logger.Warn("refuse Telegram Bot token because source message could not be deleted","telegram_user_id",message.From.ID,"error",err)
-        _ = p.sendMessage(ctx,message.Chat.ID,"为保护 Token，平台未能删除你刚发送的消息，因此没有处理该 Token。请立即手动删除这条消息，然后改用网站机器人管理添加。")
+        _=p.sendMessage(ctx,message.Chat.ID,"出于安全考虑，系统未能删除你发送的 Token 消息，因此没有处理它。请立即手动删除该消息，并改用网站机器人管理添加。")
         return
     }
     bot,err:=p.bots.Add(ctx,account.TenantID,account.UserID,token)
     if err!=nil {
         switch {
-        case errors.Is(err,bots.ErrTokenTaken): _ = p.sendMessage(ctx,message.Chat.ID,"这个群管 Bot 已经被平台接入，请检查是否重复添加。")
-        case errors.Is(err,bots.ErrInvalidToken): _ = p.sendMessage(ctx,message.Chat.ID,"Telegram 不接受该 Bot Token，请检查后重新添加。")
-        case errors.Is(err,bots.ErrTelegramUnavailable): _ = p.sendMessage(ctx,message.Chat.ID,"Telegram 验证服务暂时不可用，请稍后重试。")
-        default: p.logger.Error("add user Telegram Bot from platform Bot","telegram_user_id",message.From.ID,"error",err);_ = p.sendMessage(ctx,message.Chat.ID,"添加 Bot 失败，请稍后重试或联系管理员。")
+        case errors.Is(err,bots.ErrTokenTaken): _=p.sendMessage(ctx,message.Chat.ID,"这个群管 Bot 已经接入平台，请勿重复添加。")
+        case errors.Is(err,bots.ErrInvalidToken): _=p.sendMessage(ctx,message.Chat.ID,"Telegram 不接受该 Bot Token，请检查后重新操作。")
+        case errors.Is(err,bots.ErrTelegramUnavailable): _=p.sendMessage(ctx,message.Chat.ID,"Telegram 验证服务暂时不可用，请稍后重试。")
+        default: p.logger.Error("add user Telegram Bot from platform Bot","telegram_user_id",message.From.ID,"error",err);_=p.sendMessage(ctx,message.Chat.ID,"添加 Bot 失败，请稍后重试或联系平台管理员。")
         }
         return
     }
-    label:=bot.FirstName
-    if bot.Username!="" {label="@"+bot.Username}
-    _ = p.sendMessage(ctx,message.Chat.ID,"群管 Bot 已验证并添加成功："+label+"。你可以将它添加到群组并授予所需管理权限。")
+    label:=bot.FirstName;if bot.Username!="" {label="@"+bot.Username}
+    _=p.sendMessage(ctx,message.Chat.ID,"群管 Bot 已成功添加："+label+"。现在可以将它加入目标群组并授予管理权限。")
 }
-
+func (p *Poller) answerCallback(ctx context.Context,callbackID string) error {
+    payload,_:=json.Marshal(map[string]string{"callback_query_id":callbackID})
+    req,err:=http.NewRequestWithContext(ctx,http.MethodPost,"https://api.telegram.org/bot"+p.token+"/answerCallbackQuery",strings.NewReader(string(payload)))
+    if err!=nil{return err};req.Header.Set("Content-Type","application/json")
+    response,err:=p.client.Do(req);if err!=nil{return err};defer response.Body.Close()
+    _,_=io.Copy(io.Discard,io.LimitReader(response.Body,1<<20))
+    if response.StatusCode!=http.StatusOK{return fmt.Errorf("Telegram answerCallbackQuery returned HTTP %d",response.StatusCode)}
+    return nil
+}
 func (p *Poller) deleteMessage(ctx context.Context,chatID,messageID int64)error{
     payload,_:=json.Marshal(map[string]any{"chat_id":chatID,"message_id":messageID})
     req,err:=http.NewRequestWithContext(ctx,http.MethodPost,"https://api.telegram.org/bot"+p.token+"/deleteMessage",strings.NewReader(string(payload)))
@@ -191,19 +207,18 @@ func (p *Poller) deleteMessage(ctx context.Context,chatID,messageID int64)error{
 }
 
 func (p *Poller) sendMessage(ctx context.Context, chatID int64, text string) error {
-    payload,_ := json.Marshal(map[string]any{"chat_id":chatID,"text":text,"reply_markup":map[string]any{"keyboard":[][]string{{"账号信息"},{"添加群管 Bot","使用帮助"}},"resize_keyboard":true,"is_persistent":true}})
-    req,err := http.NewRequestWithContext(ctx,http.MethodPost,"https://api.telegram.org/bot"+p.token+"/sendMessage",strings.NewReader(string(payload)))
-    if err != nil { return err }
-    req.Header.Set("Content-Type","application/json")
-    response,err := p.client.Do(req)
-    if err != nil { return err }
-    defer response.Body.Close()
-    data,err := io.ReadAll(io.LimitReader(response.Body,1<<20))
-    if err != nil { return err }
-    if response.StatusCode != http.StatusOK { return fmt.Errorf("Telegram sendMessage returned HTTP %d",response.StatusCode) }
-    var result struct{ OK bool `json:"ok"` }
-    if err := json.Unmarshal(data,&result); err != nil { return err }
-    if !result.OK { return fmt.Errorf("Telegram sendMessage returned ok=false") }
+    keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{
+        {{"text":"账号信息","callback_data":"menu:account"},{"text":"添加群管 Bot","callback_data":"menu:addbot"}},
+        {{"text":"使用帮助","callback_data":"menu:help"},{"text":"取消当前操作","callback_data":"menu:cancel"}},
+    }}
+    payload,_:=json.Marshal(map[string]any{"chat_id":chatID,"text":text,"reply_markup":keyboard})
+    req,err:=http.NewRequestWithContext(ctx,http.MethodPost,"https://api.telegram.org/bot"+p.token+"/sendMessage",strings.NewReader(string(payload)))
+    if err!=nil{return err};req.Header.Set("Content-Type","application/json")
+    response,err:=p.client.Do(req);if err!=nil{return err};defer response.Body.Close()
+    data,err:=io.ReadAll(io.LimitReader(response.Body,1<<20));if err!=nil{return err}
+    if response.StatusCode!=http.StatusOK{return fmt.Errorf("Telegram sendMessage returned HTTP %d",response.StatusCode)}
+    var result struct{OK bool `json:"ok"`}
+    if json.Unmarshal(data,&result)!=nil||!result.OK{return fmt.Errorf("Telegram sendMessage returned ok=false")}
     return nil
 }
 
