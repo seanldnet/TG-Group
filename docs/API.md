@@ -133,7 +133,7 @@ CAP 采用官方 Cap Standalone 服务端和官方 `cap-widget` Web Component。
 
 - 用户首次打开 Bot 使用 Telegram 标准 `/start` 入口时，先收到平台用途介绍和 Inline Keyboard 菜单，不会立即创建账号。用户明确点击“开始注册”后，服务端才生成随机初始密码，在一个 PostgreSQL 事务内创建独立租户、普通用户账号并绑定 Telegram ID；随后私聊发送用户 ID 和初始密码。网站登录时使用用户 ID + 初始密码。初始密码仅展示一次，请立即修改。
 - 欢迎消息使用真实换行符，介绍平台定位、多 Bot/多群管理方式，以及当前已实现的消息日志、成员管理、群规自动化和入群验证能力，并说明从注册、添加 Bot、加入群组到授予权限的操作顺序。
-- 欢迎消息同时展示消息内 Inline Keyboard；另发送独立的 Telegram ReplyKeyboardMarkup，将“平台介绍、账号信息、添加群管 Bot、使用帮助、取消操作”固定在聊天输入框下方。两种键盘分别发送，符合 Telegram Bot API 的键盘类型约束。
+- 欢迎消息同时展示消息内 Inline Keyboard；另发送独立的 Telegram ReplyKeyboardMarkup，将“平台介绍、开始注册、账号信息、添加群管 Bot、使用帮助、取消操作”固定在聊天输入框下方。两种键盘分别发送，符合 Telegram Bot API 的键盘类型约束。
 - 后续日常操作可使用聊天输入框下方的常驻菜单或消息内 Inline Keyboard；不要求用户输入 `/account`、`/help` 或 `/addbot` 等业务命令。
 - 点击“添加群管 Bot”后，Bot 为当前 Telegram 用户建立一次性输入状态；用户直接发送 BotFather Token。服务端先尝试删除含 Token 的原始私聊消息，删除失败则拒绝处理；删除成功后才验证并加密保存。输入状态按 Telegram 用户 ID 隔离，消费后立即清除。
 - 同一 Telegram ID 再次进入 `/start` 不会重复创建账号，会返回现有账号入口；注册菜单的回调重复点击也不会重复创建账号。
