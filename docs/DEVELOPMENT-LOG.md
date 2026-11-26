@@ -831,3 +831,11 @@
 - **提交**：`755be34c7e56e664b2f36e1ffb29cd44a2d6e61e`。该提交 CI 正在运行，Go/PostgreSQL 测试与前端构建结果待确认。
 - **上一轮 CI**：修正退避测试期望后的提交 `b80685456428cfdea271cd7e2958da9b109dc5cc`，Go/PostgreSQL 测试、go vet 和前端构建均通过；Docker 发布仍在运行。
 - **下一步**：确认当前 SQL 修复的 CI 与 Docker 发布；继续增加重试队列 PostgreSQL 并发领取、过期 lease 恢复和租户隔离集成测试。
+
+## 2026-11-27（警告递进处罚重试队列 PostgreSQL 集成测试）
+
+- 新增 PostgreSQL 集成测试，使用独立租户、Bot 和群组数据验证重试领取行为。
+- 覆盖租户与群组不匹配的异常队列记录不会阻塞有效任务、超过 5 分钟的 processing lease 会被重新领取并递增尝试次数，以及两个并发 worker 不会领取同一条执行记录。
+- 测试仅在 `TEST_DATABASE_URL` 配置时执行；复用项目数据库迁移器，不使用模拟 SQL 替代 PostgreSQL 行为。
+- 涉及文件：`internal/bots/warning_escalation_worker_integration_test.go`。
+- 提交：`273f7d873e64954912a53cc0ae0ceae91db368f4`；Go/PostgreSQL 测试、vet、前端构建和 Docker 发布结果待最新 Actions 确认。
