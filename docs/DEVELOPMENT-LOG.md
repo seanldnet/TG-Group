@@ -792,3 +792,18 @@
 - 涉及文件：`README.md`、`docs/DEVELOPMENT-PLAN.md`、`docs/DEVELOPMENT-LOG.md`、`docs/HOMEPAGE-CONTENT.md`。
 - 测试：文档变更；尚未执行代码测试。后续业务代码提交必须运行对应 Go 测试、前端构建及 CI。
 - 下一步：实现警告递进处罚持久化自动恢复 worker，补充退避、超时回收、幂等和租户隔离测试。
+
+
+## 2026-11-27（警告递进处罚持久化自动恢复 worker 第一阶段）
+
+- 新增迁移 `000019_warning_escalation_retry_queue`，为执行记录增加 `attempt_count`、`next_retry_at`、`processing_started_at`，并建立部分索引；同步 Go embed 迁移目录与根目录迁移文件。
+- 新增 PostgreSQL 持久化重试 worker：每 10 秒扫描队列，使用 `FOR UPDATE SKIP LOCKED` 原子领取任务；失败任务采用 30 秒起步的指数退避，最长 1 小时，最多自动尝试 8 次。
+- 对超过 5 分钟仍处于 `processing` 的记录执行 lease 回收，覆盖进程崩溃或异常退出后未写回状态的任务；成功/失败结果写回时同时清理 processing lease。
+- API 进程在 Bot 加密服务可用时启动 worker，并在优雅停机时等待 worker 退出。
+- 初次自动处罚失败与管理员手动重试失败均写入下一次重试时间；手动重试重置自动尝试计数。
+- 新增退避时间、最大尝试次数和 lease 时长单元测试。
+- 涉及文件：`internal/database/migrations/000019_*`、`migrations/000019_*`、`internal/bots/warning_escalation_worker.go`、`internal/bots/warning_escalation_worker_test.go`、`internal/bots/warning_escalation.go`、`internal/bots/warning_escalation_history.go`、`cmd/api/main.go`。
+- 文档同步：更新开发计划、API 说明和本地测试指南，明确自动重试上限与至少一次执行语义。
+- 验证状态：代码和迁移已提交 main；尚未取得本批最新 CI 结果，未声称测试通过。仍需检查 PostgreSQL SQL 语法、迁移回归、并发领取和真实 Telegram 重试行为。
+- 风险边界：Telegram API 与 PostgreSQL 无法构成分布式事务；Telegram 已成功但数据库写回前崩溃时，lease 回收可能导致重复调用，不能宣称 exactly-once。
+- 下一步：检查最新 GitHub Actions；若失败立即修复。通过后补 PostgreSQL 集成测试，验证多 worker 不重复领取、failed 到期重试、processing lease 恢复和 tenant/group 隔离。
