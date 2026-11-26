@@ -407,3 +407,27 @@ export function listSecurityEvents(limit = 20) {
     { headers: authenticatedHeaders() },
   )
 }
+
+export type AccountSession = {
+  id: string
+  user_agent: string
+  ip_address: string
+  created_at: string
+  expires_at: string
+  revoked_at: string | null
+  current: boolean
+}
+
+export function listAccountSessions(limit = 20) {
+  return request<{ items: AccountSession[] }>(
+    `/api/v1/auth/sessions?limit=${limit}`,
+    { headers: authenticatedHeaders() },
+  )
+}
+
+export function revokeAccountSession(sessionID: string) {
+  return request<void>(`/api/v1/auth/sessions/${encodeURIComponent(sessionID)}`, {
+    method: "DELETE",
+    headers: authenticatedHeaders(),
+  })
+}
