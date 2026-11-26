@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { Bot, LogOut, ShieldCheck, UsersRound } from "lucide-react"
 
-import { clearToken, currentUser, logout, getTelegramIdentity, createTelegramLink, unlinkTelegramIdentity, changePassword, saveToken, listSecurityEvents, type AccountSecurityEvent, type TelegramIdentityStatus, type User } from "@/lib/api"
+import { clearToken, currentUser, logout, getTelegramIdentity, createTelegramLink, unlinkTelegramIdentity, changePassword, saveToken, listSecurityEvents, listAccountSessions, revokeAccountSession, type AccountSession, type AccountSecurityEvent, type TelegramIdentityStatus, type User } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,6 +30,9 @@ export default function DashboardPage() {
   const [passwordError, setPasswordError] = useState("")
   const [securityEvents, setSecurityEvents] = useState<AccountSecurityEvent[]>([])
   const [securityEventsError, setSecurityEventsError] = useState("")
+  const [accountSessions, setAccountSessions] = useState<AccountSession[]>([])
+  const [sessionsError, setSessionsError] = useState("")
+  const [revokingSessionID, setRevokingSessionID] = useState("")
 
   useEffect(() => {
     let active = true
@@ -38,6 +41,9 @@ export default function DashboardPage() {
         if (active) {
           setUser(value)
           setTelegram(telegramValue)
+          listAccountSessions(20).then((result) => { if (active) setAccountSessions(result.items) }).catch((cause: unknown) => {
+            if (active) setSessionsError(cause instanceof Error ? cause.message : "登录设备加载失败")
+          })
           listSecurityEvents(20).then((result) => { if (active) setSecurityEvents(result.items) }).catch((cause: unknown) => {
             if (active) setSecurityEventsError(cause instanceof Error ? cause.message : "安全记录加载失败")
           })
@@ -81,6 +87,24 @@ export default function DashboardPage() {
       setTelegramError(cause instanceof Error ? cause.message : "解除 Telegram 绑定失败")
     } finally {
       setTelegramBusy(false)
+    }
+  }
+
+  async function handleRevokeSession(session: AccountSession) {
+    if (session.current || session.revoked_at) return
+    if (!window.confirm("确定退出这台设备的登录会话吗？")) return
+    setRevokingSessionID(session.id)
+    setSessionsError("")
+    try {
+      await revokeAccountSession(session.id)
+      const result = await listAccountSessions(20)
+      setAccountSessions(result.items)
+      const events = await listSecurityEvents(20)
+      setSecurityEvents(events.items)
+    } catch (cause) {
+      setSessionsError(cause instanceof Error ? cause.message : "撤销登录设备失败")
+    } finally {
+      setRevokingSessionID("")
     }
   }
 
@@ -275,6 +299,39 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+        <div className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>登录设备管理</CardTitle>
+              <CardDescription>查看最近 20 个登录会话。可单独退出其他设备，当前设备不会被误撤销。</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {sessionsError && <p role="alert" className="text-sm text-destructive">{sessionsError}</p>}
+              {accountSessions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">暂无登录设备记录</p>
+              ) : accountSessions.map((session) => (
+                <div key={session.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 pb-3 last:border-0 last:pb-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-medium">{session.user_agent || "未知设备/浏览器"}</p>
+                      {session.current && <Badge variant="secondary">当前设备</Badge>}
+                      {session.revoked_at && <Badge variant="outline">已退出</Badge>}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {session.ip_address ? `IP：${session.ip_address} · ` : ""}登录于 {new Date(session.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  {!session.current && !session.revoked_at && (
+                    <Button size="sm" variant="outline" disabled={revokingSessionID === session.id} onClick={() => handleRevokeSession(session)}>
+                      {revokingSessionID === session.id ? "正在退出..." : "退出此设备"}
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+
         <div className="mt-4">
           <Card>
             <CardHeader>
