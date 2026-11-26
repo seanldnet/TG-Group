@@ -148,3 +148,28 @@ go run ./cmd/api
 6. 检查 `GET /api/v1/security/captcha` 的响应，确认没有 `CAP_SECRET` 或任何站点私钥字段。
 
 本地不配置 CAP 时，页面不会显示验证组件，原有开发流程保持可用。Telegram 群内使用 Inline Keyboard，不能直接渲染浏览器 CAP 组件；群成员验证继续使用数学题与可选频道关注检查。
+
+
+## Telegram 网站账号身份绑定测试
+
+先使用 Telegram 官方 `@BotFather` 创建平台专用身份 Bot，取得 Token 和 Bot username。启动 API 时增加：
+
+```bash
+TELEGRAM_AUTH_BOT_TOKEN="<平台身份 Bot Token>" \
+TELEGRAM_AUTH_BOT_USERNAME="<平台身份 Bot username>" \
+DATABASE_URL="postgres://tg_group:tg_group_dev@127.0.0.1:5432/tg_group?sslmode=disable" \
+go run ./cmd/api
+```
+
+两项 Telegram 配置必须同时设置；身份 Bot Token 只放在后端环境变量/密钥管理系统，不提交到仓库。该 Bot 使用独立 getUpdates 长轮询，不能同时启用 webhook，也不能与租户自己的群管 Bot 共用 Token。
+
+1. 登录网站打开账号工作台，找到“Telegram 身份绑定”。
+2. 点击“绑定 Telegram”，网站创建 5 分钟有效的一次性绑定链接并跳转 Telegram。
+3. 在平台身份 Bot 私聊窗口点击 Start。
+4. Bot 应回复绑定成功；返回网站刷新工作台，应显示 Telegram ID 和官方 Update 中的用户名/名称。
+5. 再创建一个绑定链接并尝试使用旧链接，应因旧挑战失效或过期而失败。
+6. 使用第二个网站账号尝试绑定同一个 Telegram 账号，应失败；一个 Telegram ID 全局只能绑定一个网站账号。
+7. 点击“解除绑定”，确认 Telegram 资料清空且数据库 `audit_logs` 新增 `auth.telegram_unlink` 记录。
+8. 检查 `users.telegram_id`，该值只能由 Telegram 身份 Bot 的 Update 处理流程写入，前端没有输入 Telegram ID 的表单或 API 字段。
+
+未配置平台身份 Bot 时，网站会显示未绑定状态，但创建绑定链接接口返回 503；不能把这一状态误认为 Telegram 绑定功能已经完成真实环境验收。
