@@ -49,7 +49,10 @@ func main() {
 			logger.Warn("BOT_TOKEN_ENCRYPTION_KEY is empty; Telegram Bot management is disabled")
 		}
 	}
-	handler := httpapi.NewHandler(logger, authService, botService)
+	captchaVerifier, err := httpapi.NewCaptchaVerifier(cfg.CAPBaseURL, cfg.CAPSiteKey, cfg.CAPSecret)
+	if err != nil { logger.Error("configure CAP.js verification", "error", err); os.Exit(1) }
+	if captchaVerifier != nil { logger.Info("CAP.js server-side verification enabled") }
+	handler := httpapi.NewHandler(logger, authService, botService, captchaVerifier)
 	server := &http.Server{
 		Addr: cfg.HTTPAddr, Handler: handler,
 		ReadHeaderTimeout: 5*time.Second, IdleTimeout: 60*time.Second,
