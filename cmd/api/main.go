@@ -17,6 +17,7 @@ import (
 	"github.com/seanldnet/tg-group/internal/httpapi"
 	"github.com/seanldnet/tg-group/internal/telegramruntime"
 	"github.com/seanldnet/tg-group/internal/telegramauthbot"
+	"github.com/seanldnet/tg-group/internal/platformsettings"
 )
 
 func main() {
@@ -40,12 +41,25 @@ func main() {
 	var authService *auth.Service
 	var botService *bots.Service
 	var botPoller *telegramruntime.Poller
-	var telegramIdentityPoller *telegramauthbot.Poller
+	var telegramIdentityManager *telegramauthbot.Manager
+	var platformBotSettings *platformsettings.Service
 	if db != nil {
 		authService = auth.NewService(db.Pool)
 		if err := authService.EnsureDemoAdmin(startupCtx); err != nil { logger.Error("bootstrap demo administrator", "error", err); os.Exit(1) }
 		logger.Info("demo administrator bootstrap checked (admin / 123456; existing password is never reset)")
-		if cfg.TelegramAuthBotToken != "" { telegramIdentityPoller = telegramauthbot.New(cfg.TelegramAuthBotToken, authService, logger) }
+		telegramIdentityManager = telegramauthbot.NewManager(authService,logger)
+		if cfg.BotTokenEncryptionKey != "" {
+			platformBotSettings,err=platformsettings.New(db.Pool,cfg.BotTokenEncryptionKey)
+			if err!=nil {logger.Error("configure platform Bot settings encryption","error",err);os.Exit(1)}
+			storedStatus,statusErr:=platformBotSettings.Status(startupCtx)
+			if statusErr!=nil {logger.Error("load platform Bot settings","error",statusErr);os.Exit(1)}
+			if storedStatus.Configured {
+				token,username,loadErr:=platformBotSettings.LoadToken(startupCtx)
+				if loadErr!=nil {logger.Error("decrypt platform Bot settings","error",loadErr);os.Exit(1)}
+				cfg.TelegramAuthBotToken,cfg.TelegramAuthBotUsername=token,username
+			}
+		}
+		if cfg.TelegramAuthBotToken!="" {telegramIdentityManager.Configure(cfg.TelegramAuthBotToken,cfg.TelegramAuthBotUsername)}
 		if cfg.BotTokenEncryptionKey != "" {
 			botService, err = bots.NewService(db.Pool, cfg.BotTokenEncryptionKey)
 			if err != nil { logger.Error("configure Telegram bot token encryption", "error", err); os.Exit(1) }
@@ -57,7 +71,7 @@ func main() {
 	captchaVerifier, err := httpapi.NewCaptchaVerifier(cfg.CAPBaseURL, cfg.CAPSiteKey, cfg.CAPSecret, cfg.CAPWidgetURL)
 	if err != nil { logger.Error("configure CAP.js verification", "error", err); os.Exit(1) }
 	if captchaVerifier != nil { logger.Info("CAP.js server-side verification enabled") }
-	handler := httpapi.NewHandlerWithTelegramAuthBot(logger, authService, botService, captchaVerifier, cfg.TelegramAuthBotUsername)
+	handler := httpapi.NewHandlerWithPlatformBot(logger, authService, botService, captchaVerifier, cfg.TelegramAuthBotUsername, platformBotSettings, telegramIdentityManager)
 	server := &http.Server{
 		Addr: cfg.HTTPAddr, Handler: handler,
 		ReadHeaderTimeout: 5*time.Second, IdleTimeout: 60*time.Second,
@@ -70,12 +84,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	var pollerDone chan struct{}
-	var identityPollerDone chan struct{}
-	if telegramIdentityPoller != nil {
-		identityPollerDone = make(chan struct{})
-		go func() { defer close(identityPollerDone); telegramIdentityPoller.Run(ctx) }()
-		logger.Info("Telegram identity Bot polling manager started")
-	}
+	defer func(){if telegramIdentityManager!=nil {telegramIdentityManager.Stop()}}()
 	if botPoller != nil {
 		pollerDone = make(chan struct{})
 		go func() {
@@ -91,7 +100,7 @@ func main() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil { logger.Error("graceful shutdown failed", "error", err); os.Exit(1) }
-		if identityPollerDone != nil { select { case <-identityPollerDone: case <-shutdownCtx.Done(): logger.Warn("Telegram identity Bot worker did not stop before shutdown deadline") } }
+		if telegramIdentityManager!=nil {telegramIdentityManager.Stop()}
 		if pollerDone != nil {
 			select {
 			case <-pollerDone:
