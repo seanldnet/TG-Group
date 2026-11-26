@@ -88,3 +88,26 @@ func TestIntroMenuOffersExplicitRegistrationInsteadOfRegisteringOnStart(t *testi
         if !strings.Contains(string(encoded),action) { t.Fatalf("intro menu is missing %s",action) }
     }
 }
+
+func TestPlatformIntroUsesRealLineBreaksAndExplainsProduct(t *testing.T) {
+    message:=platformIntroText()
+    if !strings.Contains(message,"\n\n") { t.Fatal("platform intro must contain real line breaks") }
+    if strings.Contains(message,"\\n") { t.Fatal("platform intro must not contain literal backslash-n sequences") }
+    for _,feature:=range []string{"多机器人、多群组","自动发现群组","群消息记录","关键词/敏感词过滤","入群验证","封禁、解封、禁言"} {
+        if !strings.Contains(message,feature) { t.Fatalf("platform intro missing feature description %q",feature) }
+    }
+}
+
+func TestPlatformReplyKeyboardIsPersistentAndUsesButtonLabels(t *testing.T) {
+    encoded,err:=json.Marshal(platformReplyKeyboard())
+    if err!=nil { t.Fatal(err) }
+    var keyboard map[string]any
+    if err:=json.Unmarshal(encoded,&keyboard);err!=nil { t.Fatal(err) }
+    if keyboard["resize_keyboard"]!=true || keyboard["is_persistent"]!=true {
+        t.Fatalf("reply keyboard must be resized and persistent: %s",encoded)
+    }
+    for _,label:=range []string{"平台介绍","账号信息","添加群管 Bot","使用帮助","取消操作"} {
+        if !strings.Contains(string(encoded),label) { t.Fatalf("reply keyboard missing %q",label) }
+    }
+    if strings.Contains(string(encoded),"inline_keyboard") { t.Fatal("reply keyboard payload must not mix inline_keyboard") }
+}
