@@ -190,19 +190,43 @@ func parseGroupBotCommand(text string) string {
 
 func (p *Poller) handleGroupCommand(ctx context.Context,bot managedBot,groupID string,message *telegramMessage,token string) bool {
 	if message==nil || message.From==nil || message.From.IsBot || (message.Chat.Type!="group" && message.Chat.Type!="supergroup") { return false }
-	switch parseGroupBotCommand(message.Text) {
-	case "start","help","menu":
-		p.sendGroupMenu(ctx,message.Chat.ID,message.MessageID,token)
-		return true
-	case "rules":
-		p.sendGroupRules(ctx,bot,groupID,message.Chat.ID,token)
-		return true
-	case "status":
-		p.sendGroupStatus(ctx,bot,groupID,message.Chat.ID,token)
-		return true
+	command:=parseGroupBotCommand(message.Text)
+	switch command {
+	case "start","help","menu","rules","status":
+		if !p.requireGroupOwner(ctx,bot,message.From.ID,message.Chat.ID,token) { return true }
 	default:
 		return false
 	}
+	switch command {
+	case "start","help","menu":
+		p.sendGroupMenu(ctx,message.Chat.ID,message.MessageID,token)
+	case "rules":
+		p.sendGroupRules(ctx,bot,groupID,message.Chat.ID,token)
+	case "status":
+		p.sendGroupStatus(ctx,bot,groupID,message.Chat.ID,token)
+	}
+	return true
+}
+
+// Every Bot in a tenant shares the same owner: the active platform user whose
+// Telegram identity is linked to the sender. No per-Bot owner configuration exists.
+func (p *Poller) requireGroupOwner(ctx context.Context,bot managedBot,telegramUserID,chatID int64,token string) bool {
+	var hasLinkedOwner,isOwner bool
+	query:= "SELECT EXISTS(SELECT 1 FROM users WHERE tenant_id=$1 AND status='active' AND telegram_id IS NOT NULL), EXISTS(SELECT 1 FROM users WHERE tenant_id=$1 AND status='active' AND telegram_id=$2)"
+	if err:=p.pool.QueryRow(ctx,query,bot.tenantID,telegramUserID).Scan(&hasLinkedOwner,&isOwner);err!=nil {
+		p.logger.Error("verify unified Telegram group owner","tenant_id",bot.tenantID,"error",err)
+		_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"暂时无法验证平台主人身份，请稍后重试。"},nil)
+		return false
+	}
+	if !hasLinkedOwner {
+		_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"当前平台账号尚未绑定 Telegram 主人账号。请先登录 TG-Group 网站，进入“账号设置 → 账号关联”完成绑定。绑定后，你的全部群管 Bot 都会自动使用这个账号作为统一主人，无需逐个设置。"},nil)
+		return false
+	}
+	if !isOwner {
+		_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"此操作仅限已绑定 TG-Group 的主人账号使用。"},nil)
+		return false
+	}
+	return true
 }
 
 func (p *Poller) sendGroupMenu(ctx context.Context,chatID,messageID int64,token string) {
@@ -215,7 +239,8 @@ func (p *Poller) sendGroupMenu(ctx context.Context,chatID,messageID int64,token 
 
 func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID string,query telegramCallbackQuery,token string) {
 	_ = p.callTelegram(ctx,token,"answerCallbackQuery",map[string]any{"callback_query_id":query.ID},nil)
-	if query.Message==nil { return }
+	if query.Message==nil || query.From.ID<=0 { return }
+	if !p.requireGroupOwner(ctx,bot,query.From.ID,query.Message.Chat.ID,token) { return }
 	switch query.Data {
 	case "group:rules": p.sendGroupRules(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case "group:status": p.sendGroupStatus(ctx,bot,groupID,query.Message.Chat.ID,token)
