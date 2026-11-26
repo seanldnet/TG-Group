@@ -203,3 +203,5 @@ func TestSplitRuleTerms(t *testing.T) {
  if len(got)!=len(want) { t.Fatalf("terms=%v want %v",got,want) }
  for i:=range want { if got[i]!=want[i] { t.Fatalf("terms=%v want %v",got,want) } }
 }
+
+func TestSplitRuleTermsDeduplicatesAndTrims(t *testing.T) { got:=splitRuleTerms(" @news, @News\n -1001234567890 "); if len(got)!=2 || got[0]!="@news" || got[1]!="-1001234567890" { t.Fatalf("unexpected terms: %#v",got) } }
