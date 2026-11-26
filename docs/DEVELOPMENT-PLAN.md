@@ -14,7 +14,7 @@
 - [x] 增加 PostgreSQL 16 / Redis 7 本地开发 Compose 配置与启动文档（Compose 本身尚未在当前执行环境启动验证；Redis 暂未接入 Go 服务）。
 - [x] 完成邮箱注册/登录、bcrypt 密码哈希、30 天 Bearer 会话、当前用户查询和退出撤销 API；租户/用户状态参与会话鉴权。
 - [ ] 补齐 refresh token、密码找回、邮箱验证、登录限流、角色授权及跨租户资源访问测试。
-- [ ] Telegram ID 绑定首批代码已写入：一次性挑战、Telegram 官方 Update 自动取 ID、全局唯一绑定、解除绑定与审计；待 CI 和平台 Bot 真实配置验收。
+- [ ] Telegram ID 绑定首批代码已写入：一次性挑战、Telegram 官方 Update 自动取 ID、全局唯一绑定、解除绑定与审计；Go/PostgreSQL 测试、go vet、前端构建 CI 已通过；待平台 Bot 真实配置验收。
 - [x] 网站首页、注册页、登录页和账号工作台已连接第一版 Go 认证 API。
 - [ ] Telegram 注册管理 Bot、refresh token、密码找回、邮箱验证、登录限流。
 - [ ] Telegram 身份绑定已进入代码实现阶段；需要配置专用平台 Bot Token/username 后真实联调。
@@ -162,4 +162,4 @@
 - 新增 API：`GET /api/v1/auth/telegram`、`POST /api/v1/auth/telegram/link`、`DELETE /api/v1/auth/telegram`。
 - 新增配置：`TELEGRAM_AUTH_BOT_TOKEN` 与 `TELEGRAM_AUTH_BOT_USERNAME`，必须同时配置；Token 仅后端读取。
 - 新增 PostgreSQL migration 000010（internal 与根目录 up/down 文件同步）、服务集成测试和配置测试；同步 API 与本地测试文档。
-- **状态**：代码已提交 main；尚未确认 CI 结果，也没有真实平台 Bot Token，因此不得标记真实 Telegram 联调完成。
+- **状态**：代码已提交 main；CI 已通过；尚未配置真实平台 Bot Token，因此不得标记真实 Telegram 联调完成。
