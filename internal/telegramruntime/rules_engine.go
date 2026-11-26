@@ -254,7 +254,7 @@ func (p *Poller) sendGroupCategory(ctx context.Context,bot managedBot,groupID st
 		"retract":{"消息撤回","查看最近采集的群消息，删除违规消息或置顶消息。","已开放"},
 		"admins":{"管理员管理","自动识别 Telegram 当前群管理员。管理员升为管理员后即可使用本群管理菜单；被降级或移出后自动失去权限。","已开放"},
 		"lists":{"黑白名单","管理禁止入群名单、允许名单和规则豁免名单。","开发中"},
-		"verify":{"入群验证","设置数学验证及入群必需频道。","部分开放"},
+		"verify":{"入群验证","配置数字、字母、数字字母组合验证及入群必需频道。","部分开放"},
 		"warnings":{"警告系统","记录成员违规次数，并按规则执行递进处罚。","开发中"},
 		"profile":{"名片管理","设置成员昵称、名片格式及资料规范。","开发中"},
 		"schedule":{"定时任务","设置定时公告、提醒和自动清理任务。","开发中"},
@@ -655,9 +655,10 @@ func (p *Poller) sendGroupRulesForCategory(ctx context.Context,bot managedBot,gr
 	case "ads":
 		keyboard=append(keyboard,[]map[string]string{{"text":"添加广告拦截","callback_data":"group:create:anti_ad"},{"text":"添加关键词过滤","callback_data":"group:create:keyword"}})
 	case "verify":
-		lines=append(lines,"当前已接通：数字加法选择验证、验证时限、失败处理、必需频道成员核验。")
-		lines=append(lines,"字母、数字字母组合、私聊验证及 CAPTCHA 尚未接通，不会显示为可用功能。")
-		keyboard=append(keyboard,[]map[string]string{{"text":"添加数字验证","callback_data":"group:create:verify"},{"text":"添加字母验证","callback_data":"group:create:verify_letters"}})\n\t\tkeyboard=append(keyboard,[]map[string]string{{"text":"添加数字+字母验证","callback_data":"group:create:verify_alphanumeric"}})
+		lines=append(lines,"当前已接通：数字加法选择、字母验证码、数字字母组合验证码、验证时限、失败处理、必需频道成员核验。")
+		lines=append(lines,"私聊验证及图片 CAPTCHA 尚未接通。")
+		keyboard=append(keyboard,[]map[string]string{{"text":"添加数字验证","callback_data":"group:create:verify"},{"text":"添加字母验证","callback_data":"group:create:verify_letters"}})
+		keyboard=append(keyboard,[]map[string]string{{"text":"添加数字+字母验证","callback_data":"group:create:verify_alphanumeric"}})
 	case "all":
 		keyboard=append(keyboard,[]map[string]string{{"text":"添加欢迎语","callback_data":"group:create:welcome"},{"text":"离群通知","callback_data":"group:create:leave"}})
 		keyboard=append(keyboard,[]map[string]string{{"text":"广告拦截","callback_data":"group:create:anti_ad"},{"text":"关键词过滤","callback_data":"group:create:keyword"}})
@@ -740,7 +741,9 @@ func groupRuleEditConfig(kind,preset string) []byte {
 		switch preset {
 		case "v1": return []byte(`{"challenge_type":"math","timeout_seconds":60,"failure_action":"kick","required_channels":[]}`)
 		case "v2": return []byte(`{"challenge_type":"math","timeout_seconds":180,"failure_action":"kick","required_channels":[]}`)
-		case "v3": return []byte(`{"challenge_type":"math","timeout_seconds":300,"failure_action":"kick","required_channels":[]}`)\n\t\tcase "v4": return []byte(`{"challenge_type":"letters","timeout_seconds":180,"failure_action":"kick","required_channels":[]}`)\n\t\tcase "v5": return []byte(`{"challenge_type":"alphanumeric","timeout_seconds":180,"failure_action":"kick","required_channels":[]}`)
+		case "v3": return []byte(`{"challenge_type":"math","timeout_seconds":300,"failure_action":"kick","required_channels":[]}`)
+		case "v4": return []byte(`{"challenge_type":"letters","timeout_seconds":180,"failure_action":"kick","required_channels":[]}`)
+		case "v5": return []byte(`{"challenge_type":"alphanumeric","timeout_seconds":180,"failure_action":"kick","required_channels":[]}`)
 		case "vr": return []byte(`{"challenge_type":"math","timeout_seconds":180,"failure_action":"restrict","required_channels":[]}`)
 		case "vk": return []byte(`{"challenge_type":"math","timeout_seconds":180,"failure_action":"kick","required_channels":[]}`)
 		}
