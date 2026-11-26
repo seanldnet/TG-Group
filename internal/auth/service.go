@@ -165,19 +165,32 @@ func (s *Service) Authenticate(ctx context.Context, token string) (User, error) 
 	return user,nil
 }
 
-func (s *Service) Logout(ctx context.Context, token string) error {
+func (s *Service) Logout(ctx context.Context, token string, remoteAddrs ...string) error {
 	if token == "" { return nil }
 	hash := sha256.Sum256([]byte(token))
+	ip := ""
+	if len(remoteAddrs)>0 { ip=clientIP(remoteAddrs[0]) }
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil { return fmt.Errorf("begin logout: %w", err) }
 	defer tx.Rollback(ctx)
 	var familyID *string
+	var userID string
 	err = tx.QueryRow(ctx, `UPDATE user_sessions SET revoked_at=now()
-		WHERE token_hash=$1 AND revoked_at IS NULL RETURNING family_id::text`, hash[:]).Scan(&familyID)
+		WHERE token_hash=$1 AND revoked_at IS NULL RETURNING family_id::text,user_id::text`, hash[:]).Scan(&familyID,&userID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) { return fmt.Errorf("revoke access session: %w", err) }
-	if familyID != nil {
-		if _, err := tx.Exec(ctx, "UPDATE user_refresh_tokens SET revoked_at=COALESCE(revoked_at,now()) WHERE family_id=$1", *familyID); err != nil {
-			return fmt.Errorf("revoke refresh token family: %w", err)
+	if err == nil {
+		if familyID != nil {
+			if _, err := tx.Exec(ctx, "UPDATE user_refresh_tokens SET revoked_at=COALESCE(revoked_at,now()) WHERE family_id=$1", *familyID); err != nil {
+				return fmt.Errorf("revoke refresh token family: %w", err)
+			}
+		}
+		var tenantID string
+		if err:=tx.QueryRow(ctx,"SELECT tenant_id::text FROM users WHERE id=$1",userID).Scan(&tenantID);err!=nil {
+			return fmt.Errorf("load tenant for logout audit: %w",err)
+		}
+		if _,err:=tx.Exec(ctx,`INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,ip_address)
+			VALUES($1,$2,'auth.logout','session',$3,NULLIF($4,'')::inet)`,tenantID,userID,userID,ip);err!=nil {
+			return fmt.Errorf("audit logout: %w",err)
 		}
 	}
 	if err := tx.Commit(ctx); err != nil { return fmt.Errorf("commit logout: %w", err) }
