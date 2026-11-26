@@ -232,6 +232,23 @@ func TestResolveGroupMemberListPolicyPrecedence(t *testing.T) {
 	}
 }
 
+
+func TestMatchesQARule(t *testing.T) {
+	tests := []struct { name,message string; triggers []string; mode string; caseSensitive,want bool }{
+		{name:"exact",message:"群规",triggers:[]string{"群规"},mode:"exact",want:true},
+		{name:"exact rejects suffix",message:"群规在哪里",triggers:[]string{"群规"},mode:"exact"},
+		{name:"contains",message:"请问群规在哪里",triggers:[]string{"群规"},mode:"contains",want:true},
+		{name:"prefix",message:"帮助一下",triggers:[]string{"帮助"},mode:"prefix",want:true},
+		{name:"case insensitive",message:"HELP",triggers:[]string{"help"},mode:"exact",want:true},
+		{name:"case sensitive",message:"HELP",triggers:[]string{"help"},mode:"exact",caseSensitive:true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name,func(t *testing.T){
+			if got:=matchesQARule(tt.message,tt.triggers,tt.mode,tt.caseSensitive);got!=tt.want { t.Fatalf("got %v want %v",got,tt.want) }
+		})
+	}
+}
+
 func TestValidGroupCategory(t *testing.T) {
 	valid:=[]string{"qa","review","notices","basic","spam","ads","retract","admins","lists","verify","warnings","profile","schedule","polls","stats","settings"}
 	for _,category:=range valid { if !validGroupCategory(category) { t.Errorf("category %q should be valid",category) } }
