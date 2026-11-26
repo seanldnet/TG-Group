@@ -339,7 +339,7 @@ func (h *Handler) platformAdmin(w http.ResponseWriter,r *http.Request)(auth.User
 }
 func (h *Handler) platformTelegramBotStatus(w http.ResponseWriter,r *http.Request){
 	if _,ok:=h.platformAdmin(w,r);!ok{return}
-	status,err:=h.platformSettings.Status(r.Context());if err!=nil{h.logger.Error("read platform Telegram Bot status","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return}
+	status,err:=h.platformSettings.Status(r.Context());if err!=nil{h.logger.Error("read platform Telegram Bot status","error",err);if errors.Is(err,platformsettings.ErrSchemaNotReady){writeError(w,http.StatusServiceUnavailable,"平台 Bot 数据库迁移尚未完成，请更新并重启 API 服务");return};writeError(w,http.StatusInternalServerError,"读取平台 Bot 设置失败，请检查 API 服务日志");return}
 	username,running:="",false
 	if h.telegramAuthBotManager!=nil {username,running=h.telegramAuthBotManager.Status()}
 	if status.Configured && username=="" {username=status.Username}
@@ -355,14 +355,14 @@ func (h *Handler) updatePlatformTelegramBot(w http.ResponseWriter,r *http.Reques
 	}
 	if err:=h.platformSettings.Save(r.Context(),input.Token,input.Username,user.ID);err!=nil{
 		if errors.Is(err,platformsettings.ErrInvalidConfig){writeError(w,http.StatusBadRequest,"Telegram Bot Token 或 Username 格式不正确");return}
-		h.logger.Error("save platform Telegram Bot settings","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return
+		h.logger.Error("save platform Telegram Bot settings","error",err);if errors.Is(err,platformsettings.ErrSchemaNotReady){writeError(w,http.StatusServiceUnavailable,"平台 Bot 数据库迁移尚未完成，请更新并重启 API 服务");return};writeError(w,http.StatusInternalServerError,"保存平台 Bot 设置失败，请检查 API 服务日志");return
 	}
 	if h.telegramAuthBotManager!=nil {h.telegramAuthBotManager.Configure(input.Token,input.Username)}
 	writeJSON(w,http.StatusOK,map[string]any{"configured":true,"username":strings.TrimPrefix(strings.TrimSpace(input.Username),"@"),"running":h.telegramAuthBotManager!=nil})
 }
 func (h *Handler) clearPlatformTelegramBot(w http.ResponseWriter,r *http.Request){
 	user,ok:=h.platformAdmin(w,r);if !ok{return}
-	if err:=h.platformSettings.Clear(r.Context(),user.ID);err!=nil{h.logger.Error("clear platform Telegram Bot settings","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return}
+	if err:=h.platformSettings.Clear(r.Context(),user.ID);err!=nil{h.logger.Error("clear platform Telegram Bot settings","error",err);if errors.Is(err,platformsettings.ErrSchemaNotReady){writeError(w,http.StatusServiceUnavailable,"平台 Bot 数据库迁移尚未完成，请更新并重启 API 服务");return};writeError(w,http.StatusInternalServerError,"停用平台 Bot 失败，请检查 API 服务日志");return}
 	if h.telegramAuthBotManager!=nil {h.telegramAuthBotManager.Configure("","")}
 	writeJSON(w,http.StatusOK,map[string]any{"configured":false,"username":"","running":false})
 }
