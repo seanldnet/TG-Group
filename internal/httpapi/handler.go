@@ -145,9 +145,9 @@ func (h *Handler) telegramIdentity(w http.ResponseWriter,r *http.Request) {
 
 func (h *Handler) createTelegramLink(w http.ResponseWriter,r *http.Request) {
     if !h.requireAuthStore(w) { return }
-    if h.telegramAuthBotUsername=="" { writeError(w,http.StatusServiceUnavailable,"平台 Telegram 身份 Bot 尚未配置");return }
     user,err:=h.auth.Authenticate(r.Context(),bearerToken(r))
     if err!=nil { writeError(w,http.StatusUnauthorized,"unauthorized");return }
+    if h.telegramAuthBotUsername=="" { writeError(w,http.StatusServiceUnavailable,"平台 Telegram 身份 Bot 尚未配置");return }
     identity,err:=h.auth.TelegramIdentity(r.Context(),user.ID)
     if err!=nil { h.logger.Error("read Telegram identity before link","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return }
     if identity.ID!=nil { writeError(w,http.StatusConflict,"该账号已经绑定 Telegram");return }
