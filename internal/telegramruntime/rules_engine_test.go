@@ -212,3 +212,18 @@ func TestValidGroupCategory(t *testing.T) {
 	for _,category:=range valid { if !validGroupCategory(category) { t.Errorf("category %q should be valid",category) } }
 	for _,category:=range []string{"","unknown","members","group:settings","../admins"} { if validGroupCategory(category) { t.Errorf("category %q should be rejected",category) } }
 }
+
+func TestGroupRuleCategoryKeepsFeatureIsolation(t *testing.T) {
+	tests:=[]struct{ruleType,want string}{
+		{"welcome","notices"},{"leave_notice","notices"},
+		{"anti_spam","spam"},
+		{"anti_ad","ads"},{"keyword_filter","ads"},{"sensitive_word","ads"},
+		{"join_verification","verify"},
+		{"unknown","all"},
+	}
+	for _,tt:=range tests {
+		if got:=groupRuleCategory(tt.ruleType);got!=tt.want {
+			t.Errorf("groupRuleCategory(%q)=%q want %q",tt.ruleType,got,tt.want)
+		}
+	}
+}
