@@ -26,6 +26,7 @@ const ruleTypes = [
   { value: "welcome", label: "入群欢迎", config: { text: "欢迎加入本群！" } },
   { value: "leave_notice", label: "离群通知", config: { text: "有成员离开了群组" } },
   { value: "join_verification", label: "入群验证（数学题）", config: { challenge_type: "math", timeout_seconds: 120, failure_action: "kick", required_channels: [] } },
+  { value: "warning_escalation", label: "警告递进处罚", config: { levels: [{ threshold: 3, action: "mute", duration_minutes: 30 }, { threshold: 5, action: "ban" }] } },
 ] as const
 
 type RuleType = TelegramGroupRule["rule_type"]
@@ -139,7 +140,7 @@ export default function GroupRulesPage({ groupID }: { groupID: string }) {
           <div>
             <Badge variant="secondary" className="mb-3">群组独立配置</Badge>
             <h1 className="text-3xl font-semibold tracking-tight">规则管理</h1>
-            <p className="mt-2 text-sm text-muted-foreground">为当前群组建立关键词、反垃圾、反广告及成员通知规则。启用后将由后台 Telegram 消息处理器按优先级执行。</p>
+            <p className="mt-2 text-sm text-muted-foreground">为当前群组建立消息过滤、成员通知、入群验证及警告策略。警告递进规则本批先完成配置与校验，自动执行链路仍在开发中。</p>
           </div>
           <div className="flex flex-wrap gap-2"><Button asChild variant="outline"><a href={`/dashboard/groups/${groupID}/rule-events`}>执行记录</a></Button><Button variant="outline" onClick={() => void refresh()}><RefreshCw className="mr-2 size-4" />刷新规则</Button></div>
         </div>
@@ -202,7 +203,7 @@ export default function GroupRulesPage({ groupID }: { groupID: string }) {
               <div className="space-y-2">
                 <Label htmlFor="rule-config">规则配置（JSON）</Label>
                 <Textarea id="rule-config" value={configText} onChange={(event) => setConfigText(event.target.value)} rows={10} className="font-mono text-xs" />
-                <p className="text-xs text-muted-foreground">过滤类规则 action 目前仅支持 delete；欢迎/离群通知使用 text 字段。</p>
+                <p className="text-xs text-muted-foreground">过滤类规则 action 目前仅支持 delete；欢迎/离群通知使用 text 字段。警告递进 levels 按警告总数递增配置，mute 必须设置 1–10080 分钟，ban 不设置时长。当前仅保存策略，不会自动处罚。</p>
               </div>
               <div className="flex gap-2">
                 <Button onClick={() => void submit()} disabled={saving || !name.trim()}><Save className="mr-2 size-4" />{saving ? "保存中..." : editing ? "保存修改" : <><Plus className="mr-2 size-4" />创建规则</>}</Button>
