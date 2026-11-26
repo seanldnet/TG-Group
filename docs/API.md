@@ -351,3 +351,10 @@ openssl rand -base64 32
 平台注册 Bot 现在会在私聊回复中附带持久化主菜单键盘：`账号信息` 和 `使用帮助`；也支持 `/menu` 与 `/help`。群管 Bot Token 仍通过网站「机器人管理」模块添加，不会与平台注册 Bot Token 混用。
 
 平台注册 Bot 私聊菜单新增“添加群管 Bot”。用户可发送 `/addbot <Bot Token>`；平台仅在私聊、且当前 Telegram 身份已关联平台账号时处理。服务端先请求 Telegram 删除含 Token 的原始消息，删除失败则拒绝处理；删除成功后复用现有 Bot 注册服务验证 Token、按当前账号 Tenant 保存加密凭据并写入 Bot 审计。Bot Token 不会回显到回复或日志。网站机器人管理仍可继续添加和轮换 Token。
+
+
+### 群成员警告递进处罚执行记录
+
+- `GET /api/v1/groups/{groupID}/members/{userID}/warning-escalations?limit=50`：查询指定成员在当前群组的递进处罚执行记录，默认 50 条，范围 1–100。查询按当前登录用户 tenant、groupID 和 Telegram userID 三重约束。
+- `POST /api/v1/groups/{groupID}/members/{userID}/warning-escalations/{executionID}/retry`：仅允许重试状态为 `failed` 且属于当前租户、群组和成员的执行记录。状态通过数据库条件更新原子抢占，避免并发重复重试；重试时重新调用成员处罚服务，实时检查 Bot 权限并拒绝处罚群主/管理员。成功后状态变为 `succeeded`，失败则保留 `failed` 和错误详情。
+- 当前提供的是管理员手动重试入口，不是自动后台重试队列。进程崩溃后的 `processing` 记录恢复、退避重试调度及自动恢复 worker 仍待实现。Telegram 真实群组联调仍是独立验收项。
