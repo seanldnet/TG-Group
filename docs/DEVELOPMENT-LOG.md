@@ -807,3 +807,12 @@
 - 验证状态：代码和迁移已提交 main；尚未取得本批最新 CI 结果，未声称测试通过。仍需检查 PostgreSQL SQL 语法、迁移回归、并发领取和真实 Telegram 重试行为。
 - 风险边界：Telegram API 与 PostgreSQL 无法构成分布式事务；Telegram 已成功但数据库写回前崩溃时，lease 回收可能导致重复调用，不能宣称 exactly-once。
 - 下一步：检查最新 GitHub Actions；若失败立即修复。通过后补 PostgreSQL 集成测试，验证多 worker 不重复领取、failed 到期重试、processing lease 恢复和 tenant/group 隔离。
+
+
+### 自动重试 worker 后续修正（2026-11-27）
+
+- PostgreSQL lease 查询改为数值秒 interval，避免依赖 Go duration 字符串的数据库解析。
+- 修正原子领取 SQL 的租户/群组归属检查，改用关联 EXISTS，避免 UPDATE FROM 目标表别名引用问题。
+- 增加达到最大尝试次数后、processing lease 已过期的终态清理，避免崩溃发生在最后一次自动尝试时任务永久停留 processing。
+- 当前 main 最新提交：`cbd1c90ddd8f84a2b4c02451277365f508c33b19`。
+- GitHub Actions：前端 typecheck/build 已 success；Go test/vet 与 Docker 镜像发布仍在运行，最终结果待确认。
