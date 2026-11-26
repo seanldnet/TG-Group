@@ -453,3 +453,9 @@
 - 私聊回复增加持久化主菜单键盘，提供“账号信息”和“使用帮助”快捷入口。
 - 新增 `/menu`、`/help` 与菜单文本处理；原 `/start` 注册/绑定和 `/account` 查询流程保持不变。
 - 本轮未将群管 Bot Token 接收放入平台 Bot，避免在未实现私聊消息删除与敏感 Token 安全处理前暴露凭据；下一步先完成安全提交链路。
+
+## 2026-11-26（平台 Bot 添加群管 Bot 流程）
+- 扩展 Telegram 账号摘要查询，附带 TenantID，确保通过平台 Bot 提交的群管 Bot 写入当前用户租户，不跨租户共享。
+- 平台 Bot 增加“添加群管 Bot”菜单项与 `/addbot <Bot Token>` 私聊命令。
+- 安全策略：先要求 Telegram `deleteMessage` 删除原始 Token 消息；删除失败时拒绝继续处理并提示用户手动删除后改用网站入口。删除成功后才调用现有 `bots.Service.Add`，沿用 Telegram Token 验证、加密存储、唯一性约束和审计。
+- 不在日志或 Bot 回复中记录/回显 Token。尚未完成真实 Telegram 联调，需验证私聊消息删除行为及新 Bot 的实际群组发现。
