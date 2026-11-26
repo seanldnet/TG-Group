@@ -331,3 +331,14 @@ openssl rand -base64 32
 需要 Bearer 登录。解除绑定会清空 Telegram ID 与资料，并写入审计日志。Telegram ID 全局唯一；同一个 Telegram 账号不能同时绑定多个网站账号。
 
 **安全边界**：挑战码短时有效、只保存摘要、一次性消费；旧挑战在创建新挑战时失效。真实 Telegram Bot Token、用户名和网络可达性需要部署环境配置并完成真实 Telegram 联调后，才算端到端验收。
+
+
+## 平台管理员 Telegram 注册 Bot 设置
+
+以下接口仅允许已认证且 `role=admin` 的平台管理员调用。所有响应均禁止返回 Bot Token 明文。
+
+- `GET /api/v1/admin/platform/telegram-auth-bot`：读取配置状态、Username、运行管理器状态和更新时间。
+- `PUT /api/v1/admin/platform/telegram-auth-bot`：提交 `{ "token": "...", "username": "..." }`。服务端先调用 Telegram `getMe` 校验 Token 与 Username 一致，再以 AES-256-GCM 加密后持久化，并立即重启轮询管理器。
+- `DELETE /api/v1/admin/platform/telegram-auth-bot`：停用 Bot、清空加密凭据，并持久化 disabled 标记，防止重启时被旧环境变量重新启用。
+
+加密密钥复用部署时生成的 `BOT_TOKEN_ENCRYPTION_KEY`（Base64 编码的 32 字节密钥）。平台 Bot 设置表为单例配置；网站页面只允许管理员访问，Token 字段不会回显。运行状态表示本进程轮询管理器已启动，不等价于 Telegram 端长期在线或真实业务验收。
