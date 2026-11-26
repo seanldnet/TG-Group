@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { CaptchaField } from "@/components/CaptchaField"
 
 export default function RegisterPage() {
   const [displayName, setDisplayName] = useState("")
@@ -20,6 +21,8 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState("")
+  const [captchaReset, setCaptchaReset] = useState(0)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -30,10 +33,13 @@ export default function RegisterPage() {
         display_name: displayName,
         email,
         password,
+        captcha_token: captchaToken,
       })
       saveToken(session.token)
       window.location.assign("/dashboard")
     } catch (cause) {
+      setCaptchaToken("")
+      setCaptchaReset((value) => value + 1)
       setError(cause instanceof Error ? cause.message : "注册失败，请稍后重试")
     } finally {
       setLoading(false)
@@ -101,6 +107,7 @@ export default function RegisterPage() {
                 />
                 <p className="text-xs text-muted-foreground">密码长度为 10–72 字节，服务端使用 bcrypt 安全哈希。</p>
               </div>
+              <CaptchaField key={captchaReset} onToken={setCaptchaToken} />
               {error && (
                 <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
                   {error}
