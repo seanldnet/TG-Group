@@ -302,3 +302,5 @@
 - **测试**：增加绑定/解绑/重复绑定/挑战重放 PostgreSQL 集成测试和 Telegram Bot 配置测试；HTTP 测试增加身份 API 在无数据库时的 503 检查。
 - **文档**：更新 README、API、LOCAL-TESTING 和 DEVELOPMENT-PLAN，明确真实 Telegram Bot Token 尚未提供，代码/CI 验证不等于 Telegram 端到端验收。
 - **验证状态**：源码与文档已提交 main；等待 GitHub Actions Go/PostgreSQL 测试、go vet 与前端构建结果。真实 Bot 联调待平台身份 Bot Token/username 配置后进行。
+
+- **CI 修复与最终验证**：首次 CI 发现前端 Dashboard 状态变量作用域错误，已修复；PostgreSQL 集成测试先后发现审计 JSON 参数缺少 bigint 类型以及解绑审计复用 UUID/text 参数的问题，均已修复。最终代码提交 `dfbdbb1d2bebc304573f1f90781ed3f9b8381eea` 对应 GitHub Actions run `45731398955`：Go/PostgreSQL 全量测试、`go vet ./...` 和前端 TypeScript 生产构建全部 success。CI 验证覆盖绑定成功、挑战重放、Telegram ID 重复绑定拒绝、解除绑定和配置读取；未覆盖真实 Telegram Bot 网络联调。
