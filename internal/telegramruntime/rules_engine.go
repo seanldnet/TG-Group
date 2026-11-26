@@ -235,6 +235,8 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 	case strings.HasPrefix(query.Data,"group:create:"): p.createGroupRulePreset(ctx,bot,groupID,query.Message.Chat.ID,strings.TrimPrefix(query.Data,"group:create:"),token)
 	case strings.HasPrefix(query.Data,"group:ed:") || strings.HasPrefix(query.Data,"group:es:"): p.handleGroupRuleEdit(ctx,bot,groupID,query.Message.Chat.ID,query.Data,token)
 		case strings.HasPrefix(query.Data,"group:delete:"): p.handleGroupRuleDelete(ctx,bot,groupID,query.Message.Chat.ID,query.Data,token)
+	case strings.HasPrefix(query.Data,"group:member:detail:"):
+		p.sendGroupMemberDetail(ctx,bot,groupID,query.Message.Chat.ID,strings.TrimPrefix(query.Data,"group:member:detail:"),token)
 	case query.Data=="group:status": p.sendGroupStatus(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:help" || query.Data=="group:home": p.sendGroupMenu(ctx,query.Message.Chat.ID,0,token)
 	case strings.HasPrefix(query.Data,"group:toggle:"):
@@ -322,6 +324,7 @@ func (p *Poller) sendGroupMembers(ctx context.Context,bot managedBot,groupID str
 		case "kicked":
 			keyboard=append(keyboard,[]map[string]string{{"text":"解除封禁","callback_data":fmt.Sprintf("group:member:ask:unban:%d",id)}})
 		}
+		keyboard=append(keyboard,[]map[string]string{{"text":"成员详情","callback_data":fmt.Sprintf("group:member:detail:%d",id)}})
 	}
 	if err:=rows.Err();err!=nil { p.logger.Error("iterate Telegram members for inline menu","group_id",groupID,"error",err);return }
 	if count==0 { lines=append(lines,"暂无已采集的普通成员。成员数据会在 Bot 收到群成员更新后逐步建立。") }
@@ -331,6 +334,48 @@ func (p *Poller) sendGroupMembers(ctx context.Context,bot managedBot,groupID str
 	keyboard=append(keyboard,page...)
 	keyboard=append(keyboard,[]map[string]string{{"text":"刷新","callback_data":fmt.Sprintf("group:members:page:%d",offset)},{"text":"返回菜单","callback_data":"group:home"}})
 	_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":fmt.Sprintf("%s\n第 %d 页",strings.Join(lines,"\n"),offset/10+1),"reply_markup":map[string]any{"inline_keyboard":keyboard}},nil)
+}
+
+func (p *Poller) sendGroupMemberDetail(ctx context.Context,bot managedBot,groupID string,chatID int64,rawUserID,token string) {
+	userID,err:=strconv.ParseInt(rawUserID,10,64)
+	if err!=nil || userID<=0 { return }
+	var username,firstName,lastName,status string
+	var joinedAt,lastSeenAt *time.Time
+	var isAnonymous,canManageChat,canDeleteMessages,canRestrictMembers,canInviteUsers,canPinMessages,canManageTopics bool
+	err=p.pool.QueryRow(ctx,`SELECT username,first_name,last_name,status,joined_at,last_seen_at,is_anonymous,
+		can_manage_chat,can_delete_messages,can_restrict_members,can_invite_users,can_pin_messages,can_manage_topics
+		FROM telegram_group_members WHERE tenant_id=$1 AND group_id=$2 AND telegram_user_id=$3 AND is_bot=false`,
+		bot.tenantID,groupID,userID).Scan(&username,&firstName,&lastName,&status,&joinedAt,&lastSeenAt,&isAnonymous,
+		&canManageChat,&canDeleteMessages,&canRestrictMembers,&canInviteUsers,&canPinMessages,&canManageTopics)
+	if err!=nil { p.logger.Warn("load Telegram group member detail","group_id",groupID,"telegram_user_id",userID,"error",err);_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"成员资料暂不可用，可能尚未采集到该成员。"},nil);return }
+	name:=strings.TrimSpace(firstName+" "+lastName)
+	if name=="" { name=strconv.FormatInt(userID,10) }
+	lines:=[]string{"成员详情", "姓名："+name,fmt.Sprintf("Telegram ID：%d",userID),"用户名："+username,"状态："+status}
+	if joinedAt!=nil { lines=append(lines,"加入时间："+joinedAt.Format("2006-01-02 15:04:05")) } else { lines=append(lines,"加入时间：暂无记录") }
+	if lastSeenAt!=nil { lines=append(lines,"最近活跃："+lastSeenAt.Format("2006-01-02 15:04:05")) } else { lines=append(lines,"最近活跃：暂无记录") }
+	lines=append(lines,"管理员权限快照：")
+	lines=append(lines,fmt.Sprintf("管理群组：%s｜删除消息：%s｜限制成员：%s",yesNo(canManageChat),yesNo(canDeleteMessages),yesNo(canRestrictMembers)))
+	lines=append(lines,fmt.Sprintf("邀请成员：%s｜置顶消息：%s｜管理话题：%s｜匿名管理员：%s",yesNo(canInviteUsers),yesNo(canPinMessages),yesNo(canManageTopics),yesNo(isAnonymous)))
+	resourceID:=fmt.Sprintf("%s:%d",groupID,userID)
+	rows,err:=p.pool.Query(ctx,`SELECT a.action,COALESCE(u.display_name,u.email,'未知'),a.created_at
+		FROM audit_logs a LEFT JOIN users u ON u.id=a.actor_user_id
+		WHERE a.tenant_id=$1 AND a.resource_type='telegram_group_member' AND a.resource_id=$2
+		ORDER BY a.created_at DESC,a.id DESC LIMIT 5`,bot.tenantID,resourceID)
+	if err!=nil { p.logger.Warn("load Telegram member moderation history","group_id",groupID,"telegram_user_id",userID,"error",err) } else {
+		lines=append(lines,"最近处罚记录：")
+		count:=0
+		for rows.Next() {
+			var action,actor string
+			var at time.Time
+			if scanErr:=rows.Scan(&action,&actor,&at);scanErr!=nil { p.logger.Warn("read Telegram member moderation history","error",scanErr);break }
+			count++
+			lines=append(lines,fmt.Sprintf("%d. %s｜操作人：%s｜%s",count,action,actor,at.Format("2006-01-02 15:04")))
+		}
+		if count==0 { lines=append(lines,"暂无处罚记录。") }
+		rows.Close()
+	}
+	keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{{{"text":"返回成员列表","callback_data":"group:members"}}}}
+	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\n"),"reply_markup":keyboard},nil)
 }
 
 func validRuleUUID(value string) bool {
