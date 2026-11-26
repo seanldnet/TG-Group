@@ -1,0 +1,64 @@
+package telegramauthbot
+
+import (
+	"encoding/json"
+	"testing"
+)
+
+func TestBotTokenPromptIsOneShot(t *testing.T) {
+	p := &Poller{awaitingBotToken: make(map[int64]bool)}
+	p.stateMu.Lock()
+	p.awaitingBotToken[123] = true
+	p.stateMu.Unlock()
+
+	if !p.consumeBotTokenPrompt(123) {
+		t.Fatal("first token message should consume the prompt")
+	}
+	if p.consumeBotTokenPrompt(123) {
+		t.Fatal("token prompt must be consumed only once")
+	}
+	if p.consumeBotTokenPrompt(456) {
+		t.Fatal("another Telegram user must not consume this prompt")
+	}
+}
+
+func TestUpdateBatchDecodesInlineKeyboardCallback(t *testing.T) {
+	raw := []byte(`{"ok":true,"result":[{"update_id":7,"callback_query":{"id":"callback-1","from":{"id":123,"is_bot":false},"message":{"message_id":9,"from":{"id":999,"is_bot":true},"chat":{"id":123,"type":"private"},"text":"menu"},"data":"menu:addbot"}}]}`)
+	var batch updateBatch
+	if err := json.Unmarshal(raw, &batch); err != nil {
+		t.Fatal(err)
+	}
+	if len(batch.Result) != 1 || batch.Result[0].CallbackQuery == nil {
+		t.Fatal("callback query was not decoded")
+	}
+	if got := batch.Result[0].CallbackQuery.Data; got != "menu:addbot" {
+		t.Fatalf("callback data = %q, want menu:addbot", got)
+	}
+}
+
+func TestInlineMenuKeyboardIsAttachedToMessages(t *testing.T) {
+	// Keep the keyboard schema explicit and machine-checkable: every menu action
+	// is an inline callback, not a slash command or a reply-keyboard text shortcut.
+	keyboard := map[string]any{"inline_keyboard": [][]map[string]string{
+		{{"text": "账号信息", "callback_data": "menu:account"}, {"text": "添加群管 Bot", "callback_data": "menu:addbot"}},
+		{{"text": "使用帮助", "callback_data": "menu:help"}, {"text": "取消当前操作", "callback_data": "menu:cancel"}},
+	}}
+	encoded, err := json.Marshal(keyboard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, action := range []string{"menu:account", "menu:addbot", "menu:help", "menu:cancel"} {
+		if !contains(string(encoded), action) {
+			t.Fatalf("inline keyboard is missing %s", action)
+		}
+	}
+}
+
+func contains(value, fragment string) bool {
+	for i := 0; i+len(fragment) <= len(value); i++ {
+		if value[i:i+len(fragment)] == fragment {
+			return true
+		}
+	}
+	return false
+}
