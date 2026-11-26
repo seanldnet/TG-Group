@@ -136,6 +136,7 @@ func (s *Service) TelegramIdentity(ctx context.Context, userID string) (LinkedTe
 
 type TelegramAccountSummary struct {
 	UserID string
+	TenantID string
 	Email string
 	DisplayName string
 	Role string
@@ -146,9 +147,9 @@ func (s *Service) TelegramAccount(ctx context.Context, telegramID int64) (Telegr
 	if telegramID <= 0 {
 		return TelegramAccountSummary{}, ErrTelegramNotLinked
 	}
-	err := s.pool.QueryRow(ctx, `SELECT id::text,email,display_name,role
+	err := s.pool.QueryRow(ctx, `SELECT id::text,tenant_id::text,email,display_name,role
 		FROM users WHERE telegram_id=$1 AND status='active'`, telegramID).
-		Scan(&account.UserID,&account.Email,&account.DisplayName,&account.Role)
+		Scan(&account.UserID,&account.TenantID,&account.Email,&account.DisplayName,&account.Role)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return TelegramAccountSummary{}, ErrTelegramNotLinked
 	}
