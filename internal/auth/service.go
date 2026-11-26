@@ -117,7 +117,10 @@ func (s *Service) Login(ctx context.Context, email, password, userAgent, remoteA
 	err=tx.QueryRow(ctx,`SELECT u.id::text,u.tenant_id::text,u.email,u.display_name,u.role,u.password_hash,u.status,u.created_at,t.status
 		FROM users u JOIN tenants t ON t.id=u.tenant_id WHERE u.email=$1`,email).
 		Scan(&user.ID,&user.TenantID,&user.Email,&user.DisplayName,&user.Role,&passwordHash,&status,&user.CreatedAt,&tenantStatus)
-	if err!=nil || bcrypt.CompareHashAndPassword([]byte(passwordHash),[]byte(password))!=nil {
+	if err!=nil && !errors.Is(err,pgx.ErrNoRows) {
+		return Session{},fmt.Errorf("load account for login: %w",err)
+	}
+	if errors.Is(err,pgx.ErrNoRows) || bcrypt.CompareHashAndPassword([]byte(passwordHash),[]byte(password))!=nil {
 		if err:=recordLoginFailure(ctx,tx,identifiers);err!=nil { return Session{},err }
 		if err:=tx.Commit(ctx);err!=nil { return Session{},fmt.Errorf("commit failed login attempt: %w",err) }
 		return Session{},ErrInvalidCredentials
