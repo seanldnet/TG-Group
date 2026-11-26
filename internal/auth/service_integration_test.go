@@ -140,3 +140,43 @@ func TestChangePasswordRevokesPreviousSessionsPostgres(t *testing.T) {
 		t.Fatalf("login with new password: %v",err)
 	}
 }
+
+func TestLoginRateLimitByEmailAndIPPostgres(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" { t.Skip("TEST_DATABASE_URL is not configured") }
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	db, err := database.Open(ctx, databaseURL)
+	if err != nil { t.Fatalf("open test database: %v",err) }
+	defer db.Close()
+	if err:=db.Migrate(ctx);err!=nil { t.Fatalf("apply migrations: %v",err) }
+
+	service:=NewService(db.Pool)
+	email:=fmt.Sprintf("login-limit-%d@example.test",time.Now().UnixNano())
+	if _,err:=service.Register(ctx,email,"correct-password-123","Rate Limit Test","","");err!=nil {
+		t.Fatalf("register rate limit user: %v",err)
+	}
+	const sourceIP="198.51.100.77:4321"
+	for i:=0;i<loginFailureLimit;i++ {
+		if _,err:=service.Login(ctx,email,"wrong-password","",""+sourceIP);!errors.Is(err,ErrInvalidCredentials) {
+			t.Fatalf("failed login %d error = %v, want ErrInvalidCredentials",i+1,err)
+		}
+	}
+	if _,err:=service.Login(ctx,email,"correct-password-123","",sourceIP);!errors.Is(err,ErrLoginRateLimited) {
+		t.Fatalf("login after email threshold error = %v, want ErrLoginRateLimited",err)
+	}
+
+	otherEmail:=fmt.Sprintf("login-limit-other-%d@example.test",time.Now().UnixNano())
+	if _,err:=service.Register(ctx,otherEmail,"correct-password-123","Other User","","");err!=nil {
+		t.Fatalf("register second rate limit user: %v",err)
+	}
+	if _,err:=service.Login(ctx,otherEmail,"correct-password-123","",sourceIP);!errors.Is(err,ErrLoginRateLimited) {
+		t.Fatalf("login after IP threshold error = %v, want ErrLoginRateLimited",err)
+	}
+	if _,err:=service.Login(ctx,email,"correct-password-123","","198.51.100.78:4321");!errors.Is(err,ErrLoginRateLimited) {
+		t.Fatalf("login from another IP after email threshold error = %v, want ErrLoginRateLimited",err)
+	}
+	if _,err:=service.Login(ctx,otherEmail,"correct-password-123","","198.51.100.79:4321");err!=nil {
+		t.Fatalf("login from a fresh email/IP pair: %v",err)
+	}
+}
