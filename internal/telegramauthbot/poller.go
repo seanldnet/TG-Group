@@ -83,14 +83,36 @@ func (p *Poller) handleMessage(ctx context.Context, message *struct {
 }) {
     if message == nil || message.From == nil || message.From.IsBot || message.Chat.Type != "private" || message.From.ID != message.Chat.ID { return }
     parts := strings.Fields(message.Text)
-    if len(parts) != 2 || parts[0] != "/start" { return }
+    if len(parts) == 0 || parts[0] != "/start" { return }
+    identity := auth.TelegramIdentity{
+        ID:message.From.ID, Username:message.From.Username, FirstName:message.From.FirstName, LastName:message.From.LastName,
+    }
+    if len(parts) == 1 {
+        registration, err := p.auth.RegisterTelegramAccount(ctx, identity)
+        if err != nil {
+            if err == auth.ErrTelegramAlreadyLinked {
+                _ = p.sendMessage(ctx,message.Chat.ID,"这个 Telegram 账号已经注册或绑定过 TG-Group。请使用原账号登录网站，或在账号安全中发起绑定。")
+                return
+            }
+            p.logger.Error("Telegram platform registration failed","telegram_user_id",message.From.ID,"error",err)
+            _ = p.sendMessage(ctx,message.Chat.ID,"注册暂时无法完成，请稍后重试或联系平台管理员。")
+            return
+        }
+        text := "TG-Group 账号注册成功！\n用户 ID："+registration.UserID+"\n登录账号："+registration.UserID+"\n初始密码："+registration.Password+"\n请立即登录网站并修改初始密码。"
+        if err := p.sendMessage(ctx,message.Chat.ID,text); err != nil {
+            p.logger.Warn("send Telegram registration credentials failed","error",err)
+        }
+        return
+    }
+    if len(parts) != 2 { return }
     payload := strings.TrimSpace(parts[1])
     if payload == "" || len(payload) > 128 { return }
-    err := p.auth.CompleteTelegramLink(ctx,payload,auth.TelegramIdentity{
-        ID:message.From.ID, Username:message.From.Username, FirstName:message.From.FirstName, LastName:message.From.LastName,
-    })
+    err := p.auth.CompleteTelegramLink(ctx,payload,identity)
     if err != nil {
         p.logger.Info("Telegram account binding was not completed","telegram_user_id",message.From.ID,"reason",safeReason(err))
+        if sendErr := p.sendMessage(ctx,message.Chat.ID,"绑定未完成：绑定链接可能已过期，或该 Telegram 账号/平台账号已绑定。请返回网站重新发起绑定。"); sendErr != nil {
+            p.logger.Warn("send Telegram binding error failed","error",sendErr)
+        }
         return
     }
     if err := p.sendMessage(ctx,message.Chat.ID,"Telegram 账号绑定成功。你可以返回 TG-Group 网站查看绑定状态。"); err != nil {
