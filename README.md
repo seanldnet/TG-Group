@@ -20,9 +20,9 @@ Telegram 多用户、多 Bot、多群组管理平台。
 - Telegram Bot Token 加密管理、后台长轮询、群组自动发现、消息日志、成员增量采集和手动成员处罚。
 - 群组规则配置/执行记录、入群数学题和可选频道关注验证。
 - 网站 CAP Standalone siteverify 服务端验证（需部署配置）。
-- Telegram 身份绑定首批代码：一次性挑战、专用平台身份 Bot 自动获取 Telegram ID、全局唯一约束、解绑和审计；需配置平台 Bot 凭据后联调。
+- 平台 Telegram 注册/身份 Bot 第一阶段：私聊 `/start` 自动创建平台账号并绑定 Telegram ID、生成随机初始密码；`/account` 查询本人账号；网站支持用户 ID 登录；网站账号也可通过一次性挑战绑定 Telegram。需配置平台 Bot 凭据后进行真实联调。
 
-Refresh token、密码找回、邮箱验证、登录限流、完整角色授权、Telegram 注册管理 Bot 对话流程、完整群管矩阵、支付、AI 审核和生产部署仍在开发中.
+平台 Bot 的管理员可视化配置、Inline Keyboard 主菜单、套餐/订单查询和群管 Bot Token 提交流程，以及完整群管矩阵、支付、AI 审核仍在开发中。
 
 ## 本地启动
 
@@ -79,7 +79,8 @@ curl -fsSL https://raw.githubusercontent.com/seanldnet/Tg-group/main/deploy/inst
 - 访问：`http://服务器公网IP:18680`
 - 测试管理员：用户名 `admin`，密码 `123456`
 - 数据库只在 Docker 内网开放，不映射到宿主机端口。
-- 数据持久化在 Docker volume `tg_group_postgres`；安装生成的密钥文件位于 `/opt/tg-group/.env`，由脚本自动生成，不需要手动编辑。
+- 数据持久化在 Docker volume `tg_group_postgres`；安装生成的数据库与 Bot 加密密钥位于 `/opt/tg-group/.env`。
+- 平台注册/身份 Bot 与用户群管 Bot 分离。当前平台 Bot 凭据暂时通过 `/opt/tg-group/.env` 配置：`TG_GROUP_TELEGRAM_AUTH_BOT_TOKEN` 和 `TG_GROUP_TELEGRAM_AUTH_BOT_USERNAME`（用户名不带 `@`），两项需同时填写；修改后执行 `docker compose -f docker-compose.yml up -d --force-recreate api`。管理员网页配置页正在开发，尚未交付。
 - 查看日志：`cd /opt/tg-group && docker compose logs -f`
 - 更新镜像：`cd /opt/tg-group && docker compose pull && docker compose up -d`
 - 停止：`cd /opt/tg-group && docker compose down`（不会删除数据库卷）；彻底删除数据需另行执行 `docker compose down -v`。
