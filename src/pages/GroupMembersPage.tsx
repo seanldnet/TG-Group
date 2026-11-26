@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
-import { ArrowLeft, RefreshCw, UsersRound } from "lucide-react"
+import { AlertTriangle, ArrowLeft, RefreshCw, UsersRound } from "lucide-react"
 
-import { getGroupBotPermissions, listGroupMembers, moderateGroupMember, type TelegramGroupBotPermissions, type TelegramGroupMember } from "@/lib/api"
+import { addGroupMemberWarning, clearGroupMemberWarnings, getGroupBotPermissions, listGroupMemberWarnings, listGroupMembers, moderateGroupMember, type TelegramGroupBotPermissions, type TelegramGroupMember, type TelegramGroupMemberWarning } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -39,6 +39,9 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
   const [error, setError] = useState("")
   const [permissions, setPermissions] = useState<TelegramGroupBotPermissions | null>(null)
   const [actingUserID, setActingUserID] = useState<number | null>(null)
+  const [warningUserID, setWarningUserID] = useState<number | null>(null)
+  const [warnings, setWarnings] = useState<TelegramGroupMemberWarning[]>([])
+  const [warningBusy, setWarningBusy] = useState(false)
 
   const refresh = useCallback(async (manual = false) => {
     setError("")
@@ -58,6 +61,53 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  const openWarnings = async (userID: number) => {
+    setWarningUserID(userID)
+    setWarningBusy(true)
+    setError("")
+    try {
+      const response = await listGroupMemberWarnings(groupID, userID)
+      setWarnings(response.items)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "加载警告记录失败")
+      setWarnings([])
+    } finally {
+      setWarningBusy(false)
+    }
+  }
+
+  const addWarning = async () => {
+    if (warningUserID === null) return
+    const reason = window.prompt("请输入本次警告原因", "违反群规")
+    if (reason === null) return
+    if (!reason.trim()) { setError("警告原因不能为空"); return }
+    setWarningBusy(true)
+    setError("")
+    try {
+      await addGroupMemberWarning(groupID, warningUserID, reason.trim())
+      const response = await listGroupMemberWarnings(groupID, warningUserID)
+      setWarnings(response.items)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "添加警告失败")
+    } finally {
+      setWarningBusy(false)
+    }
+  }
+
+  const clearWarnings = async () => {
+    if (warningUserID === null || !window.confirm("确认清除此成员在当前群组的全部警告记录？此操作不可恢复。")) return
+    setWarningBusy(true)
+    setError("")
+    try {
+      await clearGroupMemberWarnings(groupID, warningUserID)
+      setWarnings([])
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "清零警告失败")
+    } finally {
+      setWarningBusy(false)
+    }
+  }
 
   const performAction = async (member: TelegramGroupMember, action: "ban" | "unban" | "mute" | "unmute") => {
     const labels = { ban: "封禁", unban: "解封", mute: "禁言", unmute: "解除禁言" }
@@ -158,7 +208,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
                         <TableCell className="text-xs text-muted-foreground">{memberPermissions.length ? memberPermissions.join(" · ") : "—"}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{member.joined_at ? new Date(member.joined_at).toLocaleString() : "—"}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{new Date(member.last_seen_at).toLocaleString()}</TableCell>
-                        <TableCell><div className="flex flex-wrap gap-1">{member.status === "kicked" ? <Button size="sm" variant="outline" disabled={actingUserID === member.telegram_user_id || !permissions?.can_restrict_members} onClick={() => void performAction(member, "unban")}>解封</Button> : member.status === "restricted" ? <Button size="sm" variant="outline" disabled={actingUserID === member.telegram_user_id || !permissions?.can_restrict_members} onClick={() => void performAction(member, "unmute")}>解除禁言</Button> : member.status === "member" ? <><Button size="sm" variant="outline" disabled={actingUserID === member.telegram_user_id || !permissions?.can_restrict_members} onClick={() => void performAction(member, "mute")}>禁言</Button><Button size="sm" variant="destructive" disabled={actingUserID === member.telegram_user_id || !permissions?.can_restrict_members} onClick={() => void performAction(member, "ban")}>封禁</Button></> : <span className="text-xs text-muted-foreground">不可操作</span>}</div></TableCell>
+                        <TableCell><div className="flex flex-wrap gap-1"><Button size="sm" variant="outline" onClick={() => void openWarnings(member.telegram_user_id)}><AlertTriangle className="mr-1 size-3" />警告记录</Button>{member.status === "kicked" ? <Button size="sm" variant="outline" disabled={actingUserID === member.telegram_user_id || !permissions?.can_restrict_members} onClick={() => void performAction(member, "unban")}>解封</Button> : member.status === "restricted" ? <Button size="sm" variant="outline" disabled={actingUserID === member.telegram_user_id || !permissions?.can_restrict_members} onClick={() => void performAction(member, "unmute")}>解除禁言</Button> : member.status === "member" ? <><Button size="sm" variant="outline" disabled={actingUserID === member.telegram_user_id || !permissions?.can_restrict_members} onClick={() => void performAction(member, "mute")}>禁言</Button><Button size="sm" variant="destructive" disabled={actingUserID === member.telegram_user_id || !permissions?.can_restrict_members} onClick={() => void performAction(member, "ban")}>封禁</Button></> : <span className="text-xs text-muted-foreground">不可操作</span>}</div></TableCell>
                       </TableRow>
                     )
                   })}
@@ -167,6 +217,33 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
             )}
           </CardContent>
         </Card>
+        {warningUserID !== null && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">成员警告记录</CardTitle>
+              <CardDescription>Telegram 用户 ID：{warningUserID}。记录仅用于追踪，当前不会自动触发处罚。</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => void addWarning()} disabled={warningBusy}>添加警告</Button>
+                <Button size="sm" variant="destructive" onClick={() => void clearWarnings()} disabled={warningBusy || warnings.length === 0}>清零全部警告</Button>
+                <Button size="sm" variant="outline" onClick={() => setWarningUserID(null)}>关闭</Button>
+              </div>
+              {warningBusy ? <p className="text-sm text-muted-foreground">正在处理...</p> : warnings.length === 0 ? (
+                <p className="text-sm text-muted-foreground">该成员在当前群组暂无警告记录。</p>
+              ) : (
+                <div className="space-y-2">
+                  {warnings.map((warning) => (
+                    <div key={warning.id} className="flex flex-col gap-1 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div><p className="text-sm font-medium">{warning.reason}</p><p className="text-xs text-muted-foreground">记录 #{warning.id} · {warning.source === "automatic" ? "自动记录" : "管理员记录"}</p></div>
+                      <time className="text-xs text-muted-foreground">{new Date(warning.created_at).toLocaleString()}</time>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </main>
   )
