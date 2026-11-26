@@ -80,3 +80,13 @@ func TestRegistrationCredentialsUseCopyableCodeEntities(t *testing.T) {
 		t.Fatalf("credentials are not wrapped in Telegram copyable code entities: %s",message)
 	}
 }
+
+func TestIntroMenuOffersExplicitRegistrationInsteadOfRegisteringOnStart(t *testing.T) {
+    keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{
+        {{"text":"开始注册","callback_data":"menu:register"},{"text":"账号信息","callback_data":"menu:account"}},
+        {{"text":"添加群管 Bot","callback_data":"menu:addbot"},{"text":"使用帮助","callback_data":"menu:help"}},
+    }}
+    encoded,err:=json.Marshal(keyboard)
+    if err!=nil { t.Fatal(err) }
+    if !strings.Contains(string(encoded),"menu:register") { t.Fatal("intro menu must expose explicit registration callback") }
+}
