@@ -111,6 +111,35 @@ func TestRegistrationSessionLifecyclePostgres(t *testing.T) {
 	}
 }
 
+func TestTelegramRegistrationCreatesLinkedAccountPostgres(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" { t.Skip("TEST_DATABASE_URL is not configured") }
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	db, err := database.Open(ctx, databaseURL)
+	if err != nil { t.Fatalf("open test database: %v", err) }
+	defer db.Close()
+	if err := db.Migrate(ctx); err != nil { t.Fatalf("apply migrations: %v", err) }
+
+	service := NewService(db.Pool)
+	identity := TelegramIdentity{ID: time.Now().UnixNano(), Username: "telegram_signup_test", FirstName: "Telegram", LastName: "Signup"}
+	created, err := service.RegisterTelegramAccount(ctx, identity)
+	if err != nil { t.Fatalf("register Telegram account: %v", err) }
+	if created.UserID == "" || created.Password == "" || created.Email == "" { t.Fatalf("incomplete Telegram registration: %+v", created) }
+	if _, err := service.RegisterTelegramAccount(ctx, identity); !errors.Is(err, ErrTelegramAlreadyLinked) {
+		t.Fatalf("duplicate Telegram registration error = %v, want ErrTelegramAlreadyLinked", err)
+	}
+	session, err := service.Login(ctx, created.UserID, created.Password, "Telegram Bot", "")
+	if err != nil { t.Fatalf("login with generated user ID: %v", err) }
+	if session.User.ID != created.UserID || session.User.Email != created.Email {
+		t.Fatalf("Telegram login returned wrong account: %+v", session.User)
+	}
+	linked, err := service.TelegramIdentity(ctx, created.UserID)
+	if err != nil || linked.ID == nil || *linked.ID != identity.ID {
+		t.Fatalf("Telegram identity not linked to registered account: %+v, err=%v", linked, err)
+	}
+}
+
 func TestChangePasswordRevokesPreviousSessionsPostgres(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" { t.Skip("TEST_DATABASE_URL is not configured") }
