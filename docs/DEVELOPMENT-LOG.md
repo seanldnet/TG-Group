@@ -713,3 +713,11 @@
 - 更新了名单添加成功提示，明确黑名单入群拦截、白名单/豁免跳过入群验证已经接入，避免继续显示过期的“尚未启用”提示。
 - 提交：8a80210（名单移除和确认流程）、35ca387（状态文案修正）。
 - 本批最新 CI 尚未完成；Telegram 真实群组删除/重入群场景仍需验收。
+
+
+## 群成员警告清零第一阶段（2026-11-26）
+- 增加 ClearGroupMemberWarnings 服务，删除范围严格限定 tenant_id、group_id、telegram_user_id，并返回删除条数。
+- 增加受登录态保护的 DELETE /api/v1/groups/{groupID}/members/{userID}/warnings API；tenant_id 取自当前认证用户，Telegram user ID 从路径解析。
+- Telegram 成员详情增加清零警告按钮；先显示不可恢复提示并二次确认，确认后执行清零并刷新成员详情。
+- 当前仅实现人工清除历史记录；自动递进处罚策略、警告阈值设置、网站 UI、警告操作审计及真实 Telegram 群聊验收尚未完成。
+- 提交：e65a6dc（服务层）、c3803e7（HTTP API）、e800044（Telegram 确认交互）；等待最新 CI。
