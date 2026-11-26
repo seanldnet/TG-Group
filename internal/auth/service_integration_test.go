@@ -91,6 +91,13 @@ func TestRegistrationSessionLifecyclePostgres(t *testing.T) {
     if err:=service.UnlinkTelegramIdentity(ctx,registered.User.ID);err!=nil { t.Fatalf("unlink Telegram identity: %v",err) }
     unlinked,err:=service.TelegramIdentity(ctx,registered.User.ID)
     if err!=nil || unlinked.ID!=nil { t.Fatalf("Telegram identity still linked after unlink: %+v, err=%v",unlinked,err) }
+	securityEvents,err:=service.ListSecurityEvents(ctx,registered.User.ID,100)
+	if err!=nil { t.Fatalf("list account security events: %v",err) }
+	actions:=map[string]bool{}
+	for _,event:=range securityEvents { actions[event.Action]=true }
+	for _,action:=range []string{"auth.register","auth.login","auth.refresh","auth.logout","auth.telegram_link","auth.telegram_unlink"} {
+		if !actions[action] { t.Errorf("security history missing %s",action) }
+	}
 }
 
 func TestChangePasswordRevokesPreviousSessionsPostgres(t *testing.T) {
