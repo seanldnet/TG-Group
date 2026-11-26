@@ -4,6 +4,7 @@ set -Eeuo pipefail
 APP_DIR="${TG_GROUP_INSTALL_DIR:-/opt/tg-group}"
 REPO_RAW="https://raw.githubusercontent.com/seanldnet/Tg-group/main"
 COMPOSE_URL="$REPO_RAW/deploy/docker-compose.yml"
+COMPOSE_FILE="$APP_DIR/docker-compose.yml"
 
 if [[ "$EUID" -ne 0 ]]; then
   echo "请使用 root 执行：sudo bash install.sh"
@@ -58,12 +59,12 @@ chmod 600 .env
 TMP_COMPOSE="$(mktemp)"
 trap 'rm -f "$TMP_COMPOSE"' EXIT
 curl -fsSL "$COMPOSE_URL" -o "$TMP_COMPOSE"
-mv "$TMP_COMPOSE" docker-compose.yml
-chmod 600 docker-compose.yml
+mv "$TMP_COMPOSE" "$COMPOSE_FILE"
+chmod 600 "$COMPOSE_FILE"
 
 echo "正在拉取预构建镜像（服务器不会编译项目）..."
-docker compose pull
-docker compose up -d --remove-orphans
+docker compose --env-file "$APP_DIR/.env" -f "$COMPOSE_FILE" pull
+docker compose --env-file "$APP_DIR/.env" -f "$COMPOSE_FILE" up -d --remove-orphans
 
 echo
 echo "=================================================="
@@ -72,8 +73,8 @@ echo " 访问地址: http://服务器IP:18680"
 echo " 管理员账号: admin"
 echo " 管理员密码: 123456"
 echo " 安装目录: $APP_DIR"
-echo " 查看日志: cd $APP_DIR && docker compose logs -f"
-echo " 停止服务: cd $APP_DIR && docker compose down"
+echo " 查看日志: cd $APP_DIR && docker compose --env-file .env -f docker-compose.yml logs -f"
+echo " 停止服务: cd $APP_DIR && docker compose --env-file .env -f docker-compose.yml down"
 echo "=================================================="
 echo "首次启动会自动迁移数据库并创建演示管理员。"
 echo "请先在云服务器安全组/防火墙放行 TCP 18680。"
