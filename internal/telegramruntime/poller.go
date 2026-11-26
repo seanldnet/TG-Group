@@ -248,6 +248,10 @@ func isBotEntryCommand(value string) bool {
 	return command=="/start" || command=="/menu" || command=="/help"
 }
 
+func isTelegramGroupAdministrator(status string) bool {
+	return status=="creator" || status=="administrator"
+}
+
 func groupStatus(item update) string {
 	if item.MyChatMember==nil{return "active"}
 	switch item.MyChatMember.NewChatMember.Status {
@@ -327,7 +331,6 @@ func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update,to
 		if item.ChatMember.Date > 0 { joinedAt = time.Unix(item.ChatMember.Date, 0).UTC() }
 		if err := p.upsertGroupMember(ctx, bot, groupID, member, joinedAt); err != nil { return err }
 	}
-	message:=messageFromUpdate(item)
 	if message==nil { return nil }
 	for _, member := range message.NewChatMembers {
 		if err := p.upsertGroupMember(ctx, bot, groupID, telegramChatMember{User:member, Status:"member"}, time.Unix(message.Date,0).UTC()); err != nil { return err }
