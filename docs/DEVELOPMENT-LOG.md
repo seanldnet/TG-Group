@@ -377,3 +377,8 @@
 - **最终验证结果**：提交 `95f8c6efe12c8e47bacdb52ffab18b475ff7a858` 的 CI run `45741570144` 全部通过（Go/PostgreSQL 集成测试、go vet、前端构建）；Docker 发布 run `45741570062` 成功，已推送 API/Web 两个 amd64+arm64 镜像。Docker build 在 GitHub Actions 云端完成，目标服务器无需编译。
 - **GHCR 匿名拉取限制**：发布工作流可成功推送镜像，但使用仓库 GITHUB_TOKEN 修改个人包可见性返回 404（已在 Actions 日志确认）；需包所有者在 GitHub Packages 对两个包各执行一次 Public 设置。完成后服务器可匿名 docker pull，不需要服务器侧 registry login。README 已补充两个包设置链接。
 - **AES 密钥修正**：安装脚本生成的 `BOT_TOKEN_ENCRYPTION_KEY` 改为 Base64 编码的 32 字节随机密钥，匹配服务端 AES-256 key 解码要求；数据库密码仍使用随机 hex。
+
+### Docker 部署脚本热修复
+- 用户首次执行时，安装目录中已有旧版 `compose.yaml`，Docker Compose 自动优先选择该文件，导致拉取旧的 `ghcr.io/seanldnet/tg-group:latest` 并返回 denied。
+- 安装脚本现在明确指定下载的 `/opt/tg-group/docker-compose.yml`，并显式传入自动生成的 env 文件执行 `pull/up`；日志与停止命令同样固定使用该 compose 文件，避免目录内其他 Compose 文件抢占。
+- 修复不删除数据库卷、不要求编辑配置，用户重新执行原一键命令即可。
