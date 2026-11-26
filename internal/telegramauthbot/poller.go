@@ -3,6 +3,7 @@ package telegramauthbot
 import (
     "context"
     "encoding/json"
+    "errors"
     "fmt"
     "io"
     "log/slog"
