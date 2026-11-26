@@ -1,6 +1,6 @@
 package telegramruntime
 
-import ("testing"; "encoding/json"; "strconv"; "github.com/seanldnet/tg-group/internal/bots")
+import ("testing"; "encoding/json"; "strconv"; "strings"; "github.com/seanldnet/tg-group/internal/bots")
 
 func TestRenderNotice(t *testing.T) {
 	member:=telegramSender{ID:42,Username:"ada",FirstName:"Ada",LastName:"Lovelace"}
@@ -226,4 +226,12 @@ func TestGroupRuleCategoryKeepsFeatureIsolation(t *testing.T) {
 			t.Errorf("groupRuleCategory(%q)=%q want %q",tt.ruleType,got,tt.want)
 		}
 	}
+}
+
+func TestFormatJoinVerificationSummary(t *testing.T) {
+	got:=formatJoinVerificationSummary([]byte(`{"challenge_type":"math","timeout_seconds":180,"failure_action":"kick","required_channels":["@news","-1001234567890"]}`))
+	for _,part:=range []string{"数字加法选择验证","180 秒","移出群组","@news","-1001234567890"} {
+		if !strings.Contains(got,part) { t.Errorf("summary %q does not contain %q",got,part) }
+	}
+	if got:=formatJoinVerificationSummary([]byte(`{invalid}`));got!="验证配置无法读取" { t.Errorf("invalid config summary=%q",got) }
 }
