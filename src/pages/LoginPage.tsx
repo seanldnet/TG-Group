@@ -74,12 +74,12 @@ export default function LoginPage() {
           <CardContent>
             <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="space-y-2">
-                <Label htmlFor="email">邮箱或管理员账号</Label>
+                <Label htmlFor="email">邮箱、用户 ID 或管理员账号</Label>
                 <Input
                   id="email"
                   type="text"
                   autoComplete="username"
-                  placeholder="admin / name@example.com"
+                  placeholder="admin / 用户 ID / name@example.com"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   required
