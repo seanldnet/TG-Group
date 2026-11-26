@@ -59,12 +59,14 @@ func (p *Poller) startJoinVerification(ctx context.Context, bot managedBot, grou
 	}
 	if err := json.Unmarshal(rule.Config, &cfg); err != nil { return }
 	var chatID, telegramBotID int64
-	if err := p.pool.QueryRow(ctx, `SELECT g.telegram_chat_id,b.telegram_bot_id
+	var chatType string
+	if err := p.pool.QueryRow(ctx, `SELECT g.telegram_chat_id,b.telegram_bot_id,g.chat_type
 		FROM telegram_groups g JOIN telegram_bots b ON b.id=g.bot_id AND b.tenant_id=g.tenant_id
 		WHERE g.tenant_id=$1 AND g.id=$2 AND g.status='active' AND b.status='active'`,
-		bot.tenantID, groupID).Scan(&chatID, &telegramBotID); err != nil {
+		bot.tenantID, groupID).Scan(&chatID, &telegramBotID, &chatType); err != nil {
 		p.logger.Error("load group for join verification", "group_id", groupID, "error", err); return
 	}
+	if chatType != "supergroup" { p.logger.Warn("join verification requires a Telegram supergroup", "group_id", groupID, "chat_type", chatType); return }
 	var botMember telegramChatMember
 	if err := p.callTelegram(ctx, token, "getChatMember", map[string]any{"chat_id":chatID,"user_id":telegramBotID}, &botMember); err != nil {
 		p.logger.Warn("join verification cannot inspect Bot permissions", "group_id", groupID, "error", err); return
@@ -155,7 +157,7 @@ func (p *Poller) handleVerificationCallback(ctx context.Context, bot managedBot,
 	_ = p.answerCallback(ctx,token,query.ID,"验证成功，欢迎加入！",false)
 	if query.Message.MessageID>0 {
 		_ = p.callTelegram(ctx,token,"editMessageText",map[string]any{
-			"chat_id":chatID,"message_id":query.Message.MessageID,"text":"验证成功，欢迎加入！",
+			"chat_id":chatID,"message_id":query.Message.MessageID,"text":"验证成功，欢迎加入！","reply_markup":map[string]any{"inline_keyboard":[]any{}},
 		},nil)
 	}
 }
