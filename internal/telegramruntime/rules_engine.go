@@ -111,6 +111,19 @@ type groupMemberListPolicy struct {
 	bypassVerification bool
 }
 
+func resolveGroupMemberListPolicy(listTypes []string) groupMemberListPolicy {
+	policy := groupMemberListPolicy{}
+	for _, listType := range listTypes {
+		switch listType {
+		case "blacklist":
+			policy.blacklisted = true
+		case "whitelist", "exempt":
+			policy.bypassVerification = true
+		}
+	}
+	return policy
+}
+
 // Blacklist always wins. Whitelist and exempt entries bypass join verification,
 // but do not suppress unrelated welcome/leave notices or message moderation.
 func (p *Poller) applyGroupMemberListPolicy(ctx context.Context, bot managedBot, groupID string, userID int64, token string) (bool, bool) {
@@ -121,7 +134,7 @@ func (p *Poller) applyGroupMemberListPolicy(ctx context.Context, bot managedBot,
 		p.logger.Error("load Telegram group member list policy", "group_id", groupID, "user_id", userID, "error", err)
 		return false, false
 	}
-	policy := groupMemberListPolicy{}
+	listTypes := make([]string, 0, 3)
 	for rows.Next() {
 		var listType string
 		if err := rows.Scan(&listType); err != nil {
@@ -129,17 +142,15 @@ func (p *Poller) applyGroupMemberListPolicy(ctx context.Context, bot managedBot,
 			p.logger.Error("read Telegram group member list policy", "group_id", groupID, "user_id", userID, "error", err)
 			return false, false
 		}
-		switch listType {
-		case "blacklist": policy.blacklisted = true
-		case "whitelist", "exempt": policy.bypassVerification = true
-		}
+		listTypes = append(listTypes, listType)
 	}
-	if err := rows.Err(); err != nil {
+ 	if err := rows.Err(); err != nil {
 		rows.Close()
 		p.logger.Error("iterate Telegram group member list policy", "group_id", groupID, "user_id", userID, "error", err)
 		return false, false
 	}
 	rows.Close()
+	policy := resolveGroupMemberListPolicy(listTypes)
 	if !policy.blacklisted { return false, policy.bypassVerification }
 
 	var chatID, botID int64
