@@ -164,7 +164,7 @@ export default function DashboardPage() {
     <main className="min-h-svh bg-muted/25">
       <header className="border-b border-border/70 bg-background">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
-          <a href="/" className="flex items-center gap-3">
+          <a href="/dashboard" className="flex items-center gap-3">
             <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               <ShieldCheck className="size-5" />
             </span>
