@@ -291,6 +291,11 @@ func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update,to
 		RETURNING id::text`,
 		bot.tenantID,bot.id,value.ID,value.Title,value.Username,value.Type,value.IsForum,groupStatus(item)).Scan(&groupID)
 	if err!=nil{return fmt.Errorf("upsert Telegram group: %w",err)}
+	if item.MyChatMember != nil && (item.MyChatMember.NewChatMember.Status == "administrator" || item.MyChatMember.NewChatMember.Status == "creator") {
+		// Publish the interactive management entry point as soon as the Bot is
+		// promoted in a group; owners never need to type a management command.
+		p.sendGroupMenu(ctx,value.ID,0,token)
+	}
 	if item.CallbackQuery != nil {
 		if strings.HasPrefix(item.CallbackQuery.Data,"group:") { p.handleGroupCallback(ctx,bot,groupID,*item.CallbackQuery,token) } else { p.handleVerificationCallback(ctx,bot,*item.CallbackQuery,token) }
 		return nil
