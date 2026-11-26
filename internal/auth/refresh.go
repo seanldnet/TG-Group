@@ -36,15 +36,16 @@ func (s *Service) Refresh(ctx context.Context, refreshToken, userAgent, remoteAd
 	var userID, familyID string
 	var expiresAt time.Time
 	var revokedAt *time.Time
-	err = tx.QueryRow(ctx, `SELECT user_id::text,family_id::text,expires_at,revoked_at
-		FROM user_refresh_tokens WHERE token_hash=$1 FOR UPDATE`, oldHash[:]).Scan(&userID, &familyID, &expiresAt, &revokedAt)
+	var replacedByHash []byte
+	err = tx.QueryRow(ctx, `SELECT user_id::text,family_id::text,expires_at,revoked_at,replaced_by_hash
+		FROM user_refresh_tokens WHERE token_hash=$1 FOR UPDATE`, oldHash[:]).Scan(&userID, &familyID, &expiresAt, &revokedAt, &replacedByHash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Session{}, ErrRefreshUnauthorized
 	}
 	if err != nil {
 		return Session{}, fmt.Errorf("load refresh token: %w", err)
 	}
-	if revokedAt != nil {
+	if revokedAt != nil && len(replacedByHash) > 0 {
 		if _, err := tx.Exec(ctx, `UPDATE user_refresh_tokens SET revoked_at=COALESCE(revoked_at,now())
 			WHERE family_id=$1`, familyID); err != nil {
 			return Session{}, fmt.Errorf("revoke reused refresh family: %w", err)
@@ -57,6 +58,9 @@ func (s *Service) Refresh(ctx context.Context, refreshToken, userAgent, remoteAd
 			return Session{}, fmt.Errorf("commit refresh reuse revocation: %w", err)
 		}
 		return Session{}, ErrRefreshReuse
+	}
+	if revokedAt != nil {
+		return Session{}, ErrRefreshUnauthorized
 	}
 	if !expiresAt.After(time.Now().UTC()) {
 		_, _ = tx.Exec(ctx, "UPDATE user_refresh_tokens SET revoked_at=now() WHERE token_hash=$1", oldHash[:])
