@@ -7,7 +7,7 @@ import (
 )
 
 func TestBotTokenPromptIsOneShot(t *testing.T) {
-	p := &Poller{awaitingBotToken: make(map[int64]bool)}
+	p := &Poller{awaitingBotToken: make(map[int64]time.Time)}
 	p.stateMu.Lock()
 	p.awaitingBotToken[123] = time.Now().Add(time.Minute)
 	p.stateMu.Unlock()
