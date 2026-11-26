@@ -49,7 +49,7 @@ func (s *Service) ListWarningEscalations(ctx context.Context, tenantID, groupID 
 func (s *Service) RetryWarningEscalation(ctx context.Context, tenantID, actorUserID, groupID string, userID, executionID int64) (WarningEscalationExecution, error) {
 	var item WarningEscalationExecution
 	err := s.pool.QueryRow(ctx, `UPDATE telegram_group_warning_escalations e
-		SET status='processing',detail='manual retry requested',updated_at=now()
+		SET status='processing',detail='manual retry requested',updated_at=now(),attempt_count=0,next_retry_at=NULL,processing_started_at=now()
 		FROM telegram_groups g
 		WHERE e.id=$1 AND e.tenant_id=$2 AND e.group_id=$3
 		AND e.telegram_user_id=$4 AND e.status='failed' AND g.id=e.group_id AND g.tenant_id=e.tenant_id
@@ -65,9 +65,9 @@ func (s *Service) RetryWarningEscalation(ctx context.Context, tenantID, actorUse
 		if len([]rune(detail)) > 500 { detail=string([]rune(detail)[:500]) }
 	}
 	if err := s.pool.QueryRow(ctx, `UPDATE telegram_group_warning_escalations
-		SET status=$2,detail=$3,updated_at=$4 WHERE id=$1
+		SET status=$2,detail=$3,updated_at=$4,processing_started_at=NULL,next_retry_at=$5 WHERE id=$1
 		RETURNING id,group_id::text,rule_id::text,telegram_user_id,warning_count,action,duration_minutes,status,detail,created_at,updated_at`,
-		item.ID,status,detail,time.Now().UTC()).Scan(&item.ID,&item.GroupID,&item.RuleID,&item.TelegramUserID,&item.WarningCount,&item.Action,&item.DurationMinutes,&item.Status,&item.Detail,&item.CreatedAt,&item.UpdatedAt); err != nil {
+		item.ID,status,detail,time.Now().UTC(),func() any { if actionErr != nil { return time.Now().UTC().Add(WarningEscalationRetryDelay(1)) }; return nil }()).Scan(&item.ID,&item.GroupID,&item.RuleID,&item.TelegramUserID,&item.WarningCount,&item.Action,&item.DurationMinutes,&item.Status,&item.Detail,&item.CreatedAt,&item.UpdatedAt); err != nil {
 		return item,fmt.Errorf("save warning escalation retry result: %w",err)
 	}
 	if actionErr != nil { return item,fmt.Errorf("retry warning escalation: %w",actionErr) }
