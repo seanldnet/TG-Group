@@ -526,11 +526,15 @@ func (h *Handler) deleteGroupMemberList(w http.ResponseWriter,r *http.Request) {
 func (h *Handler) listGroupMemberWarnings(w http.ResponseWriter,r *http.Request) {
 	if !h.botServicesReady(w){return}; user,ok:=h.currentUser(w,r);if !ok{return}
 	userID,err:=strconv.ParseInt(r.PathValue("userID"),10,64);if err!=nil||userID<=0{writeError(w,http.StatusBadRequest,"invalid Telegram user ID");return}
-	items,err:=h.bots.ListGroupMemberWarnings(r.Context(),user.TenantID,r.PathValue("groupID"),userID)
+	limit:=20
+	if raw:=r.URL.Query().Get("limit");raw!=""{value,parseErr:=strconv.Atoi(raw);if parseErr!=nil||value<1||value>100{writeError(w,http.StatusBadRequest,"limit must be between 1 and 100");return};limit=value}
+	offset:=0
+	if raw:=r.URL.Query().Get("offset");raw!=""{value,parseErr:=strconv.Atoi(raw);if parseErr!=nil||value<0||value>100000{writeError(w,http.StatusBadRequest,"offset must be between 0 and 100000");return};offset=value}
+	items,err:=h.bots.ListGroupMemberWarningsPage(r.Context(),user.TenantID,r.PathValue("groupID"),userID,limit,offset)
 	if err!=nil{h.writeGroupRuleError(w,err);return}
 	total,err:=h.bots.CountGroupMemberWarnings(r.Context(),user.TenantID,r.PathValue("groupID"),userID)
 	if err!=nil{h.writeGroupRuleError(w,err);return}
-	writeJSON(w,http.StatusOK,map[string]any{"items":items,"total":total})
+	writeJSON(w,http.StatusOK,map[string]any{"items":items,"total":total,"limit":limit,"offset":offset})
 }
 func (h *Handler) clearGroupMemberWarnings(w http.ResponseWriter,r *http.Request) {
 	if !h.botServicesReady(w){return}; user,ok:=h.currentUser(w,r);if !ok{return}
