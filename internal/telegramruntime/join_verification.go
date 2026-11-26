@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"math/big"
 	"strconv"
 	"strings"
@@ -92,23 +93,27 @@ func (p *Poller) startJoinVerification(ctx context.Context, bot managedBot, grou
 			expires_at=EXCLUDED.expires_at,required_channels=EXCLUDED.required_channels,updated_at=now()
 		RETURNING id::text`,bot.tenantID,bot.id,groupID,member.ID,numericAnswer,cfg.ChallengeType,answerText,mustJSON(options),cfg.FailureAction,cfg.TimeoutSeconds,mustJSON(cfg.RequiredChannels)).Scan(&challengeID)
 	if err!=nil { p.logger.Error("save join verification challenge", "group_id", groupID, "error", err); return }
-	locked:=chatPermissions{}
+	locked:=chatPermissions{CanSendMessages:cfg.ChallengeType=="letters" || cfg.ChallengeType=="alphanumeric"}
 	if err:=p.callTelegram(ctx,token,"restrictChatMember",map[string]any{
 		"chat_id":chatID,"user_id":member.ID,"permissions":locked,"use_independent_chat_permissions":true,
 	},nil);err!=nil {
 		_,_=p.pool.Exec(ctx,"UPDATE telegram_join_verification_challenges SET status='failed',updated_at=now() WHERE id=$1",challengeID)
 		p.logger.Warn("restrict member for join verification failed","group_id",groupID,"user_id",member.ID,"error",err);return
 	}
-	buttons:=make([][]map[string]string,0,1)
-	row:=make([]map[string]string,0,3)
-	for _,option:=range options {
-		row=append(row,map[string]string{"text":strconv.FormatInt(option,10),"callback_data":fmt.Sprintf("tgverify:%s:%d",challengeID,option)})
+	var replyMarkup any
+	if cfg.ChallengeType=="math" {
+		buttons:=make([][]map[string]string,0,1)
+		row:=make([]map[string]string,0,3)
+		for index,option:=range options {
+			row=append(row,map[string]string{"text":option,"callback_data":fmt.Sprintf("tgverify:%s:%d",challengeID,index)})
+		}
+		buttons=append(buttons,row)
+		replyMarkup=map[string]any{"inline_keyboard":buttons}
 	}
-	buttons=append(buttons,row)
 	var sent struct { MessageID int64 `json:"message_id"` }
 	err=p.callTelegram(ctx,token,"sendMessage",map[string]any{
 		"chat_id":chatID,"text":fmt.Sprintf("欢迎 %s！请在 %d 秒内完成验证：%s%s",renderNotice("{user}",member,""),cfg.TimeoutSeconds,prompt,requiredChannelPrompt(cfg.RequiredChannels)),
-		"reply_markup":map[string]any{"inline_keyboard":buttons},
+		"parse_mode":"HTML","reply_markup":replyMarkup,
 	},&sent)
 	if err!=nil {
 		_,_=p.pool.Exec(ctx,"UPDATE telegram_join_verification_challenges SET status='failed',updated_at=now() WHERE id=$1",challengeID)
@@ -119,6 +124,43 @@ func (p *Poller) startJoinVerification(ctx context.Context, bot managedBot, grou
 	}
 	_,err=p.pool.Exec(ctx,"UPDATE telegram_join_verification_challenges SET challenge_message_id=$2,updated_at=now() WHERE id=$1",challengeID,sent.MessageID)
 	if err!=nil { p.logger.Error("save join verification prompt message id","challenge_id",challengeID,"error",err) }
+}
+
+func (p *Poller) handleJoinVerificationText(ctx context.Context,bot managedBot,groupID string,message *telegramMessage,token string) bool {
+	if message==nil || message.From==nil || message.From.IsBot || strings.TrimSpace(message.Text)=="" { return false }
+	var challengeID,expected string
+	var chatID int64
+	var channelsJSON []byte
+	err:=p.pool.QueryRow(ctx,`SELECT c.id::text,c.answer_text,g.telegram_chat_id,c.required_channels
+		FROM telegram_join_verification_challenges c JOIN telegram_groups g ON g.id=c.group_id AND g.tenant_id=c.tenant_id
+		WHERE c.tenant_id=$1 AND c.bot_id=$2 AND c.group_id=$3 AND c.telegram_user_id=$4
+		AND c.challenge_type IN ('letters','alphanumeric') AND c.status='pending' AND c.expires_at>now()`,
+		bot.tenantID,bot.id,groupID,message.From.ID).Scan(&challengeID,&expected,&chatID,&channelsJSON)
+	if err!=nil { return false }
+	if !strings.EqualFold(strings.TrimSpace(message.Text),expected) {
+		if message.MessageID>0 { _=p.callTelegram(ctx,token,"deleteMessage",map[string]any{"chat_id":chatID,"message_id":message.MessageID},nil) }
+		_,_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"验证码不正确，请查看验证提示后重新输入。"},nil)
+		return true
+	}
+	var channels []string
+	if json.Unmarshal(channelsJSON,&channels)!=nil { return true }
+	if missing,checkErr:=p.checkRequiredChannels(ctx,token,channels,message.From.ID);checkErr!=nil || len(missing)>0 {
+		notice:="暂时无法核验频道成员状态，请稍后重试。"
+		if checkErr==nil { notice="请先加入必需频道："+strings.Join(missing,", ") }
+		_,_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":notice},nil)
+		return true
+	}
+	tag,err:=p.pool.Exec(ctx,`UPDATE telegram_join_verification_challenges SET status='verifying',updated_at=now()
+		WHERE id=$1 AND status='pending' AND telegram_user_id=$2 AND expires_at>now()`,challengeID,message.From.ID)
+	if err!=nil || tag.RowsAffected()!=1 { return true }
+	if err:=p.restoreMemberPermissions(ctx,token,chatID,message.From.ID);err!=nil {
+		_,_=p.pool.Exec(ctx,"UPDATE telegram_join_verification_challenges SET status='pending',updated_at=now() WHERE id=$1 AND status='verifying'",challengeID)
+		p.logger.Error("restore member permissions after text verification","challenge_id",challengeID,"error",err)
+		return true
+	}
+	_,_=p.pool.Exec(ctx,"UPDATE telegram_join_verification_challenges SET status='verified',updated_at=now() WHERE id=$1 AND status='verifying'",challengeID)
+	_,_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"验证成功，欢迎加入！"},nil)
+	return true
 }
 
 func (p *Poller) handleVerificationCallback(ctx context.Context, bot managedBot, query telegramCallbackQuery, token string) {
@@ -140,7 +182,9 @@ func (p *Poller) handleVerificationCallback(ctx context.Context, bot managedBot,
 	if err!=nil {
 		_ = p.answerCallback(ctx,token,query.ID,"验证已过期或该按钮不属于你的验证",true); return
 	}
-	if answer!=expected {
+	var options []string
+	if err:=json.Unmarshal(optionsJSON,&options);err!=nil || optionIndex>=len(options) { _ = p.answerCallback(ctx,token,query.ID,"验证选项无效，请重新加入后再试",true); return }
+	if options[optionIndex]!=expected {
 		_ = p.answerCallback(ctx,token,query.ID,"答案不正确，请重新选择",true); return
 	}
 	var requiredChannels []string
@@ -241,7 +285,7 @@ func generateJoinChallenge(challengeType string) (string,string,[]string,int64,e
 			duplicate:=false;for _,v:=range wrong{if v==value{duplicate=true;break}}
 			if !duplicate{wrong=append(wrong,value)}
 		}
-		return answer,"请输入验证码："+answer,[]string{answer,wrong[0],wrong[1]},2,nil
+		return answer,"请在群内发送验证码：<tg-spoiler>"+html.EscapeString(answer)+"</tg-spoiler>",nil,2,nil
 	default:
 		return "","",nil,0,fmt.Errorf("unsupported join challenge type %q",challengeType)
 	}
