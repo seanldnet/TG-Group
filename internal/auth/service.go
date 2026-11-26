@@ -99,6 +99,7 @@ func (s *Service) Register(ctx context.Context, email, password, displayName, us
 
 func (s *Service) Login(ctx context.Context, email, password, userAgent, remoteAddr string) (Session, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "admin" { email = "admin@tg-group.local" }
 	ip := clientIP(remoteAddr)
 	identifiers := loginIdentifiers(email,ip)
 
