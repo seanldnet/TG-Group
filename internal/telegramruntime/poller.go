@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -291,7 +292,7 @@ func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update,to
 		bot.tenantID,bot.id,value.ID,value.Title,value.Username,value.Type,value.IsForum,groupStatus(item)).Scan(&groupID)
 	if err!=nil{return fmt.Errorf("upsert Telegram group: %w",err)}
 	if item.CallbackQuery != nil {
-		p.handleVerificationCallback(ctx,bot,*item.CallbackQuery,token)
+		if strings.HasPrefix(item.CallbackQuery.Data,"group:") { p.handleGroupCallback(ctx,bot,groupID,*item.CallbackQuery,token) } else { p.handleVerificationCallback(ctx,bot,*item.CallbackQuery,token) }
 		return nil
 	}
 	if item.ChatMember != nil {
