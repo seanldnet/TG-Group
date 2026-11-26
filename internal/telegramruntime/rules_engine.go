@@ -233,7 +233,8 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 		p.sendGroupMembers(ctx,bot,groupID,query.Message.Chat.ID,token,offset)
 	case query.Data=="group:rule-events": p.sendGroupRuleEvents(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case strings.HasPrefix(query.Data,"group:create:"): p.createGroupRulePreset(ctx,bot,groupID,query.Message.Chat.ID,strings.TrimPrefix(query.Data,"group:create:"),token)
-	case strings.HasPrefix(query.Data,"group:delete:"): p.handleGroupRuleDelete(ctx,bot,groupID,query.Message.Chat.ID,query.Data,token)
+	case strings.HasPrefix(query.Data,"group:ed:") || strings.HasPrefix(query.Data,"group:es:"): p.handleGroupRuleEdit(ctx,bot,groupID,query.Message.Chat.ID,query.Data,token)
+		case strings.HasPrefix(query.Data,"group:delete:"): p.handleGroupRuleDelete(ctx,bot,groupID,query.Message.Chat.ID,query.Data,token)
 	case query.Data=="group:status": p.sendGroupStatus(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:help" || query.Data=="group:home": p.sendGroupMenu(ctx,query.Message.Chat.ID,0,token)
 	case strings.HasPrefix(query.Data,"group:toggle:"):
@@ -352,7 +353,7 @@ func (p *Poller) sendGroupRules(ctx context.Context,bot managedBot,groupID strin
 		if err:=rows.Scan(&id,&name,&kind,&enabled);err!=nil{p.logger.Error("read rules for Telegram group menu","error",err);return}
 		count++;state:="已停用";action:="启用";if enabled{state="运行中";action="停用"}
 		lines=append(lines,fmt.Sprintf("%d. %s（%s）- %s",count,name,kind,state))
-		keyboard=append(keyboard,[]map[string]string{{"text":action+"："+name,"callback_data":"group:toggle:"+id}})
+		keyboard=append(keyboard,[]map[string]string{{"text":action+"："+name,"callback_data":"group:toggle:"+id},{"text":"编辑："+name,"callback_data":"group:ed:"+id}})
 		keyboard=append(keyboard,[]map[string]string{{"text":"删除："+name,"callback_data":"group:delete:ask:"+id+":rule"}})
 	}
 	if err:=rows.Err();err!=nil{p.logger.Error("iterate Telegram group rules for Telegram group menu","group_id",groupID,"error",err);return}
@@ -384,6 +385,98 @@ func (p *Poller) createGroupRulePreset(ctx context.Context,bot managedBot,groupI
 		return
 	}
 	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"规则已创建并启用："+item.name},nil)
+	p.sendGroupRules(ctx,bot,groupID,chatID,token)
+}
+
+// Group rule edits are callback-only and use validated presets. This avoids
+// accepting arbitrary message text as a management command.
+func parseGroupRuleEditCallback(data string) (stage,ruleID,preset string,ok bool) {
+	parts:=strings.Split(data,":")
+	if len(parts)==3 && parts[0]=="group" && parts[1]=="ed" && validRuleUUID(parts[2]) {
+		return "open",parts[2],"",true
+	}
+	if len(parts)==4 && parts[0]=="group" && parts[1]=="es" && validRuleUUID(parts[2]) {
+		switch parts[3] {
+		case "w1","w2","w3","l1","l2","k1","k2","k3","a1","a2","s1","s2","s3","v1","v2","v3","vr","vk":
+			return "set",parts[2],parts[3],true
+		}
+	}
+	return "","","",false
+}
+
+func groupRuleEditConfig(kind,preset string) []byte {
+	switch kind {
+	case "welcome":
+		switch preset {
+		case "w1": return []byte(`{"text":"欢迎 {user} 加入 {group}！请阅读群规，文明交流。"}`)
+		case "w2": return []byte(`{"text":"欢迎 {user}！请先阅读群公告，遵守群组规则。"}`)
+		case "w3": return []byte(`{"text":"欢迎 {user}（{username}）加入我们！"}`)
+		}
+	case "leave_notice":
+		switch preset {
+		case "l1": return []byte(`{"text":"{user} 离开了群组。"}`)
+		case "l2": return []byte(`{"text":"成员 {user} 已离开，感谢曾经的参与。"}`)
+		}
+	case "keyword_filter", "sensitive_word":
+		switch preset {
+		case "k1": return []byte(`{"words":["加我","私聊我"],"action":"delete"}`)
+		case "k2": return []byte(`{"words":["送彩金","稳赚","刷单"],"action":"delete"}`)
+		case "k3": return []byte(`{"words":["扫码","代理","推广"],"action":"delete"}`)
+		}
+	case "anti_ad":
+		switch preset {
+		case "a1": return []byte(`{"patterns":["http://","https://","t.me/"],"action":"delete"}`)
+		case "a2": return []byte(`{"patterns":["加入频道","点击链接","开户链接","私聊领取"],"action":"delete"}`)
+		}
+	case "anti_spam":
+		switch preset {
+		case "s1": return []byte(`{"max_messages":10,"window_seconds":10,"action":"delete"}`)
+		case "s2": return []byte(`{"max_messages":6,"window_seconds":10,"action":"delete"}`)
+		case "s3": return []byte(`{"max_messages":4,"window_seconds":10,"action":"delete"}`)
+		}
+	case "join_verification":
+		switch preset {
+		case "v1": return []byte(`{"challenge_type":"math","timeout_seconds":60,"failure_action":"kick","required_channels":[]}`)
+		case "v2": return []byte(`{"challenge_type":"math","timeout_seconds":180,"failure_action":"kick","required_channels":[]}`)
+		case "v3": return []byte(`{"challenge_type":"math","timeout_seconds":300,"failure_action":"kick","required_channels":[]}`)
+		case "vr": return []byte(`{"challenge_type":"math","timeout_seconds":180,"failure_action":"restrict","required_channels":[]}`)
+		case "vk": return []byte(`{"challenge_type":"math","timeout_seconds":180,"failure_action":"kick","required_channels":[]}`)
+		}
+	}
+	return nil
+}
+
+func (p *Poller) handleGroupRuleEdit(ctx context.Context,bot managedBot,groupID string,chatID int64,data,token string) {
+	stage,ruleID,preset,ok:=parseGroupRuleEditCallback(data)
+	if !ok || p.botService==nil { return }
+	rules,err:=p.botService.ListGroupRules(ctx,bot.tenantID,groupID)
+	if err!=nil { p.logger.Warn("load Telegram group rule for edit","group_id",groupID,"rule_id",ruleID,"error",err); return }
+	var current *bots.GroupRule
+	for i:=range rules { if rules[i].ID==ruleID { current=&rules[i]; break } }
+	if current==nil { _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"这条规则已不存在，请刷新规则列表。"},nil); return }
+	if stage=="open" {
+		rows:=[][]map[string]string{}
+		add:=func(label,key string){rows=append(rows,[]map[string]string{{"text":label,"callback_data":"group:es:"+ruleID+":"+key}})}
+		switch current.RuleType {
+		case "welcome": add("欢迎模板：标准","w1");add("欢迎模板：群规提醒","w2");add("欢迎模板：用户名","w3")
+		case "leave_notice": add("离群通知：简洁","l1");add("离群通知：完整","l2")
+		case "keyword_filter","sensitive_word": add("关键词：引流词","k1");add("关键词：营销词","k2");add("关键词：推广词","k3")
+		case "anti_ad": add("广告：链接类","a1");add("广告：推广话术","a2")
+		case "anti_spam": add("刷屏：宽松（10条/10秒）","s1");add("刷屏：标准（6条/10秒）","s2");add("刷屏：严格（4条/10秒）","s3")
+		case "join_verification": add("验证超时：60秒","v1");add("验证超时：180秒","v2");add("验证超时：300秒","v3");add("失败后：限制发言","vr");add("失败后：移出群组","vk")
+		default: return
+		}
+		rows=append(rows,[]map[string]string{{"text":"返回规则列表","callback_data":"group:rules"}})
+		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"编辑规则："+current.Name+"\n请选择要应用的配置预设。保存后立即生效；原配置会被所选预设整体替换。","reply_markup":map[string]any{"inline_keyboard":rows}},nil)
+		return
+	}
+	config:=groupRuleEditConfig(current.RuleType,preset)
+	if len(config)==0 { return }
+	_,err=p.botService.UpdateGroupRule(ctx,bot.tenantID,groupID,ruleID,bots.GroupRuleInput{
+		RuleType:current.RuleType,Name:current.Name,Enabled:current.Enabled,Priority:current.Priority,Config:config,
+	})
+	if err!=nil { p.logger.Warn("update Telegram group rule preset","group_id",groupID,"rule_id",ruleID,"preset",preset,"error",err);_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"规则更新失败，原配置未变更。请稍后重试。"},nil);return }
+	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"规则配置已更新并保存。"},nil)
 	p.sendGroupRules(ctx,bot,groupID,chatID,token)
 }
 
