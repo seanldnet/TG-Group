@@ -114,7 +114,7 @@ func (s *Service) UnlinkTelegramIdentity(ctx context.Context, userID string) err
     if _,err:=tx.Exec(ctx,"UPDATE users SET telegram_id=NULL,telegram_username='',telegram_first_name='',telegram_last_name='',updated_at=now() WHERE id=$1",userID);err!=nil{return fmt.Errorf("unlink Telegram identity: %w",err)}
     if _,err:=tx.Exec(ctx,"UPDATE telegram_identity_link_challenges SET consumed_at=now() WHERE user_id=$1 AND consumed_at IS NULL",userID);err!=nil{return fmt.Errorf("invalidate pending Telegram link challenges: %w",err)}
     if _,err:=tx.Exec(ctx,`INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,metadata)
-        VALUES($1,$2,'auth.telegram_unlink','user',$2,jsonb_build_object('telegram_id',$3::bigint))`,tenantID,userID,telegramID);err!=nil{return fmt.Errorf("audit Telegram identity unlink: %w",err)}
+        VALUES($1,$2,'auth.telegram_unlink','user',$3,jsonb_build_object('telegram_id',$4::bigint))`,tenantID,userID,userID,telegramID);err!=nil{return fmt.Errorf("audit Telegram identity unlink: %w",err)}
     if err:=tx.Commit(ctx);err!=nil{return fmt.Errorf("commit Telegram identity unlink: %w",err)}
     return nil
 }
