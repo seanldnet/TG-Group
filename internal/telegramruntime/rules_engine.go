@@ -266,8 +266,7 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 		stage,action,targetID,ok:=parseGroupMemberCallback(query.Data)
 		if !ok { return }
 		if stage=="ask" {
-			label:="禁言 30 分钟"
-			if action=="ban" { label="封禁" }
+			label:=map[string]string{"mute":"禁言 30 分钟","ban":"封禁","unmute":"解除禁言","unban":"解除封禁"}[action]
 			keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{
 				{{"text":"确认"+label,"callback_data":fmt.Sprintf("group:member:confirm:%s:%d",action,targetID)}},
 				{{"text":"取消","callback_data":"group:members"}},
@@ -289,8 +288,7 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 			_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"操作未完成。请检查 Bot 是否拥有管理成员权限、目标成员是否为普通成员，并在网站成员管理页查看详细状态。"},nil)
 			return
 		}
-		label:="禁言 30 分钟"
-		if action=="ban" { label="封禁" }
+		label:=map[string]string{"mute":"禁言 30 分钟","ban":"封禁","unmute":"解除禁言","unban":"解除封禁"}[action]
 		_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":fmt.Sprintf("已完成：用户 %d，%s。操作已记录审计日志。",targetID,label)},nil)
 		p.sendGroupMembers(ctx,bot,groupID,query.Message.Chat.ID,token)
 	}
@@ -302,15 +300,15 @@ func parseGroupMemberCallback(data string) (stage,action string,targetID int64,o
 	parts:=strings.Split(data,":")
 	if len(parts)!=5 || parts[0]!="group" || parts[1]!="member" { return "", "", 0, false }
 	if parts[2]!="ask" && parts[2]!="confirm" { return "", "", 0, false }
-	if parts[3]!="mute" && parts[3]!="ban" { return "", "", 0, false }
+	if parts[3]!="mute" && parts[3]!="ban" && parts[3]!="unmute" && parts[3]!="unban" { return "", "", 0, false }
 	id,err:=strconv.ParseInt(parts[4],10,64)
 	if err!=nil || id<=0 { return "", "", 0, false }
 	return parts[2],parts[3],id,true
 }
 
 func (p *Poller) sendGroupMembers(ctx context.Context,bot managedBot,groupID string,chatID int64,token string) {
-	rows,err:=p.pool.Query(ctx,`SELECT telegram_user_id,username,first_name,last_name FROM telegram_group_members
-		WHERE tenant_id=$1 AND group_id=$2 AND status='member' AND is_bot=false
+	rows,err:=p.pool.Query(ctx,`SELECT telegram_user_id,username,first_name,last_name,status FROM telegram_group_members
+		WHERE tenant_id=$1 AND group_id=$2 AND status IN ('member','restricted','kicked') AND is_bot=false
 		ORDER BY last_seen_at DESC,id DESC LIMIT 10`,bot.tenantID,groupID)
 	if err!=nil { p.logger.Error("load Telegram members for inline menu","group_id",groupID,"error",err);return }
 	defer rows.Close()
@@ -319,17 +317,27 @@ func (p *Poller) sendGroupMembers(ctx context.Context,bot managedBot,groupID str
 	count:=0
 	for rows.Next() {
 		var id int64
-		var username,firstName,lastName string
-		if err:=rows.Scan(&id,&username,&firstName,&lastName);err!=nil { p.logger.Error("read Telegram member for inline menu","error",err);return }
+		var username,firstName,lastName,status string
+		if err:=rows.Scan(&id,&username,&firstName,&lastName,&status);err!=nil { p.logger.Error("read Telegram member for inline menu","error",err);return }
 		name:=strings.TrimSpace(firstName+" "+lastName)
 		if username!="" { name+=" (@"+username+")" }
 		if name=="" { name=strconv.FormatInt(id,10) }
 		count++
 		lines=append(lines,fmt.Sprintf("%d. %s（ID: %d）",count,name,id))
-		keyboard=append(keyboard,[]map[string]string{
-			{"text":"禁言30分","callback_data":fmt.Sprintf("group:member:ask:mute:%d",id)},
-			{"text":"封禁","callback_data":fmt.Sprintf("group:member:ask:ban:%d",id)},
-		})
+		switch status {
+		case "member":
+			keyboard=append(keyboard,[]map[string]string{
+				{"text":"禁言30分","callback_data":fmt.Sprintf("group:member:ask:mute:%d",id)},
+				{"text":"封禁","callback_data":fmt.Sprintf("group:member:ask:ban:%d",id)},
+			})
+		case "restricted":
+			keyboard=append(keyboard,[]map[string]string{
+				{"text":"解除禁言","callback_data":fmt.Sprintf("group:member:ask:unmute:%d",id)},
+				{"text":"封禁","callback_data":fmt.Sprintf("group:member:ask:ban:%d",id)},
+			})
+		case "kicked":
+			keyboard=append(keyboard,[]map[string]string{{"text":"解除封禁","callback_data":fmt.Sprintf("group:member:ask:unban:%d",id)}})
+		}
 	}
 	if err:=rows.Err();err!=nil { p.logger.Error("iterate Telegram members for inline menu","group_id",groupID,"error",err);return }
 	if count==0 { lines=append(lines,"暂无已采集的普通成员。成员数据会在 Bot 收到群成员更新后逐步建立。") }
