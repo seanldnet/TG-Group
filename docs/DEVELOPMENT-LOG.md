@@ -277,3 +277,5 @@
 
 
 - **CAP 资源部署补充**：新增可选 `CAP_WIDGET_URL`，支持将官方 `widget.js` 指向自托管/镜像地址；默认使用固定版本 CDN。公开 CAPTCHA 配置只返回该脚本地址，不返回任何 secret。增加 widget URL HTTPS/loopback 校验与配置测试，并同步本地联调文档。若使用 Cap Standalone assets server，仍需按官方说明固定 widget/WASM 版本并保证 WASM 文件浏览器可访问。
+
+- **CAP 阶段 CI 验证**：代码提交 `2a984250097b952837f2cbc9ee49f74a1de6e073` 对应 GitHub Actions run `45728415621` 两个 Job 均 success：Go 格式检查、完整 Go/PostgreSQL 测试、`go vet ./...` 与前端依赖安装和生产构建全部通过。此结果覆盖 CAP verifier、配置与测试、前端 CAP 组件编译；不替代实际 Cap Standalone 公网浏览器联调。
