@@ -145,7 +145,7 @@ func (p *Poller) handleJoinVerificationText(ctx context.Context, bot managedBot,
 		if message.MessageID > 0 {
 			_ = p.callTelegram(ctx, token, "deleteMessage", map[string]any{"chat_id": chatID, "message_id": message.MessageID}, nil)
 		}
-		_, _ = p.callTelegram(ctx, token, "sendMessage", map[string]any{"chat_id": chatID, "text": "验证码不正确，请查看验证提示后重新输入。"}, nil)
+		_ = p.callTelegram(ctx, token, "sendMessage", map[string]any{"chat_id": chatID, "text": "验证码不正确，请查看验证提示后重新输入。"}, nil)
 		return true
 	}
 	var channels []string
@@ -157,7 +157,7 @@ func (p *Poller) handleJoinVerificationText(ctx context.Context, bot managedBot,
 		if checkErr == nil {
 			notice = "请先加入必需频道：" + strings.Join(missing, ", ")
 		}
-		_, _ = p.callTelegram(ctx, token, "sendMessage", map[string]any{"chat_id": chatID, "text": notice}, nil)
+		_ = p.callTelegram(ctx, token, "sendMessage", map[string]any{"chat_id": chatID, "text": notice}, nil)
 		return true
 	}
 	tag, err := p.pool.Exec(ctx, `UPDATE telegram_join_verification_challenges SET status='verifying',updated_at=now()
@@ -171,7 +171,7 @@ func (p *Poller) handleJoinVerificationText(ctx context.Context, bot managedBot,
 		return true
 	}
 	_, _ = p.pool.Exec(ctx, "UPDATE telegram_join_verification_challenges SET status='verified',updated_at=now() WHERE id=$1 AND status='verifying'", challengeID)
-	_, _ = p.callTelegram(ctx, token, "sendMessage", map[string]any{"chat_id": chatID, "text": "验证成功，欢迎加入！"}, nil)
+	_ = p.callTelegram(ctx, token, "sendMessage", map[string]any{"chat_id": chatID, "text": "验证成功，欢迎加入！"}, nil)
 	return true
 }
 
