@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { ArrowLeft, Hash, RefreshCw, UsersRound } from "lucide-react"
+import { Hash, RefreshCw, UsersRound } from "lucide-react"
 
 import { listGroups, type TelegramGroup } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
@@ -51,21 +51,8 @@ export default function GroupsPage() {
   }, [refresh])
 
   return (
-    <main className="min-h-svh bg-muted/25">
-      <header className="border-b border-border/70 bg-background">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
-          <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
-            <ArrowLeft className="size-4" />
-            返回工作台
-          </a>
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <UsersRound className="size-5 text-primary" />
-            TG-Group
-          </div>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-6xl space-y-6 px-5 py-9 sm:px-8 sm:py-12">
+    <main className="w-full">
+      <div className="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <Badge variant="secondary" className="mb-3">资源管理</Badge>
