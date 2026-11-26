@@ -236,7 +236,7 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 	case strings.HasPrefix(query.Data,"group:ed:") || strings.HasPrefix(query.Data,"group:es:"): p.handleGroupRuleEdit(ctx,bot,groupID,query.Message.Chat.ID,query.Data,token)
 		case strings.HasPrefix(query.Data,"group:delete:"): p.handleGroupRuleDelete(ctx,bot,groupID,query.Message.Chat.ID,query.Data,token)
 	case strings.HasPrefix(query.Data,"group:member:detail:"):
-		p.sendGroupMemberDetail(ctx,bot,groupID,query.Message.Chat.ID,strings.TrimPrefix(query.Data,"group:member:detail:"),token)
+		p.sendGroupMemberDetail(ctx,bot,groupID,query.Message.Chat.ID,query.Data,token)
 	case query.Data=="group:status": p.sendGroupStatus(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:help" || query.Data=="group:home": p.sendGroupMenu(ctx,query.Message.Chat.ID,0,token)
 	case strings.HasPrefix(query.Data,"group:toggle:"):
@@ -336,9 +336,17 @@ func (p *Poller) sendGroupMembers(ctx context.Context,bot managedBot,groupID str
 	_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":fmt.Sprintf("%s\n第 %d 页",strings.Join(lines,"\n"),offset/10+1),"reply_markup":map[string]any{"inline_keyboard":keyboard}},nil)
 }
 
+func parseGroupMemberDetailCallback(data string) (int64,bool) {
+	const prefix="group:member:detail:"
+	if !strings.HasPrefix(data,prefix) { return 0,false }
+	id,err:=strconv.ParseInt(strings.TrimPrefix(data,prefix),10,64)
+	if err!=nil || id<=0 { return 0,false }
+	return id,true
+}
+
 func (p *Poller) sendGroupMemberDetail(ctx context.Context,bot managedBot,groupID string,chatID int64,rawUserID,token string) {
-	userID,err:=strconv.ParseInt(rawUserID,10,64)
-	if err!=nil || userID<=0 { return }
+	userID,ok:=parseGroupMemberDetailCallback(rawUserID)
+	if !ok { return }
 	var username,firstName,lastName,status string
 	var joinedAt,lastSeenAt *time.Time
 	var isAnonymous,canManageChat,canDeleteMessages,canRestrictMembers,canInviteUsers,canPinMessages,canManageTopics bool
