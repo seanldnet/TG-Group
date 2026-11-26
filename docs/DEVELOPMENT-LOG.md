@@ -582,3 +582,12 @@
 - **禁言时长**：支持 10 分钟、30 分钟、1 小时、24 小时，所有时长均通过二次确认 callback 选择；ModerateGroupMember 继续负责目标身份、权限、租户和审计校验。
 - **测试**：新增消息操作 callback 和禁言时长 callback 白名单测试。
 - **边界**：消息管理只列出 Bot 加入后收到并持久化的最近消息；不展示 Bot 无法访问的历史记录。未进行真实 Telegram API 端到端测试，不能将权限和操作效果标为已验收。
+
+
+### Telegram 群规自定义输入与群公告（第十五批第四阶段）
+- **数据库**：新增迁移 000014，创建 telegram_group_pending_inputs；up/down SQL 同步 internal/database/migrations 与 migrations，按租户、群组、Telegram 用户唯一保存会话，5 分钟过期。
+- **群规编辑**：欢迎语、离群通知支持自定义文案；关键词过滤支持逗号/换行分隔的自定义词组；广告拦截支持自定义匹配内容。输入后通过现有 UpdateGroupRule/ValidateGroupRule 校验并持久化。
+- **群公告**：主菜单增加“群公告”按钮，使用 ForceReply 接收公告正文，发布成功后在 Bot 具备置顶权限时自动置顶；记录平台主人审计。
+- **会话安全**：pending state 写入 PostgreSQL，按 tenant/group/Telegram user 隔离，5 分钟超时；提交时再次校验平台主人身份。无效内容不会覆盖旧规则。
+- **测试**：新增自定义编辑 callback 白名单和关键词分割去重测试。
+- **边界**：仅消费由按钮创建且未过期的输入会话，不将普通消息或 slash command 当作管理操作；真实 Telegram ForceReply、公告发布与置顶仍需部署环境验收。
