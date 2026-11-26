@@ -133,6 +133,7 @@ CAP 采用官方 Cap Standalone 服务端和官方 `cap-widget` Web Component。
 
 - 用户在 Bot 私聊发送 `/start`：服务端生成随机初始密码，在一个 PostgreSQL 事务内创建独立租户、普通用户账号并绑定 Telegram ID；Bot 私聊返回用户 ID 和初始密码。网站登录时使用用户 ID + 初始密码。初始密码仅在注册成功消息中展示一次，请用户立即修改。
 - 同一 Telegram ID 再次发送 `/start` 不会重复创建账号，会提示使用原账号登录或走网站绑定流程。
+- 已注册用户可发送 `/account` 查询用户 ID、登录账号、邮箱、昵称和角色；未绑定的 Telegram ID 不会返回其他账号资料。
 - 网站账号在账号安全中发起绑定后，Bot 收到 `/start <一次性挑战>` 完成可信 ID 绑定；挑战有效期 5 分钟且只能使用一次。
 - Bot 仅处理用户本人私聊（From ID 必须等于 Chat ID），忽略群聊、机器人账号及非 `/start` 消息。
 - 当前注册管理 Bot 只交付注册和身份绑定基础流程；套餐查询/购买、提交群管 Bot Token、账户查询和 Inline Keyboard 管理菜单尚未完成。
