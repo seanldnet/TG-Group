@@ -6,18 +6,15 @@ type Props = {
   onToken: (token: string) => void
 }
 
-const CAP_WIDGET_VERSION = "0.1.58"
-const CAP_WIDGET_SRC = `https://cdn.jsdelivr.net/npm/cap-widget@${CAP_WIDGET_VERSION}`
-
-function loadCapWidget(): Promise<void> {
+function loadCapWidget(src: string): Promise<void> {
   if (customElements.get("cap-widget")) return Promise.resolve()
   return new Promise((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${CAP_WIDGET_SRC}"]`)
+    const existing = Array.from(document.scripts).find((candidate) => candidate.src === src) ?? null
     const script = existing ?? document.createElement("script")
     script.addEventListener("load", () => resolve(), { once: true })
     script.addEventListener("error", () => reject(new Error("CAP 组件加载失败")), { once: true })
     if (!existing) {
-      script.src = CAP_WIDGET_SRC
+      script.src = src
       script.async = true
       document.head.appendChild(script)
     }
@@ -48,9 +45,9 @@ export function CaptchaField({ onToken }: Props) {
           setStatus("disabled")
           return
         }
-        if (!config.endpoint) throw new Error("CAP 验证地址未配置")
+        if (!config.endpoint || !config.widget_url) throw new Error("CAP 验证地址或组件资源地址未配置")
         setEnabled(true)
-        await loadCapWidget()
+        await loadCapWidget(config.widget_url)
         if (cancelled || !containerRef.current) return
         widget = document.createElement("cap-widget")
         widget.setAttribute("data-cap-api-endpoint", config.endpoint)
