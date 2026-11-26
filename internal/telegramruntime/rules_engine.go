@@ -23,7 +23,7 @@ type executableRule struct {
 
 func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupID string, item update, message *telegramMessage, token string) {
 	if message == nil { return }
-	if p.handleGroupCommand(ctx,bot,groupID,message,token) { return }
+	// Group administration is callback-driven; slash commands never execute actions.
 	var senderID any
 	if message.From != nil && message.From.ID > 0 { senderID = message.From.ID }
 	content := message.Text
@@ -241,9 +241,12 @@ func groupOwnerAccess(hasLinkedOwner,isOwner bool) string {
 func (p *Poller) sendGroupMenu(ctx context.Context,chatID,messageID int64,token string) {
 	keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{
 		{{"text":"规则管理","callback_data":"group:rules"},{"text":"成员管理","callback_data":"group:members"}},
-		{{"text":"检查 Bot 权限","callback_data":"group:status"},{"text":"使用帮助","callback_data":"group:help"}},
+		{{"text":"检查 Bot 权限","callback_data":"group:status"},{"text":"刷新菜单","callback_data":"group:home"}},
 	}}
-	_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"reply_to_message_id":messageID,"text":"TG-Group 群管 Bot 已连接。可在这里管理本群规则、查看成员并执行成员操作。所有管理操作仅限已绑定的平台主人。","reply_markup":keyboard},nil)
+	payload:=map[string]any{"chat_id":chatID,"text":"TG-Group 群管 Bot 已连接。请直接点击下方按钮管理本群规则、成员和 Bot 权限。所有管理操作仅限已绑定的平台主人。"}
+	if messageID>0 { payload["reply_to_message_id"]=messageID }
+	payload["reply_markup"]=keyboard
+	_ = p.callTelegram(ctx,token,"sendMessage",payload,nil)
 }
 
 func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID string,query telegramCallbackQuery,token string) {
@@ -254,7 +257,7 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 	case query.Data=="group:rules": p.sendGroupRules(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:members": p.sendGroupMembers(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:status": p.sendGroupStatus(ctx,bot,groupID,query.Message.Chat.ID,token)
-	case query.Data=="group:help": p.sendGroupMenu(ctx,query.Message.Chat.ID,query.Message.MessageID,token)
+	case query.Data=="group:help" || query.Data=="group:home": p.sendGroupMenu(ctx,query.Message.Chat.ID,0,token)
 	case strings.HasPrefix(query.Data,"group:toggle:"):
 		ruleID:=strings.TrimPrefix(query.Data,"group:toggle:")
 		if !validRuleUUID(ruleID) { return }
