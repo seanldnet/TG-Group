@@ -77,8 +77,8 @@ func (s *Service) CompleteTelegramLink(ctx context.Context, token string, identi
     }
     if existingID != nil { return ErrTelegramAlreadyBound }
 
-    tag, err := tx.Exec(ctx, `UPDATE users SET telegram_id=$2,updated_at=now()
-        WHERE id=$1 AND telegram_id IS NULL`, userID, identity.ID)
+    tag, err := tx.Exec(ctx, `UPDATE users SET telegram_id=$2,telegram_username=$3,telegram_first_name=$4,telegram_last_name=$5,updated_at=now()
+        WHERE id=$1 AND telegram_id IS NULL`, userID, identity.ID, identity.Username, identity.FirstName, identity.LastName)
     if err != nil {
         if isUniqueViolation(err) { return ErrTelegramAlreadyLinked }
         return fmt.Errorf("bind Telegram identity: %w", err)
@@ -117,10 +117,17 @@ func (s *Service) UnlinkTelegramIdentity(ctx context.Context, userID string) err
     return nil
 }
 
-func (s *Service) TelegramIdentity(ctx context.Context, userID string) (*int64, error) {
-    var id *int64
-    if err := s.pool.QueryRow(ctx, "SELECT telegram_id FROM users WHERE id=$1", userID).Scan(&id); err != nil {
-        return nil, fmt.Errorf("read Telegram identity: %w", err)
+type LinkedTelegramIdentity struct {
+    ID *int64 `json:"id"`
+    Username string `json:"username"`
+    FirstName string `json:"first_name"`
+    LastName string `json:"last_name"`
+}
+
+func (s *Service) TelegramIdentity(ctx context.Context, userID string) (LinkedTelegramIdentity, error) {
+    var identity LinkedTelegramIdentity
+    if err := s.pool.QueryRow(ctx, "SELECT telegram_id,telegram_username,telegram_first_name,telegram_last_name FROM users WHERE id=$1", userID).Scan(&identity.ID,&identity.Username,&identity.FirstName,&identity.LastName); err != nil {
+        return LinkedTelegramIdentity{}, fmt.Errorf("read Telegram identity: %w", err)
     }
-    return id, nil
+    return identity, nil
 }
