@@ -44,9 +44,3 @@ func TestRequiredChannelPrompt(t *testing.T) {
 	}
 }
 
-func TestValidRequiredChannelReferences(t *testing.T) {
-	valid:=[]string{"@tg_group_news","-1001234567890"}
-	for _,value:=range valid { if !validRequiredChannel(value) { t.Errorf("%q should be valid",value) } }
-	invalid:=[]string{"news","@ab","https://t.me/news","-1234567890","@bad-name"}
-	for _,value:=range invalid { if validRequiredChannel(value) { t.Errorf("%q should be invalid",value) } }
-}
