@@ -23,6 +23,7 @@ type executableRule struct {
 
 func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupID string, item update, message *telegramMessage, token string) {
 	if message == nil { return }
+	if p.handleGroupCommand(ctx,bot,groupID,message,token) { return }
 	var senderID any
 	if message.From != nil && message.From.ID > 0 { senderID = message.From.ID }
 	content := message.Text
@@ -178,3 +179,73 @@ func (p *Poller) callTelegram(ctx context.Context,token,method string,payload an
 	if result!=nil{return json.Unmarshal(envelope.Result,result)}
 	return nil
 }
+
+func parseGroupBotCommand(text string) string {
+	fields:=strings.Fields(text)
+	if len(fields)==0 || !strings.HasPrefix(fields[0],"/") { return "" }
+	command:=strings.TrimPrefix(fields[0],"/")
+	if at:=strings.IndexByte(command,'@');at>=0 { command=command[:at] }
+	return strings.ToLower(command)
+}
+
+func (p *Poller) handleGroupCommand(ctx context.Context,bot managedBot,groupID string,message *telegramMessage,token string) bool {
+	if message==nil || message.From==nil || message.From.IsBot || (message.Chat.Type!="group" && message.Chat.Type!="supergroup") { return false }
+	switch parseGroupBotCommand(message.Text) {
+	case "start","help","menu":
+		p.sendGroupMenu(ctx,message.Chat.ID,message.MessageID,token)
+		return true
+	case "rules":
+		p.sendGroupRules(ctx,bot,groupID,message.Chat.ID,token)
+		return true
+	case "status":
+		p.sendGroupStatus(ctx,bot,groupID,message.Chat.ID,token)
+		return true
+	default:
+		return false
+	}
+}
+
+func (p *Poller) sendGroupMenu(ctx context.Context,chatID,messageID int64,token string) {
+	keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{
+		{{"text":"查看群组规则","callback_data":"group:rules"},{"text":"检查 Bot 权限","callback_data":"group:status"}},
+		{{"text":"使用帮助","callback_data":"group:help"}},
+	}}
+	_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"reply_to_message_id":messageID,"text":"TG-Group 群管 Bot 已连接。请选择下方操作。已启用的群规会自动执行。","reply_markup":keyboard},nil)
+}
+
+func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID string,query telegramCallbackQuery,token string) {
+	_ = p.callTelegram(ctx,token,"answerCallbackQuery",map[string]any{"callback_query_id":query.ID},nil)
+	if query.Message==nil { return }
+	switch query.Data {
+	case "group:rules": p.sendGroupRules(ctx,bot,groupID,query.Message.Chat.ID,token)
+	case "group:status": p.sendGroupStatus(ctx,bot,groupID,query.Message.Chat.ID,token)
+	case "group:help": p.sendGroupMenu(ctx,query.Message.Chat.ID,query.Message.MessageID,token)
+	}
+}
+
+func (p *Poller) sendGroupRules(ctx context.Context,bot managedBot,groupID string,chatID int64,token string) {
+	rows,err:=p.pool.Query(ctx,"SELECT name,rule_type FROM telegram_group_rules WHERE tenant_id=$1 AND group_id=$2 AND enabled=true ORDER BY priority,created_at LIMIT 20",bot.tenantID,groupID)
+	if err!=nil { p.logger.Error("load rules for Telegram group menu","group_id",groupID,"error",err);return }
+	defer rows.Close()
+	lines:=[]string{"当前已启用的群组规则："}
+	count:=0
+	for rows.Next(){var name,kind string;if err:=rows.Scan(&name,&kind);err!=nil{p.logger.Error("read rules for Telegram group menu","error",err);return};count++;lines=append(lines,fmt.Sprintf("%d. %s（%s）",count,name,kind))}
+	if err:=rows.Err();err!=nil{p.logger.Error("iterate rules for Telegram group menu","error",err);return}
+	if count==0 { lines=append(lines,"暂无已启用规则。") }
+	_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\n")},nil)
+}
+
+func (p *Poller) sendGroupStatus(ctx context.Context,bot managedBot,groupID string,chatID int64,token string) {
+	var telegramChatID,telegramBotID int64
+	err:=p.pool.QueryRow(ctx,"SELECT g.telegram_chat_id,b.telegram_bot_id FROM telegram_groups g JOIN telegram_bots b ON b.id=g.bot_id AND b.tenant_id=g.tenant_id WHERE g.tenant_id=$1 AND g.id=$2 AND g.status='active' AND b.status='active'",bot.tenantID,groupID).Scan(&telegramChatID,&telegramBotID)
+	if err!=nil { p.logger.Error("load Bot status for Telegram group menu","group_id",groupID,"error",err);return }
+	var member telegramChatMember
+	if err:=p.callTelegram(ctx,token,"getChatMember",map[string]any{"chat_id":telegramChatID,"user_id":telegramBotID},&member);err!=nil {
+		_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"暂时无法读取 Bot 权限，请确认 Bot 仍在群内。"},nil);return
+	}
+	text:=fmt.Sprintf("Bot 状态：%s\n删除消息：%s\n限制成员：%s\n邀请成员：%s\n置顶消息：%s",
+		member.Status,yesNo(member.CanDeleteMessages),yesNo(member.CanRestrictMembers),yesNo(member.CanInviteUsers),yesNo(member.CanPinMessages))
+	_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":text},nil)
+}
+
+func yesNo(value bool) string { if value { return "具备" }; return "未具备" }
