@@ -343,7 +343,8 @@ func (h *Handler) platformTelegramBotStatus(w http.ResponseWriter,r *http.Reques
 	username,running:="",false
 	if h.telegramAuthBotManager!=nil {username,running=h.telegramAuthBotManager.Status()}
 	if status.Configured && username=="" {username=status.Username}
-	writeJSON(w,http.StatusOK,map[string]any{"configured":status.Configured,"username":username,"running":running,"updated_at":status.UpdatedAt})
+	configured:=status.Configured || username!=""
+	writeJSON(w,http.StatusOK,map[string]any{"configured":configured,"managed":status.Managed,"username":username,"running":running,"updated_at":status.UpdatedAt})
 }
 func (h *Handler) updatePlatformTelegramBot(w http.ResponseWriter,r *http.Request){
 	user,ok:=h.platformAdmin(w,r);if !ok{return}
