@@ -591,7 +591,7 @@ func formatJoinVerificationSummary(raw []byte) string {
 	}
 	if json.Unmarshal(raw,&cfg)!=nil { return "验证配置无法读取" }
 	method:="未知方式"
-	switch cfg.ChallengeType { case "math": method="数字加法选择验证" }
+	switch cfg.ChallengeType { case "math": method="数字加法选择验证";case "letters": method="字母验证码（群内输入）";case "alphanumeric": method="数字字母组合验证码（群内输入）" }
 	timeout:=fmt.Sprintf("%d 秒",cfg.TimeoutSeconds)
 	if cfg.TimeoutSeconds<=0 { timeout="未设置" }
 	failure:="未设置"
