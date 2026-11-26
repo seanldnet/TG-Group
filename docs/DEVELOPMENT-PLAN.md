@@ -227,5 +227,5 @@
 - [x] 添加群管 Bot 改为按钮触发输入状态；点击后用户直接发送 Token，不再使用 `/addbot <Token>`。
 - [x] 订阅并处理 Telegram `callback_query`，回调后确认按钮事件；Token 输入状态按用户隔离且仅消费一次。
 - [x] 对缺失平台设置 migration 的 PostgreSQL 42P01 错误给出可操作的 503 提示，不再伪装成通用 500。
-- [ ] 继续根据部署 API 日志中平台设置 SQL 错误定位用户现场 500 的具体根因；如非 migration 缺失，需取得对应日志进一步修复。
+- [x] 根据部署日志定位平台 Bot 保存 500 根因：审计 SQL 的 `jsonb_build_object` 第二参数类型不明确（SQLSTATE 42P18）；已显式转换为 `$2::text` 并提交 main，等待 CI/镜像发布及用户升级复测。
 - [ ] CI 与真实 Telegram 私聊联调通过后再标记验收。
