@@ -405,6 +405,7 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 	case query.Data=="group:warnings": _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"警告系统：可在成员详情中为成员添加警告并查看最近记录。警告阈值自动处罚策略正在开发，当前不会自动封禁或禁言。"},nil)
 	case strings.HasPrefix(query.Data,"group:list:add:"): p.handleGroupMemberListAdd(ctx,bot,groupID,query,token)
 	case strings.HasPrefix(query.Data,"group:warn:"): p.handleGroupMemberWarning(ctx,bot,groupID,query,token)
+	case strings.HasPrefix(query.Data,"group:list:delete:"): p.handleGroupMemberListDelete(ctx,bot,groupID,query,token)
 	case query.Data=="group:messages": p.sendGroupMessages(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:announce": p.beginGroupAnnouncement(ctx,bot,groupID,query.From.ID,query.Message.Chat.ID,token)
 	case query.Data=="group:settings": p.sendGroupSettings(ctx,query.Message.Chat.ID,token)
@@ -1114,9 +1115,15 @@ func (p *Poller) sendGroupMemberLists(ctx context.Context,bot managedBot,groupID
 	items,err:=p.botService.ListGroupMemberLists(ctx,bot.tenantID,groupID)
 	if err!=nil { p.logger.Warn("list group member lists","error",err);return }
 	lines:=[]string{"群组黑白名单（最多显示 30 条）："}
-	for i,item:=range items { if i>=30 {break};lines=append(lines,fmt.Sprintf("%d. %s｜用户 %d｜%s",i+1,item.ListType,item.TelegramUserID,item.Reason)) }
+	keyboard:=[][]map[string]string{}
+	for i,item:=range items {
+		if i>=30 {break}
+		lines=append(lines,fmt.Sprintf("%d. %s｜用户 %d｜%s",i+1,item.ListType,item.TelegramUserID,item.Reason))
+		keyboard=append(keyboard,[]map[string]string{{"text":fmt.Sprintf("移除 %s：%d",item.ListType,item.TelegramUserID),"callback_data":fmt.Sprintf("group:list:delete:ask:%s:%d",item.ListType,item.TelegramUserID)}})
+	}
 	if len(items)==0 {lines=append(lines,"暂无名单条目。请从成员详情添加。")}
-	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\\n"),"reply_markup":map[string]any{"inline_keyboard":[][]map[string]string{{{"text":"刷新","callback_data":"group:lists"},{"text":"返回菜单","callback_data":"group:home"}}}}},nil)
+	keyboard=append(keyboard,[]map[string]string{{"text":"刷新","callback_data":"group:lists"},{"text":"返回菜单","callback_data":"group:home"}})
+	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\\n"),"reply_markup":map[string]any{"inline_keyboard":keyboard}},nil)
 }
 
 func (p *Poller) handleGroupMemberListAdd(ctx context.Context,bot managedBot,groupID string,query telegramCallbackQuery,token string) {
@@ -1128,6 +1135,31 @@ func (p *Poller) handleGroupMemberListAdd(ctx context.Context,bot managedBot,gro
 	}
 	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":fmt.Sprintf("已将用户 %d 加入%s。注意：入群拦截和消息执行策略尚未启用。",userID,parts[3])},nil)
 	p.sendGroupMemberLists(ctx,bot,groupID,query.Message.Chat.ID,token)
+}
+
+
+func (p *Poller) handleGroupMemberListDelete(ctx context.Context,bot managedBot,groupID string,query telegramCallbackQuery,token string) {
+	parts:=strings.Split(query.Data,":")
+	if len(parts)!=6 || parts[0]!="group" || parts[1]!="list" || parts[2]!="delete" { return }
+	listType:=parts[4]
+	if listType!="blacklist" && listType!="whitelist" && listType!="exempt" { return }
+	userID,err:=strconv.ParseInt(parts[5],10,64)
+	if err!=nil || userID<=0 { return }
+	switch parts[3] {
+	case "ask":
+		keyboard:=[][]map[string]string{
+			{{"text":"确认移除","callback_data":fmt.Sprintf("group:list:delete:confirm:%s:%d",listType,userID)},{"text":"取消","callback_data":"group:lists"}},
+		}
+		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":fmt.Sprintf("确认从%s移除用户 %d？此操作不会影响其他名单类型。",listType,userID),"reply_markup":map[string]any{"inline_keyboard":keyboard}},nil)
+	case "confirm":
+		if err:=p.botService.DeleteGroupMemberList(ctx,bot.tenantID,groupID,userID,listType);err!=nil {
+			p.logger.Warn("delete group member list entry","group_id",groupID,"user_id",userID,"list_type",listType,"error",err)
+			_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"移除失败，名单可能已变化，请刷新后重试。"},nil)
+			return
+		}
+		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":fmt.Sprintf("已从%s移除用户 %d。",listType,userID)},nil)
+		p.sendGroupMemberLists(ctx,bot,groupID,query.Message.Chat.ID,token)
+	}
 }
 
 func (p *Poller) handleGroupMemberWarning(ctx context.Context,bot managedBot,groupID string,query telegramCallbackQuery,token string) {
