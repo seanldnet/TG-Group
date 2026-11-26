@@ -56,12 +56,28 @@ func TestNewCaptchaVerifierRequiresCompleteAndSafeConfiguration(t *testing.T) {
 		{"//captcha.example.com", "site", "secret"},
 		{"https://user:pass@captcha.example.com", "site", "secret"},
 		{"https://captcha.example.com?x=1", "site", "secret"},
+		{"http://captcha.example.com", "site", "secret"},
 	} {
 		if _, err := NewCaptchaVerifier(input[0], input[1], input[2]); err == nil {
 			t.Errorf("NewCaptchaVerifier(%q, %q, %q) error = nil", input[0], input[1], input[2])
 		}
 	}
+	if _, err := NewCaptchaVerifier("http://127.0.0.1:3000", "site", "secret"); err != nil {
+		t.Fatalf("loopback HTTP should be allowed in development: %v", err)
+	}
 	if verifier, err := NewCaptchaVerifier("", "", ""); err != nil || verifier != nil {
 		t.Fatalf("disabled verifier = %v, error = %v", verifier, err)
+	}
+}
+
+func TestCaptchaVerifierTreatsServerFailureAsUnavailable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "temporarily unavailable", http.StatusBadGateway)
+	}))
+	defer server.Close()
+	verifier, err := NewCaptchaVerifier(server.URL, "site-key", "site-secret")
+	if err != nil { t.Fatal(err) }
+	if err := verifier.Verify(context.Background(), "token"); err == nil || errors.Is(err, ErrCaptchaRejected) {
+		t.Fatalf("Verify() error = %v, want service unavailable error", err)
 	}
 }
