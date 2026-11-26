@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"context"
 	"errors"
 	"io"
 	"log/slog"
@@ -347,6 +348,10 @@ func (h *Handler) platformTelegramBotStatus(w http.ResponseWriter,r *http.Reques
 func (h *Handler) updatePlatformTelegramBot(w http.ResponseWriter,r *http.Request){
 	user,ok:=h.platformAdmin(w,r);if !ok{return}
 	var input platformTelegramBotRequest;if !decodeJSON(w,r,&input){return}
+	verifyCtx,cancel:=context.WithTimeout(r.Context(),12*time.Second);defer cancel()
+	if err:=h.platformSettings.VerifyToken(verifyCtx,input.Token,input.Username);err!=nil {
+		switch {case errors.Is(err,platformsettings.ErrInvalidConfig):writeError(w,http.StatusBadRequest,"Bot Token 与 Username 格式不匹配");case errors.Is(err,platformsettings.ErrTelegramRejected):writeError(w,http.StatusUnprocessableEntity,"Telegram 不接受该 Bot Token");default:writeError(w,http.StatusBadGateway,"暂时无法连接 Telegram 验证 Bot，请稍后重试")};return
+	}
 	if err:=h.platformSettings.Save(r.Context(),input.Token,input.Username,user.ID);err!=nil{
 		if errors.Is(err,platformsettings.ErrInvalidConfig){writeError(w,http.StatusBadRequest,"Telegram Bot Token 或 Username 格式不正确");return}
 		h.logger.Error("save platform Telegram Bot settings","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return
