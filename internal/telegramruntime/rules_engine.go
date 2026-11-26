@@ -186,23 +186,26 @@ func (p *Poller) callTelegram(ctx context.Context,token,method string,payload an
 // Every Bot in a tenant shares the same owner: the active platform user whose
 // Telegram identity is linked to the sender. No per-Bot owner configuration exists.
 func (p *Poller) requireGroupOwner(ctx context.Context,bot managedBot,telegramUserID,chatID int64,token string) bool {
-	var hasLinkedOwner,isOwner bool
-	query:= "SELECT EXISTS(SELECT 1 FROM users WHERE tenant_id=$1 AND status='active' AND telegram_id IS NOT NULL), EXISTS(SELECT 1 FROM users WHERE tenant_id=$1 AND status='active' AND telegram_id=$2)"
-	if err:=p.pool.QueryRow(ctx,query,bot.tenantID,telegramUserID).Scan(&hasLinkedOwner,&isOwner);err!=nil {
-		p.logger.Error("verify unified Telegram group owner","tenant_id",bot.tenantID,"error",err)
-		_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"暂时无法验证平台主人身份，请稍后重试。"},nil)
+	// The linked platform owner keeps full access. Other users are authorized
+	// only while Telegram reports them as an administrator/creator in this
+	// exact group; this live check makes demotion/removal effective immediately.
+	var isOwner bool
+	query:="SELECT EXISTS(SELECT 1 FROM users WHERE tenant_id=$1 AND status='active' AND telegram_id=$2)"
+	if err:=p.pool.QueryRow(ctx,query,bot.tenantID,telegramUserID).Scan(&isOwner);err!=nil {
+		p.logger.Error("verify Telegram group manager identity","tenant_id",bot.tenantID,"error",err)
+		_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"暂时无法验证管理权限，请稍后重试。"},nil)
 		return false
 	}
-	switch groupOwnerAccess(hasLinkedOwner,isOwner) {
-	case "unbound":
-		_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"当前平台账号尚未绑定 Telegram 主人账号。请先登录 TG-Group 网站，进入“账号设置 → 账号关联”完成绑定。绑定后，你的全部群管 Bot 都会自动使用这个账号作为统一主人，无需逐个设置。"},nil)
+	if isOwner { return true }
+	var member telegramChatMember
+	if err:=p.callTelegram(ctx,token,"getChatMember",map[string]any{"chat_id":chatID,"user_id":telegramUserID},&member);err!=nil {
+		p.logger.Warn("verify Telegram group administrator","chat_id",chatID,"user_id",telegramUserID,"error",err)
+		_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"无法确认你当前的群管理员身份，请确认你仍是本群管理员。"},nil)
 		return false
-	case "not_owner":
-		_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"此操作仅限已绑定 TG-Group 的主人账号使用。"},nil)
-		return false
-	default:
-		return true
 	}
+	if member.Status=="creator" || member.Status=="administrator" { return true }
+	_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"此操作仅限平台主人或当前群管理员使用。被取消群管理员后，机器人会立即撤销这份管理权限。"},nil)
+	return false
 }
 
 func groupOwnerAccess(hasLinkedOwner,isOwner bool) string {
@@ -218,7 +221,7 @@ func (p *Poller) sendGroupMenu(ctx context.Context,chatID,messageID int64,token 
 		{{"text":"群公告","callback_data":"group:announce"},{"text":"群组设置","callback_data":"group:settings"}},
 		{{"text":"刷新菜单","callback_data":"group:home"}},
 	}}
-	payload:=map[string]any{"chat_id":chatID,"text":"TG-Group 群管 Bot 已连接。请直接点击下方按钮管理本群规则、成员和 Bot 权限。所有管理操作仅限已绑定的平台主人。"}
+	payload:=map[string]any{"chat_id":chatID,"text":"TG-Group 群管 Bot 已连接。请直接点击下方按钮管理本群规则、成员和 Bot 权限。管理操作仅限平台主人或当前群管理员；管理员权限随 Telegram 群内身份自动同步。"}
 	if messageID>0 { payload["reply_to_message_id"]=messageID }
 	payload["reply_markup"]=keyboard
 	_ = p.callTelegram(ctx,token,"sendMessage",payload,nil)
