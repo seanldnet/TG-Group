@@ -189,7 +189,7 @@ openssl rand -base64 32
 
 配置由服务端按规则类型进行严格字段校验。关键词/敏感词使用 `words` 数组；反广告使用 `patterns` 数组；反刷屏使用 `max_messages`、`window_seconds`；过滤动作目前仅接受安全子集 `delete`；欢迎和离群通知使用 `text`。优先级范围为 0–1000，数值越小越靠前。同一群组内同类型规则名称不可重复。
 
-入群验证配置示例：`{"challenge_type":"math","timeout_seconds":120,"failure_action":"kick"}`。仅支持 `math` 数学题，超时 30–600 秒；超时处理支持 `restrict`（保持禁言）或 `kick`（封禁后立即解封，实现移出群组）。当前仅对 Telegram supergroup 执行；Bot 必须是群管理员/群主且具备 `can_restrict_members`。新成员入群后立即限制发言，Bot 发送带 Inline Keyboard 的随机加法题；仅该成员本人可点击验证按钮。答对后读取群组默认权限并按默认权限恢复，不会授予超出群组默认设置的权限。挑战过期由后台长轮询 worker 周期处理。若 Bot 缺少权限、群组不是 supergroup 或无法读取群默认权限，会跳过或保留限制并记录服务端日志。
+入群验证配置示例：`{"challenge_type":"math","timeout_seconds":120,"failure_action":"kick","required_channels":["@tg_group_news"]}`。仅支持 `math` 数学题，超时 30–600 秒；超时处理支持 `restrict`（保持禁言）或 `kick`（封禁后立即解封，实现移出群组）。`required_channels` 可选，最多 10 个，支持公开频道用户名（如 `@channel_name`）或 Telegram 数字频道 ID（`-100...`）；答题正确后，系统会逐个调用 `getChatMember` 校验成员身份，未加入全部频道时不解除群组限制。Bot 必须加入每个目标频道且具备足以查询成员状态的权限（建议设为频道管理员）；若 Telegram 无法返回成员状态则失败关闭，保持成员受限。当前仅对 Telegram supergroup 执行；Bot 必须是群管理员/群主且具备 `can_restrict_members`。新成员入群后立即限制发言，Bot 发送带 Inline Keyboard 的随机加法题；仅该成员本人可点击验证按钮。答对后读取群组默认权限并按默认权限恢复，不会授予超出群组默认设置的权限。挑战过期由后台长轮询 worker 周期处理。若 Bot 缺少权限、群组不是 supergroup 或无法读取群默认权限，会跳过或保留限制并记录服务端日志。
 
 规则执行引擎已接入长轮询消息持久化流程：新消息事件成功插入后才执行规则，重复 update 不会重复执行。关键词/敏感词和反广告按不区分大小写的子串匹配；反刷屏按同一群组、同一发送者在配置时间窗内的已记录消息数量触发。过滤类规则当前只执行删除当前命中消息，并在调用 Telegram 前实时检查 Bot 是否为群管理员且具备 `can_delete_messages`；权限不足时跳过并记录原因。欢迎和离群通知分别基于消息中的 `new_chat_members` 与 `left_chat_member` 事件发送，模板支持 `{user}`、`{username}`、`{group}` 占位符。执行结果写入 `telegram_group_rule_events`，并以群组、update、规则、动作和目标用户做幂等保护。规则执行失败不会阻塞已持久化消息的 update offset。
 
