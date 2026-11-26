@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { AlertTriangle, ArrowLeft, RefreshCw, UsersRound } from "lucide-react"
 
-import { addGroupMemberWarning, clearGroupMemberWarnings, getGroupBotPermissions, listGroupMemberWarnings, listGroupMembers, moderateGroupMember, type TelegramGroupBotPermissions, type TelegramGroupMember, type TelegramGroupMemberWarning } from "@/lib/api"
+import { addGroupMemberWarning, clearGroupMemberWarnings, getGroupBotPermissions, listGroupMemberWarnings, listGroupMembers, moderateGroupMember, listWarningEscalations, retryWarningEscalation, type TelegramWarningEscalationExecution, type TelegramGroupBotPermissions, type TelegramGroupMember, type TelegramGroupMemberWarning } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -43,6 +43,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
   const [warnings, setWarnings] = useState<TelegramGroupMemberWarning[]>([])
   const [warningTotal, setWarningTotal] = useState(0)
   const [warningBusy, setWarningBusy] = useState(false)
+  const [escalations, setEscalations] = useState<TelegramWarningEscalationExecution[]>([])
 
   const refresh = useCallback(async (manual = false) => {
     setError("")
@@ -68,9 +69,10 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
     setWarningBusy(true)
     setError("")
     try {
-      const response = await listGroupMemberWarnings(groupID, userID)
+      const [response, executions] = await Promise.all([listGroupMemberWarnings(groupID, userID), listWarningEscalations(groupID, userID)])
       setWarnings(response.items)
       setWarningTotal(response.total)
+      setEscalations(executions.items)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "加载警告记录失败")
       setWarnings([])
@@ -88,14 +90,31 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
     setError("")
     try {
       await addGroupMemberWarning(groupID, warningUserID, reason.trim())
-      const response = await listGroupMemberWarnings(groupID, warningUserID)
+      const [response, executions] = await Promise.all([listGroupMemberWarnings(groupID, warningUserID), listWarningEscalations(groupID, warningUserID)])
       setWarnings(response.items)
       setWarningTotal(response.total)
+      setEscalations(executions.items)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "添加警告失败")
     } finally {
       setWarningBusy(false)
     }
+  }
+
+  const retryEscalation = async (execution: TelegramWarningEscalationExecution) => {
+    if (warningUserID === null || !window.confirm("确认重新执行这条失败的自动处罚？服务端会再次检查 Bot 权限及目标成员身份。")) return
+    setWarningBusy(true)
+    setError("")
+    try {
+      await retryWarningEscalation(groupID, warningUserID, execution.id)
+      const [response, executions] = await Promise.all([listGroupMemberWarnings(groupID, warningUserID), listWarningEscalations(groupID, warningUserID)])
+      setWarnings(response.items)
+      setWarningTotal(response.total)
+      setEscalations(executions.items)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "重试自动处罚失败")
+      try { const executions = await listWarningEscalations(groupID, warningUserID); setEscalations(executions.items) } catch { /* preserve original error */ }
+    } finally { setWarningBusy(false) }
   }
 
   const clearWarnings = async () => {
@@ -106,6 +125,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
       await clearGroupMemberWarnings(groupID, warningUserID)
       setWarnings([])
       setWarningTotal(0)
+      setEscalations([])
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "清零警告失败")
     } finally {
@@ -226,13 +246,29 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">成员警告记录</CardTitle>
-              <CardDescription>Telegram 用户 ID：{warningUserID}。累计 {warningTotal} 次警告，当前展示最近 {warnings.length} 条。记录仅用于追踪，当前不会自动触发处罚。</CardDescription>
+              <CardDescription>Telegram 用户 ID：{warningUserID}。累计 {warningTotal} 次警告，当前展示最近 {warnings.length} 条。达到已启用递进策略阈值时会自动执行处罚；失败记录可在此手动重试。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" onClick={() => void addWarning()} disabled={warningBusy}>添加警告</Button>
                 <Button size="sm" variant="destructive" onClick={() => void clearWarnings()} disabled={warningBusy || warnings.length === 0}>清零全部警告</Button>
                 <Button size="sm" variant="outline" onClick={() => setWarningUserID(null)}>关闭</Button>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">递进处罚执行记录</p>
+                {escalations.length === 0 ? <p className="text-sm text-muted-foreground">暂无自动处罚执行记录。</p> : escalations.map((execution) => (
+                  <div key={execution.id} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={execution.status === "succeeded" ? "default" : execution.status === "failed" ? "destructive" : "secondary"}>{execution.status === "succeeded" ? "成功" : execution.status === "failed" ? "失败" : execution.status === "processing" ? "处理中" : "已跳过"}</Badge>
+                        <span className="text-sm font-medium">{execution.action === "mute" ? `禁言 ${execution.duration_minutes} 分钟` : "封禁"} · 第 {execution.warning_count} 次警告</span>
+                      </div>
+                      <p className="mt-1 break-words text-xs text-muted-foreground">{execution.detail || "—"}</p>
+                      <time className="text-xs text-muted-foreground">{new Date(execution.updated_at).toLocaleString()}</time>
+                    </div>
+                    {execution.status === "failed" && <Button size="sm" variant="outline" disabled={warningBusy || !permissions?.can_restrict_members} onClick={() => void retryEscalation(execution)}>重试处罚</Button>}
+                  </div>
+                ))}
               </div>
               {warningBusy ? <p className="text-sm text-muted-foreground">正在处理...</p> : warnings.length === 0 ? (
                 <p className="text-sm text-muted-foreground">该成员在当前群组暂无警告记录。</p>
