@@ -112,7 +112,7 @@ func (s *Service) Save(ctx context.Context,token,username,actorID string) error 
 		token_nonce=EXCLUDED.token_nonce,username=EXCLUDED.username,enabled=TRUE,updated_by=EXCLUDED.updated_by,updated_at=now()`,ciphertext,nonce,username,actorID)
 	if err!=nil{return fmt.Errorf("save encrypted platform Telegram Bot settings: %w",classifyDatabaseError(err))}
 	_,err=tx.Exec(ctx,`INSERT INTO audit_logs(actor_user_id,action,resource_type,resource_id,metadata)
-		VALUES($1,'platform.telegram_auth_bot.update','platform_setting','telegram_auth_bot',jsonb_build_object('username',$2))`,actorID,username)
+		VALUES($1,'platform.telegram_auth_bot.update','platform_setting','telegram_auth_bot',jsonb_build_object('username',$2::text))`,actorID,username)
 	if err!=nil{return fmt.Errorf("audit platform Telegram Bot update: %w",err)}
 	if err=tx.Commit(ctx);err!=nil{return fmt.Errorf("commit platform Telegram Bot settings: %w",err)}
 	return nil
