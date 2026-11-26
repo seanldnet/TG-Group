@@ -75,6 +75,8 @@ func NewHandlerWithPlatformBot(logger *slog.Logger, authService *auth.Service, b
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/members/{userID}/warnings",h.listGroupMemberWarnings)
 	mux.HandleFunc("POST /api/v1/groups/{groupID}/members/{userID}/warnings",h.addGroupMemberWarning)
 	mux.HandleFunc("DELETE /api/v1/groups/{groupID}/members/{userID}/warnings",h.clearGroupMemberWarnings)
+	mux.HandleFunc("GET /api/v1/groups/{groupID}/members/{userID}/warning-escalations",h.listWarningEscalations)
+	mux.HandleFunc("POST /api/v1/groups/{groupID}/members/{userID}/warning-escalations/{executionID}/retry",h.retryWarningEscalation)
 	mux.HandleFunc("POST /api/v1/bots",h.addBot)
 	mux.HandleFunc("PATCH /api/v1/bots/{botID}/status",h.setBotStatus)
 	mux.HandleFunc("PUT /api/v1/bots/{botID}/token",h.rotateBotToken)
