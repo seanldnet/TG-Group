@@ -299,6 +299,16 @@ func (s *Service) ListGroupMemberWarnings(ctx context.Context, tenantID, groupID
 	return items,rows.Err()
 }
 
+func (s *Service) CountGroupMemberWarnings(ctx context.Context, tenantID, groupID string, userID int64) (int64, error) {
+	if userID <= 0 { return 0, ErrInvalidGroupRule }
+	var count int64
+	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM telegram_group_member_warnings w
+		JOIN telegram_groups g ON g.id=w.group_id AND g.tenant_id=w.tenant_id
+		WHERE w.tenant_id=$1 AND w.group_id=$2 AND w.telegram_user_id=$3`, tenantID, groupID, userID).Scan(&count)
+	if err != nil { return 0, fmt.Errorf("count group member warnings: %w", err) }
+	return count, nil
+}
+
 func (s *Service) ClearGroupMemberWarnings(ctx context.Context, tenantID, groupID string, userID int64) (int64, error) {
 	if userID <= 0 { return 0, ErrInvalidGroupRule }
 	tag, err := s.pool.Exec(ctx, `DELETE FROM telegram_group_member_warnings w USING telegram_groups g
