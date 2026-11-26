@@ -82,6 +82,26 @@ chmod 600 "$COMPOSE_FILE"
 
 echo "正在拉取预构建镜像（服务器不会编译项目）..."
 docker compose --env-file "$APP_DIR/.env" -f "$COMPOSE_FILE" pull
+
+# Start PostgreSQL first, then reconcile its role password with the persistent .env.
+set -a
+source "$APP_DIR/.env"
+set +a
+docker compose --env-file "$APP_DIR/.env" -f "$COMPOSE_FILE" up -d postgres
+for attempt in $(seq 1 60); do
+  if docker compose --env-file "$APP_DIR/.env" -f "$COMPOSE_FILE" exec -T postgres pg_isready -U postgres -d postgres >/dev/null 2>&1; then
+    break
+  fi
+  if [[ "$attempt" -eq 60 ]]; then
+    echo "PostgreSQL 在等待时间内未就绪，请查看 postgres 容器日志。"
+    exit 1
+  fi
+  sleep 2
+done
+docker compose --env-file "$APP_DIR/.env" -f "$COMPOSE_FILE" exec -T postgres \
+  psql -U postgres -d postgres -v ON_ERROR_STOP=1 -v db_password="$TG_GROUP_DB_PASSWORD" \
+  -c "ALTER ROLE tg_group WITH PASSWORD :'db_password'"
+
 docker compose --env-file "$APP_DIR/.env" -f "$COMPOSE_FILE" up -d --remove-orphans
 
 echo
