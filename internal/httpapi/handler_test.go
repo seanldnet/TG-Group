@@ -92,3 +92,28 @@ func TestBotEndpointsRequireConfiguredServices(t *testing.T) {
 		}
 	}
 }
+
+func TestCaptchaPublicConfigDoesNotExposeSecret(t *testing.T) {
+	verifier, err := NewCaptchaVerifier("https://captcha.example.com", "public-site-key", "private-secret")
+	if err != nil { t.Fatal(err) }
+	handler := NewHandler(slog.Default(), nil, nil, verifier)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/security/captcha", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK { t.Fatalf("status = %d", response.Code) }
+	body := response.Body.String()
+	if !strings.Contains(body, `"enabled":true`) || !strings.Contains(body, "https://captcha.example.com/public-site-key/") {
+		t.Fatalf("unexpected public CAPTCHA config: %s", body)
+	}
+	if strings.Contains(body, "private-secret") { t.Fatal("CAP secret leaked in public config") }
+}
+
+func TestCaptchaPublicConfigDisabled(t *testing.T) {
+	handler := NewHandler(slog.Default(), nil, nil, nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/security/captcha", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"enabled":false`) {
+		t.Fatalf("unexpected disabled CAPTCHA response: %d %s", response.Code, response.Body.String())
+	}
+}
