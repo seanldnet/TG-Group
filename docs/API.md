@@ -112,6 +112,14 @@ CAP 采用官方 Cap Standalone 服务端和官方 `cap-widget` Web Component。
 
 携带 Bearer token，将当前会话标记为撤销。成功返回 `204`。
 
+退出操作会写入 `auth.logout` 审计事件。
+
+## 账号安全记录
+
+`GET /api/v1/auth/security-events?limit=20`
+
+需要 Bearer 登录。返回当前用户最近的认证安全事件，默认 20 条，limit 范围 1–100。仅查询当前用户作为 actor 的 `auth.*` 审计记录，包含操作类型、资源、来源 IP 和时间；不会返回同租户其他用户的记录。覆盖注册、登录、退出、会话续期、密码修改及 Telegram 身份绑定/解绑。
+
 ## Telegram Bot 管理
 
 所有 Bot 接口均要求 Bearer 登录认证，并按当前用户所属租户过滤数据。
