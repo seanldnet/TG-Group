@@ -5,6 +5,7 @@ import (
     "encoding/json"
     "errors"
     "fmt"
+    "html"
     "io"
     "log/slog"
     "net/http"
@@ -131,7 +132,7 @@ func (p *Poller) handleMessage(ctx context.Context,message *telegramMessage) {
             _=p.sendMessage(ctx,message.Chat.ID,"注册暂时无法完成，请稍后重试或联系平台管理员。")
             return
         }
-        _=p.sendMessage(ctx,message.Chat.ID,"账号注册成功！\n用户 ID："+registration.UserID+"\n初始密码："+registration.Password+"\n请登录网站后立即修改初始密码。")
+        _=p.sendRegistrationCredentials(ctx,message.Chat.ID,registration)
         return
     }
     // All day-to-day actions are button-driven. Ignore legacy slash commands.
@@ -206,12 +207,24 @@ func (p *Poller) deleteMessage(ctx context.Context,chatID,messageID int64)error{
     return nil
 }
 
-func (p *Poller) sendMessage(ctx context.Context, chatID int64, text string) error {
+func (p *Poller) sendMessage(ctx context.Context, chatID int64, text string) error { return p.sendMessageWithParseMode(ctx,chatID,text,"") }
+
+func registrationCredentialsHTML(registration auth.TelegramRegistration) string {
+    return "账号注册成功！\n用户 ID：<code>"+html.EscapeString(registration.UserID)+"</code>\n初始密码：<code>"+html.EscapeString(registration.Password)+"</code>\n\n点击上方每个代码框即可复制。请登录网站后立即修改初始密码。"
+}
+
+func (p *Poller) sendRegistrationCredentials(ctx context.Context,chatID int64,registration auth.TelegramRegistration) error {
+    return p.sendMessageWithParseMode(ctx,chatID,registrationCredentialsHTML(registration),"HTML")
+}
+
+func (p *Poller) sendMessageWithParseMode(ctx context.Context, chatID int64, text string, parseMode string) error {
     keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{
         {{"text":"账号信息","callback_data":"menu:account"},{"text":"添加群管 Bot","callback_data":"menu:addbot"}},
         {{"text":"使用帮助","callback_data":"menu:help"},{"text":"取消当前操作","callback_data":"menu:cancel"}},
     }}
-    payload,_:=json.Marshal(map[string]any{"chat_id":chatID,"text":text,"reply_markup":keyboard})
+    payloadData:=map[string]any{"chat_id":chatID,"text":text,"reply_markup":keyboard}
+    if parseMode!="" { payloadData["parse_mode"]=parseMode }
+    payload,_:=json.Marshal(payloadData)
     req,err:=http.NewRequestWithContext(ctx,http.MethodPost,"https://api.telegram.org/bot"+p.token+"/sendMessage",strings.NewReader(string(payload)))
     if err!=nil{return err};req.Header.Set("Content-Type","application/json")
     response,err:=p.client.Do(req);if err!=nil{return err};defer response.Body.Close()
