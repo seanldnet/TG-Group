@@ -1,6 +1,6 @@
 package telegramruntime
 
-import "testing"
+import ("testing"; "encoding/json"; "github.com/seanldnet/tg-group/internal/bots")
 
 func TestRenderNotice(t *testing.T) {
 	member:=telegramSender{ID:42,Username:"ada",FirstName:"Ada",LastName:"Lovelace"}
@@ -129,4 +129,34 @@ func TestParseGroupRuleDeleteCallback(t *testing.T) {
 			if ok && (stage!=test.stage || id!=ruleID) { t.Fatalf("got (%q,%q), want (%q,%q)",stage,id,test.stage,ruleID) }
 		})
 	}
+}
+
+func TestParseGroupRuleEditCallback(t *testing.T) {
+	const id="00000000-0000-4000-8000-000000000001"
+	tests:=[]struct{data,stage,preset string;want bool}{
+		{"group:ed:"+id,"open","",true},
+		{"group:es:"+id+":w1","set","w1",true},
+		{"group:es:"+id+":v3","set","v3",true},
+		{"group:es:"+id+":unknown","","",false},
+		{"group:ed:not-a-uuid","","",false},
+		{"group:es:"+id+":w1:extra","","",false},
+	}
+	for _,tt:=range tests {
+		stage,_,preset,ok:=parseGroupRuleEditCallback(tt.data)
+		if ok!=tt.want || stage!=tt.stage || preset!=tt.preset { t.Errorf("parseGroupRuleEditCallback(%q)=(%q,%q,%v)",tt.data,stage,preset,ok) }
+	}
+}
+
+func TestGroupRuleEditConfigProducesValidTypeSpecificConfig(t *testing.T) {
+	tests:=[]struct{kind,preset string}{
+		{"welcome","w1"},{"leave_notice","l2"},{"keyword_filter","k1"},
+		{"sensitive_word","k2"},{"anti_ad","a1"},{"anti_spam","s3"},
+		{"join_verification","v2"},{"join_verification","vr"},
+	}
+	for _,tt:=range tests {
+		config:=groupRuleEditConfig(tt.kind,tt.preset)
+		if len(config)==0 { t.Fatalf("missing config for %s/%s",tt.kind,tt.preset) }
+		if err:=bots.ValidateGroupRule(bots.GroupRuleInput{RuleType:tt.kind,Name:"test",Enabled:true,Priority:10,Config:json.RawMessage(config)});err!=nil { t.Errorf("%s/%s config invalid: %v",tt.kind,tt.preset,err) }
+	}
+	if config:=groupRuleEditConfig("welcome","k1");config!=nil { t.Fatal("mismatched preset should be rejected") }
 }
