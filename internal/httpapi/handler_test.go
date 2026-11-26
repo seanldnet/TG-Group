@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/seanldnet/tg-group/internal/auth"
 )
 
 func TestHealthEndpoint(t *testing.T) {
@@ -120,5 +122,20 @@ func TestCaptchaPublicConfigDisabled(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"enabled":false`) {
 		t.Fatalf("unexpected disabled CAPTCHA response: %d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestLoginRateLimitReturnsTooManyRequests(t *testing.T) {
+	handler:=&Handler{logger:slog.Default()}
+	response:=httptest.NewRecorder()
+	handler.writeAuthError(response,auth.ErrLoginRateLimited)
+	if response.Code!=http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want %d",response.Code,http.StatusTooManyRequests)
+	}
+	if response.Header().Get("Retry-After")!="900" {
+		t.Fatalf("Retry-After = %q, want 900",response.Header().Get("Retry-After"))
+	}
+	if !strings.Contains(response.Body.String(),"15 分钟") {
+		t.Fatalf("unexpected rate limit response: %s",response.Body.String())
 	}
 }
