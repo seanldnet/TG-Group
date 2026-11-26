@@ -312,6 +312,26 @@ func (s *Service) ListGroupMemberWarnings(ctx context.Context, tenantID, groupID
 	return items,rows.Err()
 }
 
+
+func (s *Service) ListGroupMemberWarningsPage(ctx context.Context, tenantID, groupID string, userID int64, limit, offset int) ([]GroupMemberWarning, error) {
+	if userID <= 0 { return nil, ErrInvalidGroupRule }
+	if limit < 1 || limit > 100 { limit = 20 }
+	if offset < 0 { offset = 0 }
+	rows, err := s.pool.Query(ctx, `SELECT w.id,w.telegram_user_id,w.actor_telegram_user_id,w.reason,w.source,w.created_at
+		FROM telegram_group_member_warnings w JOIN telegram_groups g ON g.id=w.group_id AND g.tenant_id=w.tenant_id
+		WHERE w.tenant_id=$1 AND w.group_id=$2 AND w.telegram_user_id=$3
+		ORDER BY w.created_at DESC,w.id DESC LIMIT $4 OFFSET $5`, tenantID, groupID, userID, limit, offset)
+	if err != nil { return nil, fmt.Errorf("list paginated group member warnings: %w", err) }
+	defer rows.Close()
+	items := make([]GroupMemberWarning, 0)
+	for rows.Next() {
+		var item GroupMemberWarning
+		if err := rows.Scan(&item.ID,&item.TelegramUserID,&item.ActorTelegramUserID,&item.Reason,&item.Source,&item.CreatedAt); err != nil { return nil, err }
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
 func (s *Service) CountGroupMemberWarnings(ctx context.Context, tenantID, groupID string, userID int64) (int64, error) {
 	if userID <= 0 { return 0, ErrInvalidGroupRule }
 	var count int64
