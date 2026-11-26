@@ -70,3 +70,19 @@ func TestChatMemberUpdateDecoding(t *testing.T) {
 	}
 	if item.ChatMember.Date != 1700000000 { t.Fatalf("date = %d", item.ChatMember.Date) }
 }
+
+
+func TestIsBotEntryCommand(t *testing.T) {
+	tests:=[]struct{input string;want bool}{
+		{"/start",true},{"/start@TGGroupBot",true},{"/menu",true},{"/help",true},
+		{"/start payload",true},{(" /start "),true},{("/rules"),false},{("hello /start"),false},{ "",false },
+	}
+	for _,tt:=range tests { if got:=isBotEntryCommand(tt.input);got!=tt.want { t.Errorf("isBotEntryCommand(%q)=%v want %v",tt.input,got,tt.want) } }
+}
+
+func TestIsTelegramGroupAdministrator(t *testing.T) {
+	tests:=[]struct{status string;want bool}{
+		{"creator",true},{"administrator",true},{"member",false},{"restricted",false},{"left",false},{"kicked",false},{"",false},
+	}
+	for _,tt:=range tests { if got:=isTelegramGroupAdministrator(tt.status);got!=tt.want { t.Errorf("isTelegramGroupAdministrator(%q)=%v want %v",tt.status,got,tt.want) } }
+}
