@@ -51,11 +51,11 @@ func (p *Poller) Run(ctx context.Context) {
         query := url.Values{"timeout":{"25"},"allowed_updates":{ "[\"message\"]" }}
         if offset > 0 { query.Set("offset", strconv.FormatInt(offset,10)) }
         req, err := http.NewRequestWithContext(ctx,http.MethodGet,"https://api.telegram.org/bot"+p.token+"/getUpdates?"+query.Encode(),nil)
-        if err != nil { p.logger.Error("create Telegram auth Bot request","error",err); return }
+        if err != nil { p.logger.Error("create Telegram auth Bot request failed"); return }
         response, err := p.client.Do(req)
         if err != nil {
             if ctx.Err() != nil { return }
-            p.logger.Warn("Telegram auth Bot polling failed","error",err)
+            p.logger.Warn("Telegram auth Bot polling request failed")
             wait(ctx,3*time.Second); continue
         }
         body, readErr := io.ReadAll(io.LimitReader(response.Body,2<<20))
