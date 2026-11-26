@@ -119,10 +119,18 @@ func (p *Poller) handleMessage(ctx context.Context,message *telegramMessage) {
         }
         account,lookupErr:=p.auth.TelegramAccount(ctx,message.From.ID)
         if lookupErr==nil {
-            _=p.sendMessage(ctx,message.Chat.ID,"欢迎回来，"+account.DisplayName+"。请选择要执行的操作。")
+            _=p.sendMessage(ctx,message.Chat.ID,"欢迎回来，"+account.DisplayName+"。请选择下方菜单操作。")
             return
         }
         _=p.sendIntroMenu(ctx,message.Chat.ID)
+        return
+    }
+    replyActions:=map[string]string{
+        "平台介绍":"menu:intro","开始注册":"menu:register","账号信息":"menu:account",
+        "添加群管 Bot":"menu:addbot","使用帮助":"menu:help","取消操作":"menu:cancel",
+    }
+    if action,ok:=replyActions[text];ok {
+        p.handleCallback(ctx,&telegramCallbackQuery{From:message.From,Message:message,Data:action})
         return
     }
     // All day-to-day actions are button-driven. Ignore legacy slash commands.
@@ -135,8 +143,10 @@ func (p *Poller) consumeBotTokenPrompt(userID int64) bool {
 }
 func (p *Poller) handleCallback(ctx context.Context,query *telegramCallbackQuery) {
     if query==nil || query.From==nil || query.From.IsBot || query.Message==nil || query.Message.Chat.Type!="private" || query.Message.Chat.ID!=query.From.ID { return }
-    _=p.answerCallback(ctx,query.ID)
+    if query.ID!="" { _=p.answerCallback(ctx,query.ID) }
     switch query.Data {
+    case "menu:intro":
+        _=p.sendIntroMenu(ctx,query.Message.Chat.ID)
     case "menu:register":
         identity:=auth.TelegramIdentity{ID:query.From.ID,Username:query.From.Username,FirstName:query.From.FirstName,LastName:query.From.LastName}
         if _,err:=p.auth.TelegramAccount(ctx,query.From.ID);err==nil {
@@ -224,9 +234,21 @@ func (p *Poller) sendRegistrationCredentials(ctx context.Context,chatID int64,re
     return p.sendMessageWithParseMode(ctx,chatID,registrationCredentialsHTML(registration),"HTML")
 }
 
+func platformIntroText() string {
+    return "欢迎使用 TG-Group 群组管理平台！\n\n" +
+        "TG-Group 是一个多机器人、多群组的 Telegram 管理控制台。你可以把多个群管 Bot 接入同一个平台账号，在一个网站后台集中管理，不必为每个 Bot 重复设置主人。\n\n" +
+        "接入 Bot 并加入群组、授予必要的管理员权限后，可在平台逐步配置和查看：\n" +
+        "• 群组与机器人：自动发现群组、查看 Bot 在线状态和管理权限\n" +
+        "• 消息与成员：查看群消息记录、成员资料和成员状态\n" +
+        "• 自动化群规：关键词/敏感词过滤、反广告、反刷屏、欢迎语和退群通知\n" +
+        "• 入群验证：数学题与频道关注验证（按群组配置）\n" +
+        "• 成员管理：查看权限并执行封禁、解封、禁言和解除禁言\n\n" +
+        "开始使用：先注册或关联平台账号，再添加群管 Bot；然后把 Bot 拉入群组并授予所需权限，最后在网站控制台配置群规。所有 Bot 都会使用账号关联中的 Telegram 主人身份。\n\n" +
+        "已有平台账号请点“账号信息”。首次使用请点“开始注册”。"
+}
+
 func (p *Poller) sendIntroMenu(ctx context.Context,chatID int64) error {
-    text:="欢迎使用 TG-Group 平台机器人！\\n\\n这里是平台账号与群管 Bot 的统一入口：\\n• 注册并管理你的平台账号\\n• 将多个群管 Bot 统一归属到已绑定的 Telegram 账号\\n• 在网站控制台管理群组、成员和自动化规则\\n\\n首次使用请先阅读说明，再点击“开始注册”；已有账号请点击“账号信息”。"
-    return p.sendMessageWithKeyboard(ctx,chatID,text,"",platformIntroKeyboard())
+    return p.sendMessageWithKeyboard(ctx,chatID,platformIntroText(),"",platformIntroKeyboard())
 }
 
 func platformIntroKeyboard() map[string]any {
@@ -234,6 +256,19 @@ func platformIntroKeyboard() map[string]any {
         {{"text":"开始注册","callback_data":"menu:register"},{"text":"账号信息","callback_data":"menu:account"}},
         {{"text":"添加群管 Bot","callback_data":"menu:addbot"},{"text":"使用帮助","callback_data":"menu:help"}},
     }}
+}
+
+func platformReplyKeyboard() map[string]any {
+    return map[string]any{
+        "keyboard":[][]map[string]string{
+            {{"text":"平台介绍"},{"text":"账号信息"}},
+            {{"text":"添加群管 Bot"},{"text":"使用帮助"}},
+            {{"text":"取消操作"}},
+        },
+        "resize_keyboard":true,
+        "is_persistent":true,
+        "input_field_placeholder":"请选择菜单操作…",
+    }
 }
 
 func (p *Poller) sendMessageWithParseMode(ctx context.Context, chatID int64, text string, parseMode string) error {
@@ -245,7 +280,7 @@ func (p *Poller) sendMessageWithParseMode(ctx context.Context, chatID int64, tex
 }
 
 func (p *Poller) sendMessageWithKeyboard(ctx context.Context,chatID int64,text,parseMode string,keyboard map[string]any) error {
-    payloadData:=map[string]any{"chat_id":chatID,"text":text,"reply_markup":keyboard}
+    payloadData:=map[string]any{"chat_id":chatID,"text":text,"reply_markup":map[string]any{"inline_keyboard":keyboard["inline_keyboard"],"keyboard":platformReplyKeyboard()["keyboard"],"resize_keyboard":true,"is_persistent":true,"input_field_placeholder":"请选择菜单操作…"}}
     if parseMode!="" { payloadData["parse_mode"]=parseMode }
     payload,_:=json.Marshal(payloadData)
     req,err:=http.NewRequestWithContext(ctx,http.MethodPost,"https://api.telegram.org/bot"+p.token+"/sendMessage",strings.NewReader(string(payload)))
