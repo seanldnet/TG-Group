@@ -94,10 +94,16 @@ func (s *Service) Save(ctx context.Context,token,username,actorID string) error 
 	nonce:=make([]byte,s.aead.NonceSize())
 	if _,err:=rand.Read(nonce);err!=nil{return fmt.Errorf("generate platform Bot nonce: %w",err)}
 	ciphertext:=s.aead.Seal(nil,nonce,[]byte(token),[]byte("tg-group/platform-auth-bot/v1"))
-	_,err=s.pool.Exec(ctx,`INSERT INTO platform_telegram_auth_bot_settings(id,token_ciphertext,token_nonce,username,enabled,updated_by,updated_at)
+	tx,err:=s.pool.Begin(ctx);if err!=nil{return fmt.Errorf("begin platform Bot settings update: %w",err)}
+	defer tx.Rollback(ctx)
+	_,err=tx.Exec(ctx,`INSERT INTO platform_telegram_auth_bot_settings(id,token_ciphertext,token_nonce,username,enabled,updated_by,updated_at)
 		VALUES(1,$1,$2,$3,TRUE,$4,now()) ON CONFLICT(id) DO UPDATE SET token_ciphertext=EXCLUDED.token_ciphertext,
 		token_nonce=EXCLUDED.token_nonce,username=EXCLUDED.username,enabled=TRUE,updated_by=EXCLUDED.updated_by,updated_at=now()`,ciphertext,nonce,username,actorID)
 	if err!=nil{return fmt.Errorf("save encrypted platform Telegram Bot settings: %w",err)}
+	_,err=tx.Exec(ctx,`INSERT INTO audit_logs(actor_user_id,action,resource_type,resource_id,metadata)
+		VALUES($1,'platform.telegram_auth_bot.update','platform_setting','telegram_auth_bot',jsonb_build_object('username',$2))`,actorID,username)
+	if err!=nil{return fmt.Errorf("audit platform Telegram Bot update: %w",err)}
+	if err=tx.Commit(ctx);err!=nil{return fmt.Errorf("commit platform Telegram Bot settings: %w",err)}
 	return nil
 }
 
@@ -111,10 +117,16 @@ func (s *Service) LoadToken(ctx context.Context)(string,string,error){
 	return string(token),username,nil
 }
 
-func (s *Service) Clear(ctx context.Context)error{
-	_,err:=s.pool.Exec(ctx,`INSERT INTO platform_telegram_auth_bot_settings(id,token_ciphertext,token_nonce,username,enabled,updated_at)
-		VALUES(1,''::bytea,''::bytea,'',FALSE,now()) ON CONFLICT(id) DO UPDATE SET token_ciphertext=''::bytea,
-		token_nonce=''::bytea,username='',enabled=FALSE,updated_at=now()`)
+func (s *Service) Clear(ctx context.Context,actorID string)error{
+	tx,err:=s.pool.Begin(ctx);if err!=nil{return fmt.Errorf("begin platform Bot settings disable: %w",err)}
+	defer tx.Rollback(ctx)
+	_,err=tx.Exec(ctx,`INSERT INTO platform_telegram_auth_bot_settings(id,token_ciphertext,token_nonce,username,enabled,updated_by,updated_at)
+		VALUES(1,''::bytea,''::bytea,'',FALSE,$1,now()) ON CONFLICT(id) DO UPDATE SET token_ciphertext=''::bytea,
+		token_nonce=''::bytea,username='',enabled=FALSE,updated_by=EXCLUDED.updated_by,updated_at=now()`,actorID)
 	if err!=nil{return fmt.Errorf("disable platform Telegram Bot settings: %w",err)}
+	_,err=tx.Exec(ctx,`INSERT INTO audit_logs(actor_user_id,action,resource_type,resource_id)
+		VALUES($1,'platform.telegram_auth_bot.disable','platform_setting','telegram_auth_bot')`,actorID)
+	if err!=nil{return fmt.Errorf("audit platform Telegram Bot disable: %w",err)}
+	if err=tx.Commit(ctx);err!=nil{return fmt.Errorf("commit platform Telegram Bot disable: %w",err)}
 	return nil
 }
