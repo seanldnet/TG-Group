@@ -32,7 +32,15 @@ export function clearToken() {
   sessionStorage.removeItem(REFRESH_TOKEN_KEY)
 }
 
+let refreshInFlight: Promise<boolean> | null = null
+
 async function refreshSession(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight
+  refreshInFlight = performRefresh()
+  try { return await refreshInFlight } finally { refreshInFlight = null }
+}
+
+async function performRefresh(): Promise<boolean> {
   const refreshToken = sessionStorage.getItem(REFRESH_TOKEN_KEY)
   if (!refreshToken) return false
   try {
