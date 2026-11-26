@@ -661,3 +661,15 @@
 ## 入群验证类型菜单接通（2026-11-26）
 - 入群验证分类增加数字、字母、数字字母组合三种规则创建入口；规则编辑页增加方式切换预设。
 - 代码提交：`1b0c9d5`、`50df88c`、`af4370b`；等待最新 CI。
+
+
+
+## 第一批并行开发：警告与黑白名单数据/服务端基础（2026-11-26）
+- 新增 migration 000016：群成员警告记录表、群成员黑名单/白名单/豁免名单表；按 tenant_id + group_id 隔离，用户 ID 使用 Telegram ID，列表类型受数据库 CHECK 约束，唯一索引防止重复条目。
+- 同步 internal/database/migrations 与根 migrations 的 up/down 文件。
+- 新增群成员名单查询、添加/更新、删除服务方法；新增警告记录写入与按成员查询服务方法，限制原因长度、Telegram 用户 ID、名单类型和来源。
+- 新增对应 HTTP API：名单查询/写入/删除、成员警告查询/添加；所有 API 使用当前登录用户的 tenant_id，并通过 group_id 与 telegram_groups 联查验证资源归属。
+- 安全修正：不接受客户端提交的操作者 Telegram ID，网站端产生的记录将 actor_telegram_user_id 留空；Telegram 操作端需要从真实 Update 的 from.id 写入，后续接入。
+- 涉及文件：internal/database/migrations/000016_group_member_safety.*.sql、migrations/000016_group_member_safety.*.sql、internal/bots/group_rules.go、internal/httpapi/handler.go。
+- 测试：本次尚未执行本地 Go/PostgreSQL 测试；等待 GitHub CI。尚未完成网站 UI、Telegram Inline Keyboard、黑名单入群拦截、白名单/豁免优先级、警告自动递进处罚及操作审计闭环，因此这两个模块目前仅为后端基础，不标记完成。
+- 下一步：补齐服务集成测试与 API 测试，再接 Telegram 管理入口和实时入群/消息执行链路，随后并行推进问答系统与审核系统。
