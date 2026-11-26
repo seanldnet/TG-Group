@@ -1,6 +1,6 @@
 package telegramruntime
 
-import ("testing"; "encoding/json"; "strconv"; "github.com/seanldnet/tg-group/internal/bots")
+import ("testing"; "encoding/json"; "github.com/seanldnet/tg-group/internal/bots")
 
 func TestRenderNotice(t *testing.T) {
 	member:=telegramSender{ID:42,Username:"ada",FirstName:"Ada",LastName:"Lovelace"}
@@ -162,12 +162,13 @@ func TestGroupRuleEditConfigProducesValidTypeSpecificConfig(t *testing.T) {
 }
 
 func TestParseGroupMemberDetailCallback(t *testing.T) {
+	const prefix="group:member:detail:"
 	tests:=[]struct{value string;want int64;ok bool}{
-		{"123",123,true},{"0",0,false},{"-1",0,false},{"abc",0,false},{"9223372036854775808",0,false},
+		{prefix+"123",123,true},{prefix+"0",0,false},{prefix+"-1",0,false},
+		{prefix+"abc",0,false},{prefix+"9223372036854775808",0,false},{"group:members",0,false},
 	}
 	for _,tt:=range tests {
-		got,err:=strconv.ParseInt(tt.value,10,64)
-		ok:=err==nil && got>0
-		if ok!=tt.ok || (ok && got!=tt.want) { t.Errorf("parse member detail id %q = (%d,%v), want (%d,%v)",tt.value,got,ok,tt.want,tt.ok) }
+		got,ok:=parseGroupMemberDetailCallback(tt.value)
+		if ok!=tt.ok || (ok && got!=tt.want) { t.Errorf("parseGroupMemberDetailCallback(%q) = (%d,%v), want (%d,%v)",tt.value,got,ok,tt.want,tt.ok) }
 	}
 }
