@@ -216,3 +216,5 @@
 - [x] 提交前要求 Telegram API 成功删除原始含 Token 消息；删除失败拒绝处理，避免 Token 留在聊天记录。
 - [x] 使用绑定账号的 TenantID/UserID 调用现有 Bot 注册服务，Token 由现有 AES-256-GCM 加密机制保存并写入 Bot 审计。
 - [ ] 真实 Telegram 联调：确认目标 Bot 私聊 `deleteMessage` 权限/行为，并验证 Bot 被添加到群后的发现和规则处理。
+
+- [x] 机器人、群组及群组详情页统一由 DashboardLayout 提供顶部栏与侧边栏，移除页面内部重复品牌头部；内容区统一响应式宽度和内边距，群组详情仅保留模块内返回路径。
