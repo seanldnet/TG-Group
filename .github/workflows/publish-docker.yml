@@ -18,6 +18,10 @@ on:
       - ".github/workflows/publish-docker.yml"
   workflow_dispatch:
 
+concurrency:
+  group: publish-docker-images
+  cancel-in-progress: true
+
 permissions:
   contents: read
   packages: write
