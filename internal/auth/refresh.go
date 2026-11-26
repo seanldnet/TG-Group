@@ -109,9 +109,14 @@ func (s *Service) Refresh(ctx context.Context, refreshToken, userAgent, remoteAd
 		VALUES($1,$2,$3,$4,$5,NULLIF($6,'')::inet)`, userID,familyID,nextRefreshHash,refreshExpires,userAgent,clientIP(remoteAddr)); err != nil {
 		return Session{}, fmt.Errorf("create rotated refresh token: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO user_sessions(user_id,family_id,token_hash,expires_at,user_agent,ip_address)
-		VALUES($1,$2,$3,$4,$5,NULLIF($6,'')::inet)`, userID,familyID,accessHash,accessExpires,userAgent,clientIP(remoteAddr)); err != nil {
-		return Session{}, fmt.Errorf("create refreshed access session: %w", err)
+	tag, err := tx.Exec(ctx, `UPDATE user_sessions SET token_hash=$2,expires_at=$3,user_agent=$4,ip_address=NULLIF($5,'')::inet
+		WHERE user_id=$1 AND family_id=$6 AND revoked_at IS NULL`,
+		userID,accessHash,accessExpires,userAgent,clientIP(remoteAddr),familyID)
+	if err != nil {
+		return Session{}, fmt.Errorf("rotate access session: %w", err)
+	}
+	if tag.RowsAffected() != 1 {
+		return Session{}, ErrRefreshUnauthorized
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id)
 		VALUES($1,$2,'auth.refresh','session',$3)`, user.TenantID,user.ID,user.ID); err != nil {
