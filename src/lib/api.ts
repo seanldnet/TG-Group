@@ -10,13 +10,17 @@ export type User = {
 export type AuthSession = {
   token: string
   expires_at: string
+  refresh_token: string
+  refresh_expires_at: string
   user: User
 }
 
 const TOKEN_KEY = "tg-group-session-token"
+const REFRESH_TOKEN_KEY = "tg-group-refresh-token"
 
-export function saveToken(token: string) {
+export function saveToken(token: string, refreshToken?: string) {
   sessionStorage.setItem(TOKEN_KEY, token)
+  if (refreshToken) sessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
 }
 
 export function getToken() {
@@ -25,17 +29,56 @@ export function getToken() {
 
 export function clearToken() {
   sessionStorage.removeItem(TOKEN_KEY)
+  sessionStorage.removeItem(REFRESH_TOKEN_KEY)
+}
+
+async function refreshSession(): Promise<boolean> {
+  const refreshToken = sessionStorage.getItem(REFRESH_TOKEN_KEY)
+  if (!refreshToken) return false
+  try {
+    const response = await fetch("/api/v1/auth/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      cache: "no-store",
+    })
+    if (!response.ok) {
+      clearToken()
+      return false
+    }
+    const session = await response.json() as AuthSession
+    saveToken(session.token, session.refresh_token)
+    return true
+  } catch {
+    return false
+  }
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(path, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init.headers ?? {}),
-    },
-    cache: "no-store",
-  })
+  const send = () => {
+    const headers = new Headers(init.headers)
+    if (headers.has("Authorization")) {
+      const token = getToken()
+      if (token) headers.set("Authorization", `Bearer ${token}`)
+    }
+    return fetch(path, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...Object.fromEntries(headers.entries()),
+      },
+      cache: "no-store",
+    })
+  }
+
+  let response = await send()
+  const refreshable = !path.endsWith("/auth/refresh") &&
+    !path.endsWith("/auth/login") &&
+    !path.endsWith("/auth/register")
+  if (response.status === 401 && refreshable && sessionStorage.getItem(REFRESH_TOKEN_KEY)) {
+    if (await refreshSession()) response = await send()
+    else clearToken()
+  }
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({})) as { error?: string }
