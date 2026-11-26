@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import {
   ArrowRight,
   Bot,
@@ -359,7 +360,7 @@ export default function App() {
   const pathname = window.location.pathname
   if (pathname === "/login") return <LoginPage />
   if (pathname === "/register") return <RegisterPage />
-  let page: React.ReactNode = null
+  let page: ReactNode = null
   if (pathname === "/dashboard") page = <DashboardPage />
   else if (pathname === "/dashboard/bots") page = <BotsPage />
   else if (pathname === "/dashboard/groups") page = <GroupsPage />
