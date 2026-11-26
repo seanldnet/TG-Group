@@ -591,3 +591,12 @@
 - **会话安全**：pending state 写入 PostgreSQL，按 tenant/group/Telegram user 隔离，5 分钟超时；提交时再次校验平台主人身份。无效内容不会覆盖旧规则。
 - **测试**：新增自定义编辑 callback 白名单和关键词分割去重测试。
 - **边界**：仅消费由按钮创建且未过期的输入会话，不将普通消息或 slash command 当作管理操作；真实 Telegram ForceReply、公告发布与置顶仍需部署环境验收。
+
+
+### Telegram 群组设置与必需频道（第十五批第五阶段）
+- **群组设置**：新增修改群名称、修改群简介、生成邀请链接按钮；资料更新调用 editChatTitle/editChatDescription，邀请链接调用 exportChatInviteLink。
+- **持久化输入**：pending action 白名单增加 group_title/group_description；迁移 000014 的 internal 与根目录 SQL 同步更新，仍按租户/群组/主人用户隔离，5 分钟过期。
+- **审计**：群名称/简介修改成功后写入 audit_logs，资源类型 telegram_group。
+- **入群验证**：群规编辑增加必需频道自定义配置，支持 @username 和 -100 ID，最多 10 个；挑战答题时既有 checkRequiredChannels 会逐个调用 getChatMember 验证。
+- **测试**：增加关键词输入清洗去重测试；自定义编辑 callback 覆盖 channels 字段。
+- **边界**：邀请链接/群资料编辑是否成功取决于 Bot 在真实群组中的权限；未进行 Telegram 客户端端到端验收。
