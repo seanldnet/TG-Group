@@ -342,3 +342,5 @@ openssl rand -base64 32
 - `DELETE /api/v1/admin/platform/telegram-auth-bot`：停用 Bot、清空加密凭据，并持久化 disabled 标记，防止重启时被旧环境变量重新启用。
 
 加密密钥复用部署时生成的 `BOT_TOKEN_ENCRYPTION_KEY`（Base64 编码的 32 字节密钥）。平台 Bot 设置表为单例配置；网站页面只允许管理员访问，Token 字段不会回显。运行状态表示本进程轮询管理器已启动，不等价于 Telegram 端长期在线或真实业务验收。
+
+管理员保存/停用操作分别写入 `audit_logs`：`platform.telegram_auth_bot.update` 与 `platform.telegram_auth_bot.disable`。审计记录只保存 Bot Username，不记录 Token。
