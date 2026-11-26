@@ -45,10 +45,10 @@ cd "$APP_DIR"
 if [[ ! -f .env ]]; then
   if command -v openssl >/dev/null 2>&1; then
     DB_PASSWORD="$(openssl rand -hex 32)"
-    BOT_KEY="$(openssl rand -hex 32)"
+    BOT_KEY="$(openssl rand -base64 32 | tr -d '\n')"
   else
     DB_PASSWORD="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
-    BOT_KEY="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
+    BOT_KEY="$(head -c 32 /dev/urandom | base64 | tr -d '\n')"
   fi
   umask 077
   printf 'TG_GROUP_DB_PASSWORD=%s\nTG_GROUP_BOT_ENCRYPTION_KEY=%s\n' "$DB_PASSWORD" "$BOT_KEY" > .env
