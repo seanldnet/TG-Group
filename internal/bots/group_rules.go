@@ -205,3 +205,86 @@ func validRequiredChannel(value string) bool {
 	for _, char := range value[4:] { if char < '0' || char > '9' { return false } }
 	return true
 }
+
+type GroupMemberListEntry struct {
+	TelegramUserID int64 `json:"telegram_user_id"`
+	ListType string `json:"list_type"`
+	Reason string `json:"reason"`
+	ActorTelegramUserID int64 `json:"actor_telegram_user_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type GroupMemberWarning struct {
+	ID int64 `json:"id"`
+	TelegramUserID int64 `json:"telegram_user_id"`
+	ActorTelegramUserID int64 `json:"actor_telegram_user_id"`
+	Reason string `json:"reason"`
+	Source string `json:"source"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func validGroupMemberListType(value string) bool {
+	return value == "blacklist" || value == "whitelist" || value == "exempt"
+}
+
+func (s *Service) ListGroupMemberLists(ctx context.Context, tenantID, groupID string) ([]GroupMemberListEntry, error) {
+	rows, err := s.pool.Query(ctx, `SELECT l.telegram_user_id,l.list_type,l.reason,l.actor_telegram_user_id,l.created_at
+		FROM telegram_group_member_lists l JOIN telegram_groups g ON g.id=l.group_id AND g.tenant_id=l.tenant_id
+		WHERE l.tenant_id=$1 AND l.group_id=$2 ORDER BY l.created_at DESC LIMIT 500`, tenantID, groupID)
+	if err != nil { return nil, fmt.Errorf("list group member lists: %w", err) }
+	defer rows.Close()
+	items := make([]GroupMemberListEntry, 0)
+	for rows.Next() {
+		var item GroupMemberListEntry
+		if err := rows.Scan(&item.TelegramUserID,&item.ListType,&item.Reason,&item.ActorTelegramUserID,&item.CreatedAt); err != nil { return nil, err }
+		items = append(items,item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Service) UpsertGroupMemberList(ctx context.Context, tenantID, groupID string, userID, actorID int64, listType, reason string) error {
+	listType = strings.TrimSpace(listType)
+	reason = strings.TrimSpace(reason)
+	if userID <= 0 || actorID <= 0 || !validGroupMemberListType(listType) || len([]rune(reason)) > 500 { return ErrInvalidGroupRule }
+	_, err := s.pool.Exec(ctx, `INSERT INTO telegram_group_member_lists(tenant_id,group_id,telegram_user_id,list_type,reason,actor_telegram_user_id)
+		SELECT $1,g.id,$3,$4,$5,$6 FROM telegram_groups g WHERE g.tenant_id=$1 AND g.id=$2
+		ON CONFLICT(tenant_id,group_id,telegram_user_id,list_type) DO UPDATE SET reason=EXCLUDED.reason,actor_telegram_user_id=EXCLUDED.actor_telegram_user_id,created_at=now()`,
+		tenantID,groupID,userID,listType,reason,actorID)
+	if err != nil { return fmt.Errorf("save group member list entry: %w", err) }
+	return nil
+}
+
+func (s *Service) DeleteGroupMemberList(ctx context.Context, tenantID, groupID string, userID int64, listType string) error {
+	if userID <= 0 || !validGroupMemberListType(listType) { return ErrInvalidGroupRule }
+	tag, err := s.pool.Exec(ctx, `DELETE FROM telegram_group_member_lists l USING telegram_groups g
+		WHERE l.tenant_id=$1 AND l.group_id=$2 AND l.telegram_user_id=$3 AND l.list_type=$4
+		AND g.id=l.group_id AND g.tenant_id=l.tenant_id`,tenantID,groupID,userID,listType)
+	if err != nil { return fmt.Errorf("delete group member list entry: %w", err) }
+	if tag.RowsAffected()==0 { return ErrNotFound }
+	return nil
+}
+
+func (s *Service) AddGroupMemberWarning(ctx context.Context, tenantID, groupID string, userID, actorID int64, reason, source string) (GroupMemberWarning,error) {
+	reason = strings.TrimSpace(reason)
+	if userID <= 0 || actorID <= 0 || reason == "" || len([]rune(reason)) > 500 || (source != "manual" && source != "automatic") { return GroupMemberWarning{},ErrInvalidGroupRule }
+	var item GroupMemberWarning
+	err := s.pool.QueryRow(ctx, `INSERT INTO telegram_group_member_warnings(tenant_id,group_id,telegram_user_id,actor_telegram_user_id,reason,source)
+		SELECT $1,g.id,$3,$4,$5,$6 FROM telegram_groups g WHERE g.tenant_id=$1 AND g.id=$2
+		RETURNING id,telegram_user_id,actor_telegram_user_id,reason,source,created_at`,tenantID,groupID,userID,actorID,reason,source).
+		Scan(&item.ID,&item.TelegramUserID,&item.ActorTelegramUserID,&item.Reason,&item.Source,&item.CreatedAt)
+	if errors.Is(err,pgx.ErrNoRows) { return GroupMemberWarning{},ErrNotFound }
+	if err != nil { return GroupMemberWarning{},fmt.Errorf("add group member warning: %w",err) }
+	return item,nil
+}
+
+func (s *Service) ListGroupMemberWarnings(ctx context.Context, tenantID, groupID string, userID int64) ([]GroupMemberWarning,error) {
+	if userID <= 0 { return nil,ErrInvalidGroupRule }
+	rows,err:=s.pool.Query(ctx,`SELECT w.id,w.telegram_user_id,w.actor_telegram_user_id,w.reason,w.source,w.created_at
+		FROM telegram_group_member_warnings w JOIN telegram_groups g ON g.id=w.group_id AND g.tenant_id=w.tenant_id
+		WHERE w.tenant_id=$1 AND w.group_id=$2 AND w.telegram_user_id=$3 ORDER BY w.created_at DESC LIMIT 100`,tenantID,groupID,userID)
+	if err!=nil{return nil,fmt.Errorf("list group member warnings: %w",err)}
+	defer rows.Close()
+	items:=make([]GroupMemberWarning,0)
+	for rows.Next(){var item GroupMemberWarning;if err:=rows.Scan(&item.ID,&item.TelegramUserID,&item.ActorTelegramUserID,&item.Reason,&item.Source,&item.CreatedAt);err!=nil{return nil,err};items=append(items,item)}
+	return items,rows.Err()
+}
