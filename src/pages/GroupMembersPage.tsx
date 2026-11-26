@@ -41,6 +41,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
   const [actingUserID, setActingUserID] = useState<number | null>(null)
   const [warningUserID, setWarningUserID] = useState<number | null>(null)
   const [warnings, setWarnings] = useState<TelegramGroupMemberWarning[]>([])
+  const [warningTotal, setWarningTotal] = useState(0)
   const [warningBusy, setWarningBusy] = useState(false)
 
   const refresh = useCallback(async (manual = false) => {
@@ -69,6 +70,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
     try {
       const response = await listGroupMemberWarnings(groupID, userID)
       setWarnings(response.items)
+      setWarningTotal(response.total)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "加载警告记录失败")
       setWarnings([])
@@ -88,6 +90,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
       await addGroupMemberWarning(groupID, warningUserID, reason.trim())
       const response = await listGroupMemberWarnings(groupID, warningUserID)
       setWarnings(response.items)
+      setWarningTotal(response.total)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "添加警告失败")
     } finally {
@@ -102,6 +105,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
     try {
       await clearGroupMemberWarnings(groupID, warningUserID)
       setWarnings([])
+      setWarningTotal(0)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "清零警告失败")
     } finally {
@@ -221,7 +225,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">成员警告记录</CardTitle>
-              <CardDescription>Telegram 用户 ID：{warningUserID}。记录仅用于追踪，当前不会自动触发处罚。</CardDescription>
+              <CardDescription>Telegram 用户 ID：{warningUserID}。累计 {warningTotal} 次警告，当前展示最近 {warnings.length} 条。记录仅用于追踪，当前不会自动触发处罚。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-2">
