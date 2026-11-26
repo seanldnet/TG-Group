@@ -634,3 +634,10 @@
 - 已修正：新增按分类过滤的规则列表；入群验证仅显示 `join_verification`，提示设置仅显示 welcome/leave_notice，刷屏检测仅显示 anti_spam，广告检测仅显示 anti_ad/keyword_filter/sensitive_word。各分类只提供自身创建入口。
 - 当前验证引擎实际执行的是数学选择题，并支持超时/失败处理及必需频道成员核验；字母、字母数字组合、私聊验证和 CAPTCHA 尚未实现，文档与页面不将其标为已开放。
 - 本次代码提交：`fa81562a75c4391f4043ddba21d27ff742cacc4a`；等待 CI 结果与真实 Telegram 客户端复测。
+
+
+## 群规分类操作上下文修复（2026-11-26）
+- 修复分类列表内创建、编辑、启停、删除、自定义频道配置保存后跳回全量群规列表的问题。
+- 根据规则类型统一映射分类，所有成功操作后刷新对应分类；编辑返回和删除确认取消也留在原分类。
+- 增加 `TestGroupRuleCategoryKeepsFeatureIsolation` 覆盖分类映射。
+- 代码提交：`39662ec`、`a3ab3f7`、`f3c5933`、`3588c57`；等待 CI 和 Docker 构建。
