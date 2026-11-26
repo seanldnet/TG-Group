@@ -279,3 +279,14 @@
 - **CAP 资源部署补充**：新增可选 `CAP_WIDGET_URL`，支持将官方 `widget.js` 指向自托管/镜像地址；默认使用固定版本 CDN。公开 CAPTCHA 配置只返回该脚本地址，不返回任何 secret。增加 widget URL HTTPS/loopback 校验与配置测试，并同步本地联调文档。若使用 Cap Standalone assets server，仍需按官方说明固定 widget/WASM 版本并保证 WASM 文件浏览器可访问。
 
 - **CAP 阶段 CI 验证**：代码提交 `2a984250097b952837f2cbc9ee49f74a1de6e073` 对应 GitHub Actions run `45728415621` 两个 Job 均 success：Go 格式检查、完整 Go/PostgreSQL 测试、`go vet ./...` 与前端依赖安装和生产构建全部通过。此结果覆盖 CAP verifier、配置与测试、前端 CAP 组件编译；不替代实际 Cap Standalone 公网浏览器联调。
+
+
+## 2026-11-26（全仓库审查校准）
+
+- **审查范围**：复核 main 分支文件树、REQUIREMENTS、DEVELOPMENT-PLAN、DEVELOPMENT-LOG、API、LOCAL-TESTING、README、HOMEPAGE-CONTENT、CI 工作流及最新 Actions 运行。
+- **审查基线**：提交 `453151d85b8e8478cb1042b9bd7fde56841390e3`；对应 CI run `45728546740` 为 success，覆盖 Go/PostgreSQL 测试、go vet 和前端生产构建。
+- **已确认代码范围**：网站邮箱认证、Bot Token 加密管理、Telegram 长轮询/群组发现、消息日志、成员增量采集与手动处罚、基础规则配置/执行/记录、数学题及频道关注入群验证、网站 CAP siteverify。
+- **未完成项**：可信 Telegram ID 绑定与注册管理 Bot、refresh token/密码找回/邮箱验证/登录限流/完整角色授权、完整群管功能矩阵与自动处罚队列、Telegram 管理端双端等价、支付授权、赞助商、AI 审核、CAP 公网验收、真实 Telegram 端到端及生产部署。
+- **文档同步**：校准开发计划日期与后续顺序；修正 README 和首页介绍中过期的功能状态，避免把未开发功能宣传为已交付。
+- **验证**：本次仅修改文档，未运行新代码测试；本次提交后的 CI 结果为准。
+- **下一步**：从账号体系补齐开始，优先设计可信 Telegram ID 绑定和会话安全；涉及外部邮件/注册 Bot 凭据的流程在配置提供前不宣称完成。
