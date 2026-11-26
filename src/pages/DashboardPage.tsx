@@ -275,7 +275,6 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
         <div className="mt-4">
           <Card>
             <CardHeader>
@@ -311,6 +310,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+      </div>
     </main>
   )
 }
