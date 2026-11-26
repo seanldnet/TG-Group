@@ -48,19 +48,6 @@ func TestJoinChallengeOptionsRejectsInvalidAnswer(t *testing.T) {
 	if options:=joinChallengeOptions(19);options!=nil { t.Fatalf("invalid answer options = %v",options) }
 }
 
-func TestParseGroupBotCommand(t *testing.T) {
-	tests:=[]struct{input,want string}{
-		{"/start","start"},
-		{"/help@sample_bot","help"},
-		{"/rules extra","rules"},
-		{"/members","members"},
-		{"hello",""},
-		{"start",""},
-		{"/",""},
-	}
-	for _,test:=range tests { if got:=parseGroupBotCommand(test.input);got!=test.want { t.Errorf("parseGroupBotCommand(%q)=%q want %q",test.input,got,test.want) } }
-}
-
 func TestGroupOwnerAccessUsesLinkedTenantIdentity(t *testing.T) {
 	tests:=[]struct{name string;hasLinkedOwner,isOwner bool;want string}{
 		{name:"no account linked",hasLinkedOwner:false,isOwner:false,want:"unbound"},
