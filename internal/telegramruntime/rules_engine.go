@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/seanldnet/tg-group/internal/bots"
 )
 
 type executableRule struct {
