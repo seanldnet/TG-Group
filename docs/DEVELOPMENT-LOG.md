@@ -9,7 +9,8 @@
 - **身份绑定兼容**：保留网站注册用户的 `/start <challenge>` 一次性绑定流程；Bot 只处理用户私聊，忽略群聊和机器人账号；绑定失败会返回明确提示。
 - **测试**：新增 PostgreSQL 集成测试覆盖 Telegram 注册、重复注册拒绝、用户 ID 登录、身份绑定和按 Telegram ID 查询账号。需等待 CI 中 Go/PostgreSQL 测试、go vet 与前端构建结果；未在真实 Telegram Bot 上联调。
 - **安全说明**：初始密码仅由 Bot 私聊发送一次，日志不记录密码或 Token；平台 Bot 仍由 `TELEGRAM_AUTH_BOT_TOKEN` 与 `TELEGRAM_AUTH_BOT_USERNAME` 环境变量配置，管理员可视化配置尚未实现。注册菜单、套餐查询/购买、提交群管 Bot Token 等流程仍待开发。
-- **涉及文件**：`internal/auth/telegram_register.go`、`internal/auth/service.go`、`internal/auth/service_integration_test.go`、`internal/telegramauthbot/poller.go`、`src/pages/LoginPage.tsx`、`docs/API.md`、`docs/DEVELOPMENT-PLAN.md`。
+- **部署接线**：Compose API 容器增加可选的 `TELEGRAM_AUTH_BOT_TOKEN` / `TELEGRAM_AUTH_BOT_USERNAME` 环境变量映射，宿主机 `.env` 使用 `TG_GROUP_TELEGRAM_AUTH_BOT_TOKEN` / `TG_GROUP_TELEGRAM_AUTH_BOT_USERNAME`；更新 README 配置说明。管理员网页配置尚未实现。
+- **涉及文件**：`deploy/docker-compose.yml`、`README.md`、`internal/auth/telegram_register.go`、`internal/auth/service.go`、`internal/auth/service_integration_test.go`、`internal/telegramauthbot/poller.go`、`src/pages/LoginPage.tsx`、`docs/API.md`、`docs/DEVELOPMENT-PLAN.md`。
 - **下一步**：完成管理员可视化平台 Bot 配置（加密存储与运行时安全重载），再开发注册 Bot Inline Keyboard 主菜单、用户/套餐/群管 Bot 账户管理对话，并补齐真实 Bot 联调。
 
 
