@@ -34,6 +34,7 @@ func NewHandlerWithTelegramAuthBot(logger *slog.Logger, authService *auth.Servic
 	mux.HandleFunc("GET /api/v1/security/captcha",h.captchaConfig)
 	mux.HandleFunc("POST /api/v1/auth/register",h.register)
 	mux.HandleFunc("POST /api/v1/auth/login",h.login)
+	mux.HandleFunc("POST /api/v1/auth/refresh",h.refresh)
 	mux.HandleFunc("POST /api/v1/auth/logout",h.logout)
 	mux.HandleFunc("GET /api/v1/auth/me",h.me)
 	mux.HandleFunc("GET /api/v1/auth/telegram",h.telegramIdentity)
@@ -66,6 +67,7 @@ type credentialsRequest struct {
 	Password string `json:"password"`
 	CaptchaToken string `json:"captcha_token"`
 }
+type refreshRequest struct { RefreshToken string `json:"refresh_token"` }
 type registerRequest struct {
 	Email string `json:"email"`
 	Password string `json:"password"`
@@ -116,6 +118,23 @@ func (h *Handler) login(w http.ResponseWriter,r *http.Request) {
 	if err:=h.verifyCaptcha(r,input.CaptchaToken);err!=nil { h.writeCaptchaError(w,err);return }
 	session,err:=h.auth.Login(r.Context(),input.Email,input.Password,r.UserAgent(),r.RemoteAddr)
 	if err!=nil { h.writeAuthError(w,err);return }
+	writeJSON(w,http.StatusOK,session)
+}
+
+func (h *Handler) refresh(w http.ResponseWriter,r *http.Request) {
+	if !h.requireAuthStore(w) { return }
+	var input refreshRequest
+	if !decodeJSON(w,r,&input) { return }
+	session,err:=h.auth.Refresh(r.Context(),input.RefreshToken,r.UserAgent(),r.RemoteAddr)
+	if err!=nil {
+		if errors.Is(err,auth.ErrRefreshUnauthorized) || errors.Is(err,auth.ErrRefreshReuse) {
+			writeError(w,http.StatusUnauthorized,"登录会话已失效，请重新登录")
+			return
+		}
+		h.logger.Error("refresh session failed","error",err)
+		writeError(w,http.StatusInternalServerError,"internal server error")
+		return
+	}
 	writeJSON(w,http.StatusOK,session)
 }
 
