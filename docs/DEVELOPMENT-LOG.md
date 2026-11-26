@@ -673,3 +673,13 @@
 - 涉及文件：internal/database/migrations/000016_group_member_safety.*.sql、migrations/000016_group_member_safety.*.sql、internal/bots/group_rules.go、internal/httpapi/handler.go。
 - 测试：本次尚未执行本地 Go/PostgreSQL 测试；等待 GitHub CI。尚未完成网站 UI、Telegram Inline Keyboard、黑名单入群拦截、白名单/豁免优先级、警告自动递进处罚及操作审计闭环，因此这两个模块目前仅为后端基础，不标记完成。
 - 下一步：补齐服务集成测试与 API 测试，再接 Telegram 管理入口和实时入群/消息执行链路，随后并行推进问答系统与审核系统。
+
+
+
+## 群成员安全模块：Telegram 管理端第一阶段（2026-11-26）
+- 群组管理菜单中的“黑白名单”与“警告系统”已从纯开发中入口调整为部分开放，并各自仅显示本分类操作。
+- 成员详情增加添加警告、加入黑名单、加入白名单、设为豁免成员按钮；警告历史与当前记录数量在详情中展示。
+- 新增群组名单列表查看入口，按当前 tenant/group 读取，最多显示 30 条。
+- Telegram callback 操作在现有群管理员实时权限检查之后执行，写入时记录真实 Telegram 操作者 ID。
+- 当前明确限制：名单目前仅完成存储和管理，不执行入群拦截或消息拦截；警告目前只记录，不触发自动处罚；删除名单条目、清零警告、自动递进处罚和网站 UI 尚未完成。因此不能将模块标记为完整交付。
+- 本轮提交：cafc955（Telegram 管理端操作）、d10a9fd（分类状态修正）。CI 等待最新提交验证。
