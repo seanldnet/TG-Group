@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -86,4 +85,3 @@ func (s *Service) RegisterTelegramAccount(ctx context.Context, identity Telegram
 	return TelegramRegistration{UserID: userID, Email: email, Password: password}, nil
 }
 
-var _ = errors.Is
