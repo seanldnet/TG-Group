@@ -25,7 +25,6 @@ var (
 	ErrAccountInactive = errors.New("account is not active")
 )
 
-const sessionLifetime = 30 * 24 * time.Hour
 
 type Service struct { pool *pgxpool.Pool }
 
@@ -41,6 +40,8 @@ type User struct {
 type Session struct {
 	Token string `json:"token"`
 	ExpiresAt time.Time `json:"expires_at"`
+	RefreshToken string `json:"refresh_token"`
+	RefreshExpiresAt time.Time `json:"refresh_expires_at"`
 	User User `json:"user"`
 }
 
@@ -57,7 +58,10 @@ func (s *Service) Register(ctx context.Context, email, password, displayName, us
 	if err != nil { return Session{}, fmt.Errorf("hash password: %w", err) }
 	token, tokenHash, err := newToken()
 	if err != nil { return Session{}, err }
-	expires := time.Now().UTC().Add(sessionLifetime)
+	expires := time.Now().UTC().Add(accessSessionLifetime)
+	refreshToken, refreshHash, err := newToken()
+	if err != nil { return Session{}, err }
+	refreshExpires := time.Now().UTC().Add(refreshTokenLifetime)
 	ip := clientIP(remoteAddr)
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -75,8 +79,13 @@ func (s *Service) Register(ctx context.Context, email, password, displayName, us
 		if isUniqueViolation(err) { return Session{}, ErrEmailTaken }
 		return Session{}, fmt.Errorf("create user: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO user_sessions(user_id,token_hash,expires_at,user_agent,ip_address)
-		VALUES($1,$2,$3,$4,NULLIF($5,'')::inet)`, userID, tokenHash, expires, userAgent, ip); err != nil {
+	var familyID string
+	if err := tx.QueryRow(ctx, `INSERT INTO user_refresh_tokens(user_id,token_hash,expires_at,user_agent,ip_address)
+		VALUES($1,$2,$3,$4,NULLIF($5,'')::inet) RETURNING family_id::text`, userID, refreshHash, refreshExpires, userAgent, ip).Scan(&familyID); err != nil {
+		return Session{}, fmt.Errorf("create refresh token: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO user_sessions(user_id,family_id,token_hash,expires_at,user_agent,ip_address)
+		VALUES($1,$2,$3,$4,$5,NULLIF($6,'')::inet)`, userID, familyID, tokenHash, expires, userAgent, ip); err != nil {
 		return Session{}, fmt.Errorf("create session: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,ip_address)
@@ -84,7 +93,7 @@ func (s *Service) Register(ctx context.Context, email, password, displayName, us
 		return Session{}, fmt.Errorf("write registration audit: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil { return Session{}, fmt.Errorf("commit registration: %w", err) }
-	return Session{Token: token, ExpiresAt: expires, User: User{ID:userID,TenantID:tenantID,Email:email,DisplayName:displayName,Role:"user",CreatedAt:createdAt}}, nil
+	return Session{Token: token, ExpiresAt: expires, RefreshToken: refreshToken, RefreshExpiresAt: refreshExpires, User: User{ID:userID,TenantID:tenantID,Email:email,DisplayName:displayName,Role:"user",CreatedAt:createdAt}}, nil
 }
 
 func (s *Service) Login(ctx context.Context, email, password, userAgent, remoteAddr string) (Session, error) {
@@ -96,16 +105,33 @@ func (s *Service) Login(ctx context.Context, email, password, userAgent, remoteA
 	if err != nil { return Session{}, ErrInvalidCredentials }
 	if bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password)) != nil { return Session{}, ErrInvalidCredentials }
 	if status != "active" || tenantStatus != "active" { return Session{}, ErrAccountInactive }
+
 	token, tokenHash, err := newToken()
 	if err != nil { return Session{}, err }
-	expires := time.Now().UTC().Add(sessionLifetime)
-	if _, err := s.pool.Exec(ctx, `INSERT INTO user_sessions(user_id,token_hash,expires_at,user_agent,ip_address)
-		VALUES($1,$2,$3,$4,NULLIF($5,'')::inet)`, user.ID,tokenHash,expires,userAgent,clientIP(remoteAddr)); err != nil {
+	refreshToken, refreshHash, err := newToken()
+	if err != nil { return Session{}, err }
+	now := time.Now().UTC()
+	expires := now.Add(accessSessionLifetime)
+	refreshExpires := now.Add(refreshTokenLifetime)
+	ip := clientIP(remoteAddr)
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil { return Session{}, fmt.Errorf("begin login session: %w", err) }
+	defer tx.Rollback(ctx)
+	var familyID string
+	if err := tx.QueryRow(ctx, `INSERT INTO user_refresh_tokens(user_id,token_hash,expires_at,user_agent,ip_address)
+		VALUES($1,$2,$3,$4,NULLIF($5,'')::inet) RETURNING family_id::text`, user.ID,refreshHash,refreshExpires,userAgent,ip).Scan(&familyID); err != nil {
+		return Session{}, fmt.Errorf("create login refresh token: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO user_sessions(user_id,family_id,token_hash,expires_at,user_agent,ip_address)
+		VALUES($1,$2,$3,$4,$5,NULLIF($6,'')::inet)`, user.ID,familyID,tokenHash,expires,userAgent,ip); err != nil {
 		return Session{}, fmt.Errorf("create login session: %w", err)
 	}
-	_, _ = s.pool.Exec(ctx, `INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,ip_address)
-		VALUES($1,$2,'auth.login','user',$3,NULLIF($4,'')::inet)`, user.TenantID,user.ID,user.ID,clientIP(remoteAddr))
-	return Session{Token:token,ExpiresAt:expires,User:user}, nil
+	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,ip_address)
+		VALUES($1,$2,'auth.login','user',$3,NULLIF($4,'')::inet)`, user.TenantID,user.ID,user.ID,ip); err != nil {
+		return Session{}, fmt.Errorf("audit login: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil { return Session{}, fmt.Errorf("commit login: %w", err) }
+	return Session{Token:token,ExpiresAt:expires,RefreshToken:refreshToken,RefreshExpiresAt:refreshExpires,User:user},nil
 }
 
 func (s *Service) Authenticate(ctx context.Context, token string) (User, error) {
@@ -123,8 +149,20 @@ func (s *Service) Authenticate(ctx context.Context, token string) (User, error) 
 func (s *Service) Logout(ctx context.Context, token string) error {
 	if token == "" { return nil }
 	hash := sha256.Sum256([]byte(token))
-	_, err := s.pool.Exec(ctx, "UPDATE user_sessions SET revoked_at=now() WHERE token_hash=$1 AND revoked_at IS NULL", hash[:])
-	return err
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil { return fmt.Errorf("begin logout: %w", err) }
+	defer tx.Rollback(ctx)
+	var familyID *string
+	err = tx.QueryRow(ctx, `UPDATE user_sessions SET revoked_at=now()
+		WHERE token_hash=$1 AND revoked_at IS NULL RETURNING family_id::text`, hash[:]).Scan(&familyID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) { return fmt.Errorf("revoke access session: %w", err) }
+	if familyID != nil {
+		if _, err := tx.Exec(ctx, "UPDATE user_refresh_tokens SET revoked_at=COALESCE(revoked_at,now()) WHERE family_id=$1", *familyID); err != nil {
+			return fmt.Errorf("revoke refresh token family: %w", err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil { return fmt.Errorf("commit logout: %w", err) }
+	return nil
 }
 
 func validEmail(value string) bool {
