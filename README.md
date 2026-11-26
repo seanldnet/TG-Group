@@ -20,9 +20,11 @@ Telegram 多用户、多 Bot、多群组管理平台。
 - Telegram Bot Token 加密管理、后台长轮询、群组自动发现、消息日志、成员增量采集和手动成员处罚。
 - 群组规则配置/执行记录、入群数学题和可选频道关注验证。
 - 网站 CAP Standalone siteverify 服务端验证（需部署配置）。
-- 平台 Telegram 注册/身份 Bot 第一阶段：私聊 `/start` 自动创建平台账号并绑定 Telegram ID、生成随机初始密码；`/account` 查询本人账号；网站支持用户 ID 登录；网站账号也可通过一次性挑战绑定 Telegram。需配置平台 Bot 凭据后进行真实联调。
+- 平台 Telegram 注册/身份 Bot：私聊注册、账号查询、一次性身份绑定，以及用户提交群管 Bot Token 的基础流程已实现；真实 Bot 凭据联调仍需验收。
+- 群管 Telegram Inline Keyboard 已有主菜单、分类导航、部分规则/成员/消息/群组设置操作；并非所有群管功能都已完成，详见开发计划。
+- 群成员名单执行、警告递进处罚、执行历史和失败人工重试已有基础闭环；后台自动重试/崩溃恢复仍未完成。
 
-平台 Bot 的管理员可视化配置、Inline Keyboard 主菜单、套餐/订单查询和群管 Bot Token 提交流程，以及完整群管矩阵、支付、AI 审核仍在开发中。
+套餐/订单/支付（USDT、EPUSDT、GMPay）、赞助商、AI 智能审核、完整群管需求矩阵及网站/Telegram 双端逐项等价仍在开发中。
 
 ## 本地启动
 
@@ -65,6 +67,7 @@ TG_GROUP_API_PROXY="http://127.0.0.1:8080" pnpm dev
 - [本地开发与测试指南](docs/LOCAL-TESTING.md)
 - [开发计划](docs/DEVELOPMENT-PLAN.md)
 - [开发日志](docs/DEVELOPMENT-LOG.md)
+- [当前开发状态与下一阶段路线图](docs/DEVELOPMENT-PLAN.md)
 
 ## Docker 一键部署（无需服务器编译或手动配置）
 
