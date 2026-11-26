@@ -345,3 +345,5 @@ openssl rand -base64 32
 
 管理员保存/停用操作分别写入 `audit_logs`：`platform.telegram_auth_bot.update` 与 `platform.telegram_auth_bot.disable`。审计记录只保存 Bot Username，不记录 Token。
 平台注册 Bot 现在会在私聊回复中附带持久化主菜单键盘：`账号信息` 和 `使用帮助`；也支持 `/menu` 与 `/help`。群管 Bot Token 仍通过网站「机器人管理」模块添加，不会与平台注册 Bot Token 混用。
+
+平台注册 Bot 私聊菜单新增“添加群管 Bot”。用户可发送 `/addbot <Bot Token>`；平台仅在私聊、且当前 Telegram 身份已关联平台账号时处理。服务端先请求 Telegram 删除含 Token 的原始消息，删除失败则拒绝处理；删除成功后复用现有 Bot 注册服务验证 Token、按当前账号 Tenant 保存加密凭据并写入 Bot 审计。Bot Token 不会回显到回复或日志。网站机器人管理仍可继续添加和轮换 Token。
