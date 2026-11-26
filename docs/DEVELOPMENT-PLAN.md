@@ -28,7 +28,7 @@
 - [x] 登录接口按邮箱与来源 IP 执行 PostgreSQL 滚动窗口失败限流，阈值 5 次/15 分钟；不依赖尚未接入的 Redis。
 - [ ] Telegram ID 绑定首批代码已写入：一次性挑战、Telegram 官方 Update 自动取 ID、全局唯一绑定、解除绑定与审计；Go/PostgreSQL 测试、go vet、前端构建 CI 已通过；待平台 Bot 真实配置验收。
 - [x] 网站首页、注册页、登录页和账号工作台已连接第一版 Go 认证 API。
-- [x] Telegram 注册管理 Bot 第一阶段：私聊 /start 自动创建普通平台账号、唯一绑定 Telegram ID、生成随机初始密码并返回用户 ID/密码；网站支持用户 ID 登录。Go/PostgreSQL 集成测试已补充，等待 CI。
+- [x] Telegram 注册管理 Bot 第一阶段：私聊 /start 自动创建普通平台账号、唯一绑定 Telegram ID、生成随机初始密码并返回用户 ID/密码；网站支持用户 ID 登录；/account 查询本人账号资料。Go/PostgreSQL 集成测试已补充，等待 CI。
 - [ ] Telegram 注册管理 Bot 第二阶段：Inline Keyboard 主菜单、账号/套餐查询、群管 Bot Token 提交与账户管理；平台 Bot Token 目前仍通过环境变量配置，管理员可视化配置页待开发。
 - [ ] 密码找回、邮箱验证。
 - [ ] Telegram 身份绑定已进入代码实现阶段；需要配置专用平台 Bot Token/username 后真实联调。
