@@ -31,7 +31,7 @@ export default function AdminUsersPage() {
   async function searchUsers(){const value=search.trim();setAppliedSearch(value);setOffset(0);await refresh(0,value)}
   async function changeStatus(item:AdminUser){
     const next=item.status==="active"?"locked":"active"
-    if(!window.confirm(\`确认将 \${item.email} 的账号状态改为 \${next==="locked"?"锁定":"正常"}？\`))return
+    if(!window.confirm(`确认将 ${item.email} 的账号状态改为 ${next==="locked"?"锁定":"正常"}？`))return
     setBusyID(item.id);setError("")
     try{await setAdminUserStatus(item.id,next);await refresh()}
     catch(cause){setError(cause instanceof Error?cause.message:"更新用户状态失败")}
@@ -41,7 +41,7 @@ export default function AdminUsersPage() {
   return <main className="mx-auto w-full max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
       <div><Badge variant="secondary" className="mb-3">平台管理</Badge><h1 className="text-3xl font-semibold tracking-tight">用户管理</h1><p className="mt-2 text-sm text-muted-foreground">查看平台注册账号、Telegram 绑定、租户和 Bot 资产；用户密码及凭证不会展示。</p></div>
-      <Button variant="outline" onClick={()=>void refresh()} disabled={loading}><RefreshCw className={\`mr-2 size-4 \${loading?"animate-spin":""}\`}/>刷新</Button>
+      <Button variant="outline" onClick={()=>void refresh()} disabled={loading}><RefreshCw className={`mr-2 size-4 ${loading?"animate-spin":""}`}/>刷新</Button>
     </div>
     {error&&<p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p>}
     <Card>
@@ -56,7 +56,7 @@ export default function AdminUsersPage() {
           <TableBody>{items.map(item=><TableRow key={item.id}>
             <TableCell><div className="font-medium">{item.display_name||"未设置昵称"}</div><div className="text-xs text-muted-foreground">{item.email}</div><div className="font-mono text-[10px] text-muted-foreground">{item.id}</div></TableCell>
             <TableCell><Badge variant={item.role==="admin"?"default":item.role==="agent"?"secondary":"outline"}>{item.role==="admin"?"管理员":item.role==="agent"?"代理":"用户"}</Badge></TableCell>
-            <TableCell><div>{item.telegram_username?\`@\${item.telegram_username}\`:"未绑定"}</div><div className="font-mono text-xs text-muted-foreground">{item.telegram_id??"—"}</div></TableCell>
+            <TableCell><div>{item.telegram_username?`@${item.telegram_username}`:"未绑定"}</div><div className="font-mono text-xs text-muted-foreground">{item.telegram_id??"—"}</div></TableCell>
             <TableCell><div>{item.tenant_name}</div><div className="text-xs text-muted-foreground">{item.tenant_status}</div></TableCell>
             <TableCell>{item.bot_count}</TableCell>
             <TableCell className="whitespace-nowrap text-xs text-muted-foreground">{new Date(item.created_at).toLocaleString()}</TableCell>
