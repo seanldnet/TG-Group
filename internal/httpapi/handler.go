@@ -69,6 +69,11 @@ func NewHandlerWithPlatformBot(logger *slog.Logger, authService *auth.Service, b
 	mux.HandleFunc("PUT /api/v1/groups/{groupID}/rules/{ruleID}",h.updateGroupRule)
 	mux.HandleFunc("DELETE /api/v1/groups/{groupID}/rules/{ruleID}",h.deleteGroupRule)
 	mux.HandleFunc("POST /api/v1/groups/{groupID}/members/{userID}/action",h.moderateGroupMember)
+	mux.HandleFunc("GET /api/v1/groups/{groupID}/member-lists",h.listGroupMemberLists)
+	mux.HandleFunc("POST /api/v1/groups/{groupID}/member-lists",h.upsertGroupMemberList)
+	mux.HandleFunc("DELETE /api/v1/groups/{groupID}/member-lists/{userID}",h.deleteGroupMemberList)
+	mux.HandleFunc("GET /api/v1/groups/{groupID}/members/{userID}/warnings",h.listGroupMemberWarnings)
+	mux.HandleFunc("POST /api/v1/groups/{groupID}/members/{userID}/warnings",h.addGroupMemberWarning)
 	mux.HandleFunc("POST /api/v1/bots",h.addBot)
 	mux.HandleFunc("PATCH /api/v1/bots/{botID}/status",h.setBotStatus)
 	mux.HandleFunc("PUT /api/v1/bots/{botID}/token",h.rotateBotToken)
@@ -484,6 +489,46 @@ func (h *Handler) writeGroupRuleError(w http.ResponseWriter,err error){
  case errors.Is(err,bots.ErrNotFound):writeError(w,http.StatusNotFound,"group or rule not found")
  default:h.logger.Error("Telegram group rule operation failed","error",err);writeError(w,http.StatusInternalServerError,"internal server error")
  }
+}
+
+
+type groupMemberListRequest struct { TelegramUserID int64 `json:"telegram_user_id"`; ListType string `json:"list_type"`; Reason string `json:"reason"`; ActorTelegramUserID int64 `json:"actor_telegram_user_id"` }
+type groupMemberWarningRequest struct { Reason string `json:"reason"`; ActorTelegramUserID int64 `json:"actor_telegram_user_id"`; Source string `json:"source"` }
+
+func (h *Handler) listGroupMemberLists(w http.ResponseWriter,r *http.Request) {
+	if !h.botServicesReady(w){return}; user,ok:=h.currentUser(w,r);if !ok{return}
+	items,err:=h.bots.ListGroupMemberLists(r.Context(),user.TenantID,r.PathValue("groupID"))
+	if err!=nil{h.logger.Error("list group member lists","error",err);writeError(w,http.StatusInternalServerError,"读取群组名单失败");return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":items})
+}
+func (h *Handler) upsertGroupMemberList(w http.ResponseWriter,r *http.Request) {
+	if !h.botServicesReady(w){return}; user,ok:=h.currentUser(w,r);if !ok{return}
+	var input groupMemberListRequest;if !decodeJSON(w,r,&input){return}
+	if input.ActorTelegramUserID<=0 {writeError(w,http.StatusBadRequest,"actor_telegram_user_id must be a positive Telegram user ID");return}
+	if err:=h.bots.UpsertGroupMemberList(r.Context(),user.TenantID,r.PathValue("groupID"),input.TelegramUserID,input.ActorTelegramUserID,input.ListType,input.Reason);err!=nil{h.writeGroupRuleError(w,err);return}
+	writeJSON(w,http.StatusOK,map[string]any{"ok":true})
+}
+func (h *Handler) deleteGroupMemberList(w http.ResponseWriter,r *http.Request) {
+	if !h.botServicesReady(w){return}; user,ok:=h.currentUser(w,r);if !ok{return}
+	userID,err:=strconv.ParseInt(r.PathValue("userID"),10,64);if err!=nil||userID<=0{writeError(w,http.StatusBadRequest,"invalid Telegram user ID");return}
+	listType:=r.URL.Query().Get("list_type")
+	if err:=h.bots.DeleteGroupMemberList(r.Context(),user.TenantID,r.PathValue("groupID"),userID,listType);err!=nil{h.writeGroupRuleError(w,err);return}
+	w.WriteHeader(http.StatusNoContent)
+}
+func (h *Handler) listGroupMemberWarnings(w http.ResponseWriter,r *http.Request) {
+	if !h.botServicesReady(w){return}; user,ok:=h.currentUser(w,r);if !ok{return}
+	userID,err:=strconv.ParseInt(r.PathValue("userID"),10,64);if err!=nil||userID<=0{writeError(w,http.StatusBadRequest,"invalid Telegram user ID");return}
+	items,err:=h.bots.ListGroupMemberWarnings(r.Context(),user.TenantID,r.PathValue("groupID"),userID)
+	if err!=nil{h.writeGroupRuleError(w,err);return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":items})
+}
+func (h *Handler) addGroupMemberWarning(w http.ResponseWriter,r *http.Request) {
+	if !h.botServicesReady(w){return}; user,ok:=h.currentUser(w,r);if !ok{return}
+	userID,err:=strconv.ParseInt(r.PathValue("userID"),10,64);if err!=nil||userID<=0{writeError(w,http.StatusBadRequest,"invalid Telegram user ID");return}
+	var input groupMemberWarningRequest;if !decodeJSON(w,r,&input){return}
+	item,err:=h.bots.AddGroupMemberWarning(r.Context(),user.TenantID,r.PathValue("groupID"),userID,input.ActorTelegramUserID,input.Reason,input.Source)
+	if err!=nil{h.writeGroupRuleError(w,err);return}
+	writeJSON(w,http.StatusCreated,item)
 }
 
 type memberActionRequest struct {
