@@ -122,17 +122,7 @@ func (p *Poller) handleMessage(ctx context.Context,message *telegramMessage) {
             _=p.sendMessage(ctx,message.Chat.ID,"欢迎回来，"+account.DisplayName+"。请选择要执行的操作。")
             return
         }
-        registration,err:=p.auth.RegisterTelegramAccount(ctx,identity)
-        if err!=nil {
-            if errors.Is(err,auth.ErrTelegramAlreadyLinked) {
-                _=p.sendMessage(ctx,message.Chat.ID,"这个 Telegram 账号已经注册。请使用原账号登录网站，或从网站账号设置发起绑定。")
-                return
-            }
-            p.logger.Error("Telegram platform registration failed","telegram_user_id",message.From.ID,"error",err)
-            _=p.sendMessage(ctx,message.Chat.ID,"注册暂时无法完成，请稍后重试或联系平台管理员。")
-            return
-        }
-        _=p.sendRegistrationCredentials(ctx,message.Chat.ID,registration)
+        _=p.sendIntroMenu(ctx,message.Chat.ID)
         return
     }
     // All day-to-day actions are button-driven. Ignore legacy slash commands.
@@ -147,6 +137,23 @@ func (p *Poller) handleCallback(ctx context.Context,query *telegramCallbackQuery
     if query==nil || query.From==nil || query.From.IsBot || query.Message==nil || query.Message.Chat.Type!="private" || query.Message.Chat.ID!=query.From.ID { return }
     _=p.answerCallback(ctx,query.ID)
     switch query.Data {
+    case "menu:register":
+        identity:=auth.TelegramIdentity{ID:query.From.ID,Username:query.From.Username,FirstName:query.From.FirstName,LastName:query.From.LastName}
+        if _,err:=p.auth.TelegramAccount(ctx,query.From.ID);err==nil {
+            _=p.sendMessage(ctx,query.Message.Chat.ID,"这个 Telegram 账号已经有平台账号，请使用“账号信息”查看资料。")
+            return
+        }
+        registration,err:=p.auth.RegisterTelegramAccount(ctx,identity)
+        if err!=nil {
+            if errors.Is(err,auth.ErrTelegramAlreadyLinked) {
+                _=p.sendMessage(ctx,query.Message.Chat.ID,"这个 Telegram 账号已经注册，请使用“账号信息”查看资料。")
+                return
+            }
+            p.logger.Error("Telegram platform registration failed","telegram_user_id",query.From.ID,"error",err)
+            _=p.sendMessage(ctx,query.Message.Chat.ID,"注册暂时无法完成，请稍后重试或联系平台管理员。")
+            return
+        }
+        _=p.sendRegistrationCredentials(ctx,query.Message.Chat.ID,registration)
     case "menu:account":
         account,err:=p.auth.TelegramAccount(ctx,query.From.ID)
         if err!=nil { _=p.sendMessage(ctx,query.Message.Chat.ID,"当前 Telegram 尚未关联平台账号。请先在网站“账号设置 → 账号关联”完成绑定，或使用开始按钮注册。");return }
@@ -217,11 +224,24 @@ func (p *Poller) sendRegistrationCredentials(ctx context.Context,chatID int64,re
     return p.sendMessageWithParseMode(ctx,chatID,registrationCredentialsHTML(registration),"HTML")
 }
 
+func (p *Poller) sendIntroMenu(ctx context.Context,chatID int64) error {
+    text:="欢迎使用 TG-Group 平台机器人！\\n\\n这里是平台账号与群管 Bot 的统一入口：\\n• 注册并管理你的平台账号\\n• 将多个群管 Bot 统一归属到已绑定的 Telegram 账号\\n• 在网站控制台管理群组、成员和自动化规则\\n\\n首次使用请先阅读说明，再点击“开始注册”；已有账号请点击“账号信息”。"
+    keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{
+        {{"text":"开始注册","callback_data":"menu:register"},{"text":"账号信息","callback_data":"menu:account"}},
+        {{"text":"添加群管 Bot","callback_data":"menu:addbot"},{"text":"使用帮助","callback_data":"menu:help"}},
+    }}
+    return p.sendMessageWithKeyboard(ctx,chatID,text,"",keyboard)
+}
+
 func (p *Poller) sendMessageWithParseMode(ctx context.Context, chatID int64, text string, parseMode string) error {
     keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{
         {{"text":"账号信息","callback_data":"menu:account"},{"text":"添加群管 Bot","callback_data":"menu:addbot"}},
         {{"text":"使用帮助","callback_data":"menu:help"},{"text":"取消当前操作","callback_data":"menu:cancel"}},
     }}
+    return p.sendMessageWithKeyboard(ctx,chatID,text,parseMode,keyboard)
+}
+
+func (p *Poller) sendMessageWithKeyboard(ctx context.Context,chatID int64,text,parseMode string,keyboard map[string]any) error {
     payloadData:=map[string]any{"chat_id":chatID,"text":text,"reply_markup":keyboard}
     if parseMode!="" { payloadData["parse_mode"]=parseMode }
     payload,_:=json.Marshal(payloadData)
