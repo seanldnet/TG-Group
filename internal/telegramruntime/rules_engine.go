@@ -1133,7 +1133,7 @@ func (p *Poller) handleGroupMemberListAdd(ctx context.Context,bot managedBot,gro
 	if err:=p.botService.UpsertGroupMemberList(ctx,bot.tenantID,groupID,userID,query.From.ID,parts[3],"由群管理员从成员详情添加");err!=nil {
 		p.logger.Warn("add group member list entry","error",err);_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"名单添加失败，请稍后重试。"},nil);return
 	}
-	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":fmt.Sprintf("已将用户 %d 加入%s。注意：入群拦截和消息执行策略尚未启用。",userID,parts[3])},nil)
+	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":fmt.Sprintf("已将用户 %d 加入%s。黑名单入群拦截、白名单/豁免验证跳过已接入。",userID,parts[3])},nil)
 	p.sendGroupMemberLists(ctx,bot,groupID,query.Message.Chat.ID,token)
 }
 
