@@ -216,15 +216,57 @@ func groupOwnerAccess(hasLinkedOwner,isOwner bool) string {
 
 func (p *Poller) sendGroupMenu(ctx context.Context,chatID,messageID int64,token string) {
 	keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{
-		{{"text":"规则管理","callback_data":"group:rules"},{"text":"成员管理","callback_data":"group:members"}},
-		{{"text":"消息管理","callback_data":"group:messages"},{"text":"检查 Bot 权限","callback_data":"group:status"}},
-		{{"text":"群公告","callback_data":"group:announce"},{"text":"群组设置","callback_data":"group:settings"}},
-		{{"text":"刷新菜单","callback_data":"group:home"}},
+		{{"text":"问答系统","callback_data":"group:cat:qa"},{"text":"审核管理","callback_data":"group:cat:review"}},
+		{{"text":"提示设置","callback_data":"group:cat:notices"},{"text":"基础群管","callback_data":"group:cat:basic"}},
+		{{"text":"刷屏检测","callback_data":"group:cat:spam"},{"text":"广告检测","callback_data":"group:cat:ads"}},
+		{{"text":"消息撤回","callback_data":"group:cat:retract"},{"text":"管理员管理","callback_data":"group:cat:admins"}},
+		{{"text":"黑白名单","callback_data":"group:cat:lists"},{"text":"入群验证","callback_data":"group:cat:verify"}},
+		{{"text":"警告系统","callback_data":"group:cat:warnings"},{"text":"名片管理","callback_data":"group:cat:profile"}},
+		{{"text":"定时任务","callback_data":"group:cat:schedule"},{"text":"投票管理","callback_data":"group:cat:polls"}},
+		{{"text":"群组统计","callback_data":"group:cat:stats"},{"text":"群组设置","callback_data":"group:cat:settings"}},
+		{{"text":"群公告","callback_data":"group:announce"},{"text":"Bot 权限检查","callback_data":"group:status"}},
 	}}
-	payload:=map[string]any{"chat_id":chatID,"text":"TG-Group 群管 Bot 已连接。请直接点击下方按钮管理本群规则、成员和 Bot 权限。管理操作仅限平台主人或当前群管理员；管理员权限随 Telegram 群内身份自动同步。"}
+	payload:=map[string]any{"chat_id":chatID,"text":"TG-Group 群管理\n请选择需要管理的功能分类。每个分类只放置对应功能，尚未开放的项目会明确提示开发状态。\n\n管理权限：平台主人或当前群管理员；群管理员身份自动同步。"}
 	if messageID>0 { payload["reply_to_message_id"]=messageID }
 	payload["reply_markup"]=keyboard
 	_ = p.callTelegram(ctx,token,"sendMessage",payload,nil)
+}
+
+func (p *Poller) sendGroupCategory(ctx context.Context,bot managedBot,groupID string,chatID int64,category,token string) {
+	type categoryInfo struct { title,description,status string }
+	categories:=map[string]categoryInfo{
+		"qa":{"问答系统","管理关键词问题和自动回答。","开发中"},
+		"review":{"审核管理","集中设置消息审核与内容审核规则。","开发中"},
+		"notices":{"提示设置","设置新成员欢迎语、成员离群通知和群公告。","部分开放"},
+		"basic":{"基础群管","查看成员、成员详情，并执行禁言、封禁和解除处罚。","已开放"},
+		"spam":{"刷屏检测","设置重复消息和短时间高频发言限制。","部分开放"},
+		"ads":{"广告检测","设置广告拦截规则及关键词过滤。","部分开放"},
+		"retract":{"消息撤回","查看最近采集的群消息，删除违规消息或置顶消息。","已开放"},
+		"admins":{"管理员管理","自动识别 Telegram 当前群管理员。管理员升为管理员后即可使用本群管理菜单；被降级或移出后自动失去权限。","已开放"},
+		"lists":{"黑白名单","管理禁止入群名单、允许名单和规则豁免名单。","开发中"},
+		"verify":{"入群验证","设置数学验证及入群必需频道。","部分开放"},
+		"warnings":{"警告系统","记录成员违规次数，并按规则执行递进处罚。","开发中"},
+		"profile":{"名片管理","设置成员昵称、名片格式及资料规范。","开发中"},
+		"schedule":{"定时任务","设置定时公告、提醒和自动清理任务。","开发中"},
+		"polls":{"投票管理","创建群投票并查看投票结果。","开发中"},
+		"stats":{"群组统计","查看消息量、活跃成员、进退群和处罚统计。","开发中"},
+		"settings":{"群组设置","修改群名称、群简介和邀请链接。","已开放"},
+	}
+	info,ok:=categories[category];if !ok{return}
+	text:=info.title+"\n"+info.description+"\n功能状态："+info.status
+	keyboard:=[][]map[string]string{}
+	switch category {
+	case "basic": keyboard=append(keyboard,[]map[string]string{{"text":"成员管理","callback_data":"group:members"}})
+	case "notices": keyboard=append(keyboard,[]map[string]string{{"text":"群规与欢迎语","callback_data":"group:rules"},{"text":"发布群公告","callback_data":"group:announce"}})
+	case "spam": keyboard=append(keyboard,[]map[string]string{{"text":"刷屏限制规则","callback_data":"group:rules"}})
+	case "ads": keyboard=append(keyboard,[]map[string]string{{"text":"广告拦截规则","callback_data":"group:rules"}})
+	case "retract": keyboard=append(keyboard,[]map[string]string{{"text":"最近群消息","callback_data":"group:messages"}})
+	case "admins": keyboard=append(keyboard,[]map[string]string{{"text":"查看 Bot 权限","callback_data":"group:status"}})
+	case "verify": keyboard=append(keyboard,[]map[string]string{{"text":"入群验证规则","callback_data":"group:rules"}})
+	case "settings": keyboard=append(keyboard,[]map[string]string{{"text":"打开群组设置","callback_data":"group:settings"}})
+	}
+	if len(keyboard)==0 { keyboard=append(keyboard,[]map[string]string{{"text":"返回菜单","callback_data":"group:home"}}) } else { keyboard=append(keyboard,[]map[string]string{{"text":"返回菜单","callback_data":"group:home"}}) }
+	_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":text,"reply_markup":map[string]any{"inline_keyboard":keyboard}},nil)
 }
 
 func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID string,query telegramCallbackQuery,token string) {
@@ -232,6 +274,8 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 	if query.Message==nil || query.From.ID<=0 { return }
 	if !p.requireGroupOwner(ctx,bot,query.From.ID,query.Message.Chat.ID,token) { return }
 	switch {
+	case strings.HasPrefix(query.Data,"group:cat:"):
+		p.sendGroupCategory(ctx,bot,groupID,query.Message.Chat.ID,strings.TrimPrefix(query.Data,"group:cat:"),token)
 	case query.Data=="group:rules": p.sendGroupRules(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:members" || strings.HasPrefix(query.Data,"group:members:page:"):
 		offset:=0
