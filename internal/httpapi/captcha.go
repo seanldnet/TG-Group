@@ -19,6 +19,7 @@ var ErrCaptchaRejected = errors.New("captcha verification rejected")
 type CaptchaVerifier struct {
 	endpoint string
 	secret string
+	widgetURL string
 	client *http.Client
 }
 
@@ -26,7 +27,7 @@ type captchaSiteVerifyResponse struct {
 	Success bool `json:"success"`
 }
 
-func NewCaptchaVerifier(baseURL, siteKey, secret string) (*CaptchaVerifier, error) {
+func NewCaptchaVerifier(baseURL, siteKey, secret string, widgetURLs ...string) (*CaptchaVerifier, error) {
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	siteKey = strings.TrimSpace(siteKey)
 	secret = strings.TrimSpace(secret)
@@ -41,14 +42,20 @@ func NewCaptchaVerifier(baseURL, siteKey, secret string) (*CaptchaVerifier, erro
 		return nil, errors.New("CAP_BASE_URL must be an absolute HTTP(S) URL without credentials, query or fragment")
 	}
 	endpoint := baseURL + "/" + url.PathEscape(siteKey) + "/"
-	return &CaptchaVerifier{endpoint: endpoint, secret: secret, client: &http.Client{Timeout: 6 * time.Second}}, nil
+	widgetURL := "https://cdn.jsdelivr.net/npm/cap-widget@0.1.58"
+	if len(widgetURLs) > 0 && strings.TrimSpace(widgetURLs[0]) != "" { widgetURL = strings.TrimSpace(widgetURLs[0]) }
+	widgetParsed, widgetErr := url.Parse(widgetURL)
+	if widgetErr != nil || widgetParsed.Host == "" || (widgetParsed.Scheme != "https" && !(widgetParsed.Scheme == "http" && isLoopbackHost(widgetParsed.Hostname()))) || widgetParsed.User != nil || widgetParsed.RawQuery != "" || widgetParsed.Fragment != "" {
+		return nil, errors.New("CAP_WIDGET_URL must be an absolute HTTP(S) URL without credentials, query or fragment")
+	}
+	return &CaptchaVerifier{endpoint: endpoint, secret: secret, widgetURL: widgetURL, client: &http.Client{Timeout: 6 * time.Second}}, nil
 }
 
 func (v *CaptchaVerifier) Enabled() bool { return v != nil }
 
 func (v *CaptchaVerifier) PublicConfig() map[string]any {
 	if v == nil { return map[string]any{"enabled": false} }
-	return map[string]any{"enabled": true, "endpoint": v.endpoint}
+	return map[string]any{"enabled": true, "endpoint": v.endpoint, "widget_url": v.widgetURL}
 }
 
 func (v *CaptchaVerifier) Verify(ctx context.Context, token string) error {
