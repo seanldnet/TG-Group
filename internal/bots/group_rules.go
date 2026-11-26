@@ -60,6 +60,13 @@ type joinVerificationRuleConfig struct {
 	RequiredChannels []string `json:"required_channels"`
 }
 
+type qaRuleConfig struct {
+	Triggers []string `json:"triggers"`
+	MatchMode string `json:"match_mode"`
+	Response string `json:"response"`
+	CaseSensitive bool `json:"case_sensitive"`
+}
+
 func ValidateGroupRule(input GroupRuleInput) error {
 	input.RuleType = strings.TrimSpace(input.RuleType)
 	input.Name = strings.TrimSpace(input.Name)
@@ -83,6 +90,9 @@ func ValidateGroupRule(input GroupRuleInput) error {
 		return true
 	}
 	switch input.RuleType {
+	case "qa":
+		var cfg qaRuleConfig
+		if decode(&cfg) != nil || !validTerms(cfg.Triggers) || strings.TrimSpace(cfg.Response) == "" || len([]rune(cfg.Response)) > 4096 || (cfg.MatchMode != "exact" && cfg.MatchMode != "contains" && cfg.MatchMode != "prefix") { return ErrInvalidGroupRule }
 	case "keyword_filter", "sensitive_word":
 		var cfg keywordRuleConfig
 		if decode(&cfg) != nil || !validTerms(cfg.Words) || cfg.Action != "delete" { return ErrInvalidGroupRule }
