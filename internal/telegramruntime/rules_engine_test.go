@@ -191,3 +191,15 @@ func TestParseGroupMessageActionCallback(t *testing.T) {
 	invalid:=[]string{"group:msg:delete:run:100","group:msg:pin:confirm:100","group:msg:delete:ask:-1","group:msg:delete:ask:0","group:msg:other:ask:100"}
 	for _,value:=range invalid { if _,_,_,ok:=parseGroupMessageActionCallback(value);ok { t.Errorf("accepted %q",value) } }
 }
+
+func TestParseGroupRuleCustomEditCallback(t *testing.T) {
+ const id="00000000-0000-4000-8000-000000000001"
+ for _,field:=range []string{"text","words","patterns"} { if got,gotField,ok:=parseGroupRuleCustomEditCallback("group:ec:"+id+":"+field); !ok||got!=id||gotField!=field { t.Errorf("rejected field %s",field) } }
+ for _,value:=range []string{"group:ec:bad:text","group:ec:"+id+":unknown","group:ec:"+id+":words:extra"} { if _,_,ok:=parseGroupRuleCustomEditCallback(value);ok { t.Errorf("accepted %q",value) } }
+}
+func TestSplitRuleTerms(t *testing.T) {
+ got:=splitRuleTerms("广告, 引流，推广\n广告；私聊")
+ want:=[]string{"广告","引流","推广","私聊"}
+ if len(got)!=len(want) { t.Fatalf("terms=%v want %v",got,want) }
+ for i:=range want { if got[i]!=want[i] { t.Fatalf("terms=%v want %v",got,want) } }
+}
