@@ -229,3 +229,14 @@
 - [x] 对缺失平台设置 migration 的 PostgreSQL 42P01 错误给出可操作的 503 提示，不再伪装成通用 500。
 - [x] 根据部署日志定位平台 Bot 保存 500 根因：审计 SQL 的 `jsonb_build_object` 第二参数类型不明确（SQLSTATE 42P18）；已显式转换为 `$2::text` 并提交 main，等待 CI/镜像发布及用户升级复测。
 - [ ] CI 与真实 Telegram 私聊联调通过后再标记验收。
+
+
+
+## 管理后台与 Telegram 群管交互补全（2026-11-26）
+- [x] 注册成功时将用户 ID 和初始密码分别渲染为 Telegram 可点击复制的 <code> 实体。
+- [x] 群管 Bot 增加 /start、/help、/menu、/rules、/status 基础命令和 Inline Keyboard 只读菜单。
+- [ ] 平台管理员用户列表：搜索、分页、账号/租户状态、Telegram 绑定资料、Bot 数量。
+- [ ] 管理员套餐管理：套餐模型、定价/周期/额度、上下架、订单及授权状态机。
+- [ ] 代理管理：代理角色授予、上/下级关系、代理 API Key 权限边界、佣金与余额/结算模型。
+- [ ] 群管 Bot 完整 Inline Keyboard 管理流程：群组选择、规则编辑、成员管理、确认/取消和权限校验；当前仅提供基础只读菜单。
+- [ ] 真实 Telegram 私聊/群聊端到端测试与 CI/Docker 发布验证。
