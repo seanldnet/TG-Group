@@ -378,6 +378,7 @@ export default function App() {
   else {
     const groupEventsMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/events$/i)
     const groupMembersMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/members$/i)
+    const groupMemberListsMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/member-lists$/i)
     const groupRulesMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/rules$/i)
     const groupRuleEventsMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/rule-events$/i)
     if (groupEventsMatch) page = <GroupEventsPage groupID={groupEventsMatch[1]} />
