@@ -12,6 +12,8 @@ import (
 
 	"github.com/seanldnet/tg-group/internal/auth"
 	"github.com/seanldnet/tg-group/internal/bots"
+	"github.com/seanldnet/tg-group/internal/platformsettings"
+	"github.com/seanldnet/tg-group/internal/telegramauthbot"
 )
 
 type Handler struct {
@@ -20,6 +22,8 @@ type Handler struct {
 	bots *bots.Service
 	captcha *CaptchaVerifier
 	telegramAuthBotUsername string
+	platformSettings *platformsettings.Service
+	telegramAuthBotManager *telegramauthbot.Manager
 }
 
 func NewHandler(logger *slog.Logger, authService *auth.Service, botService *bots.Service, captcha *CaptchaVerifier) http.Handler {
@@ -27,11 +31,18 @@ func NewHandler(logger *slog.Logger, authService *auth.Service, botService *bots
 }
 
 func NewHandlerWithTelegramAuthBot(logger *slog.Logger, authService *auth.Service, botService *bots.Service, captcha *CaptchaVerifier, telegramBotUsername string) http.Handler {
+	return NewHandlerWithPlatformBot(logger,authService,botService,captcha,telegramBotUsername,nil,nil)
+}
+
+func NewHandlerWithPlatformBot(logger *slog.Logger, authService *auth.Service, botService *bots.Service, captcha *CaptchaVerifier, telegramBotUsername string, settings *platformsettings.Service, manager *telegramauthbot.Manager) http.Handler {
 	if logger == nil { logger = slog.Default() }
-	h := &Handler{logger:logger,auth:authService,bots:botService,captcha:captcha,telegramAuthBotUsername:telegramBotUsername}
+	h := &Handler{logger:logger,auth:authService,bots:botService,captcha:captcha,telegramAuthBotUsername:telegramBotUsername,platformSettings:settings,telegramAuthBotManager:manager}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz",h.health)
 	mux.HandleFunc("GET /api/v1/security/captcha",h.captchaConfig)
+	mux.HandleFunc("GET /api/v1/admin/platform/telegram-auth-bot",h.platformTelegramBotStatus)
+	mux.HandleFunc("PUT /api/v1/admin/platform/telegram-auth-bot",h.updatePlatformTelegramBot)
+	mux.HandleFunc("DELETE /api/v1/admin/platform/telegram-auth-bot",h.clearPlatformTelegramBot)
 	mux.HandleFunc("POST /api/v1/auth/register",h.register)
 	mux.HandleFunc("POST /api/v1/auth/login",h.login)
 	mux.HandleFunc("POST /api/v1/auth/refresh",h.refresh)
@@ -311,6 +322,41 @@ func writeJSON(w http.ResponseWriter,status int,value any) {
 
 func writeError(w http.ResponseWriter,status int,message string) {
 	writeJSON(w,status,map[string]string{"error":message})
+}
+
+
+type platformTelegramBotRequest struct { Token string `json:"token"`; Username string `json:"username"` }
+
+func (h *Handler) platformAdmin(w http.ResponseWriter,r *http.Request)(auth.User,bool){
+	if h.auth==nil {writeError(w,http.StatusServiceUnavailable,"authentication service unavailable");return auth.User{},false}
+	user,ok:=h.currentUser(w,r);if !ok{return auth.User{},false}
+	if user.Role!="admin" {writeError(w,http.StatusForbidden,"platform administrator permission required");return auth.User{},false}
+	if h.platformSettings==nil {writeError(w,http.StatusServiceUnavailable,"platform settings unavailable: configure BOT_TOKEN_ENCRYPTION_KEY and DATABASE_URL");return auth.User{},false}
+	return user,true
+}
+func (h *Handler) platformTelegramBotStatus(w http.ResponseWriter,r *http.Request){
+	if _,ok:=h.platformAdmin(w,r);!ok{return}
+	status,err:=h.platformSettings.Status(r.Context());if err!=nil{h.logger.Error("read platform Telegram Bot status","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return}
+	username,running:="",false
+	if h.telegramAuthBotManager!=nil {username,running=h.telegramAuthBotManager.Status()}
+	if status.Configured && username=="" {username=status.Username}
+	writeJSON(w,http.StatusOK,map[string]any{"configured":status.Configured,"username":username,"running":running,"updated_at":status.UpdatedAt})
+}
+func (h *Handler) updatePlatformTelegramBot(w http.ResponseWriter,r *http.Request){
+	user,ok:=h.platformAdmin(w,r);if !ok{return}
+	var input platformTelegramBotRequest;if !decodeJSON(w,r,&input){return}
+	if err:=h.platformSettings.Save(r.Context(),input.Token,input.Username,user.ID);err!=nil{
+		if errors.Is(err,platformsettings.ErrInvalidConfig){writeError(w,http.StatusBadRequest,"Telegram Bot Token 或 Username 格式不正确");return}
+		h.logger.Error("save platform Telegram Bot settings","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return
+	}
+	if h.telegramAuthBotManager!=nil {h.telegramAuthBotManager.Configure(input.Token,input.Username)}
+	writeJSON(w,http.StatusOK,map[string]any{"configured":true,"username":strings.TrimPrefix(strings.TrimSpace(input.Username),"@"),"running":h.telegramAuthBotManager!=nil})
+}
+func (h *Handler) clearPlatformTelegramBot(w http.ResponseWriter,r *http.Request){
+	if _,ok:=h.platformAdmin(w,r);!ok{return}
+	if err:=h.platformSettings.Clear(r.Context());err!=nil{h.logger.Error("clear platform Telegram Bot settings","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return}
+	if h.telegramAuthBotManager!=nil {h.telegramAuthBotManager.Configure("","")}
+	writeJSON(w,http.StatusOK,map[string]any{"configured":false,"username":"","running":false})
 }
 
 type addBotRequest struct { Token string `json:"token"` }
