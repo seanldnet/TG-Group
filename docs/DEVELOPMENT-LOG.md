@@ -1,3 +1,13 @@
+## 2026-11-26（Telegram 群管 Bot 成员管理第一阶段）
+
+- **功能**：群管 Bot 主菜单新增“成员管理”，并提供 `/members` 快捷命令。
+- **成员列表**：按当前租户和群组读取最近活跃的 10 名普通成员，排除 Bot 账号；没有成员数据时明确提示需要等待 Telegram 成员更新采集。
+- **处罚交互**：支持“禁言 30 分钟”和“封禁”，先展示确认/取消按钮，只有主人再次确认后才执行。
+- **安全**：回调校验动作、阶段和 Telegram 用户 ID；每次 callback 都重新校验绑定主人身份；通过 Telegram 官方 Update 的用户 ID 定位平台账号；复用现有成员处罚服务，实时校验 Bot 的 restrict 权限、禁止处罚管理员/群主，并沿用审计日志。
+- **测试**：新增 callback payload 校验测试，覆盖合法禁言/封禁、零/负 ID、非法动作、非法 ID 和无关 callback。当前仅已提交自动化测试代码，尚未获得 GitHub Actions 最新运行结果，也未进行真实 Telegram 群聊端到端验收。
+- **涉及文件**：`internal/telegramruntime/rules_engine.go`、`internal/telegramruntime/rules_engine_test.go`、`docs/DEVELOPMENT-PLAN.md`。
+- **下一步**：继续补齐成员分页、解封/解除禁言和处罚历史；随后推进 Telegram 群规创建/编辑交互，并在真实测试群验证权限与回调流程。
+
 ## 2026-11-26（部署验收状态校准）
 
 - **项目所有者确认**：Docker 一键部署已在真实服务器完成测试，运行正常；本项按已完成处理。
