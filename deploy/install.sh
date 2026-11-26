@@ -43,6 +43,9 @@ mkdir -p "$APP_DIR"
 chmod 700 "$APP_DIR"
 cd "$APP_DIR"
 
+# Remove legacy Compose manifests so Docker cannot auto-select an obsolete stack.
+rm -f "$APP_DIR/compose.yaml" "$APP_DIR/compose.yml"
+
 if [[ ! -f .env ]]; then
   if command -v openssl >/dev/null 2>&1; then
     DB_PASSWORD="$(openssl rand -hex 32)"
