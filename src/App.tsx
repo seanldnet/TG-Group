@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
+import DashboardLayout from "@/components/DashboardLayout"
 import LoginPage from "@/pages/LoginPage"
 import RegisterPage from "@/pages/RegisterPage"
 import DashboardPage from "@/pages/DashboardPage"
@@ -358,16 +359,20 @@ export default function App() {
   const pathname = window.location.pathname
   if (pathname === "/login") return <LoginPage />
   if (pathname === "/register") return <RegisterPage />
-  if (pathname === "/dashboard") return <DashboardPage />
-  if (pathname === "/dashboard/bots") return <BotsPage />
-  if (pathname === "/dashboard/groups") return <GroupsPage />
-  const groupEventsMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/events$/i)
-  if (groupEventsMatch) return <GroupEventsPage groupID={groupEventsMatch[1]} />
-  const groupMembersMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/members$/i)
-  if (groupMembersMatch) return <GroupMembersPage groupID={groupMembersMatch[1]} />
-  const groupRulesMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/rules$/i)
-  const groupRuleEventsMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/rule-events$/i)
-  if (groupRuleEventsMatch) return <GroupRuleEventsPage groupID={groupRuleEventsMatch[1]} />
-  if (groupRulesMatch) return <GroupRulesPage groupID={groupRulesMatch[1]} />
+  let page: React.ReactNode = null
+  if (pathname === "/dashboard") page = <DashboardPage />
+  else if (pathname === "/dashboard/bots") page = <BotsPage />
+  else if (pathname === "/dashboard/groups") page = <GroupsPage />
+  else {
+    const groupEventsMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/events$/i)
+    const groupMembersMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/members$/i)
+    const groupRulesMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/rules$/i)
+    const groupRuleEventsMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/rule-events$/i)
+    if (groupEventsMatch) page = <GroupEventsPage groupID={groupEventsMatch[1]} />
+    else if (groupMembersMatch) page = <GroupMembersPage groupID={groupMembersMatch[1]} />
+    else if (groupRuleEventsMatch) page = <GroupRuleEventsPage groupID={groupRuleEventsMatch[1]} />
+    else if (groupRulesMatch) page = <GroupRulesPage groupID={groupRulesMatch[1]} />
+  }
+  if (page) return <DashboardLayout>{page}</DashboardLayout>
   return <HomePage />
 }
