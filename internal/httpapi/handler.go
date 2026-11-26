@@ -371,6 +371,7 @@ func (h *Handler) clearPlatformTelegramBot(w http.ResponseWriter,r *http.Request
 
 type addBotRequest struct { Token string `json:"token"` }
 type botStatusRequest struct { Status string `json:"status"` }
+type adminUserStatusRequest struct { Status string `json:"status"` }
 
 func (h *Handler) botServicesReady(w http.ResponseWriter) bool {
 	if h.auth == nil || h.bots == nil {
