@@ -56,6 +56,7 @@ func (p *Poller) startJoinVerification(ctx context.Context, bot managedBot, grou
 		ChallengeType string `json:"challenge_type"`
 		TimeoutSeconds int `json:"timeout_seconds"`
 		FailureAction string `json:"failure_action"`
+		RequiredChannels []string `json:"required_channels"`
 	}
 	if err := json.Unmarshal(rule.Config, &cfg); err != nil { return }
 	var chatID, telegramBotID int64
@@ -84,13 +85,13 @@ func (p *Poller) startJoinVerification(ctx context.Context, bot managedBot, grou
 	}
 	var challengeID string
 	err=p.pool.QueryRow(ctx,`INSERT INTO telegram_join_verification_challenges(
-		tenant_id,bot_id,group_id,telegram_user_id,answer,failure_action,expires_at)
-		VALUES($1,$2,$3,$4,$5,$6,now()+($7 * interval '1 second'))
+		tenant_id,bot_id,group_id,telegram_user_id,answer,failure_action,expires_at,required_channels)
+		VALUES($1,$2,$3,$4,$5,$6,now()+($7 * interval '1 second'),$8::jsonb)
 		ON CONFLICT(group_id,telegram_user_id) DO UPDATE SET
 			tenant_id=EXCLUDED.tenant_id,bot_id=EXCLUDED.bot_id,answer=EXCLUDED.answer,
 			status='pending',failure_action=EXCLUDED.failure_action,challenge_message_id=NULL,
 			expires_at=EXCLUDED.expires_at,updated_at=now()
-		RETURNING id::text`,bot.tenantID,bot.id,groupID,member.ID,answer,cfg.FailureAction,cfg.TimeoutSeconds).Scan(&challengeID)
+		RETURNING id::text`,bot.tenantID,bot.id,groupID,member.ID,answer,cfg.FailureAction,cfg.TimeoutSeconds,mustJSON(cfg.RequiredChannels)).Scan(&challengeID)
 	if err!=nil { p.logger.Error("save join verification challenge", "group_id", groupID, "error", err); return }
 	locked:=chatPermissions{}
 	if err:=p.callTelegram(ctx,token,"restrictChatMember",map[string]any{
@@ -107,7 +108,7 @@ func (p *Poller) startJoinVerification(ctx context.Context, bot managedBot, grou
 	buttons=append(buttons,row)
 	var sent struct { MessageID int64 `json:"message_id"` }
 	err=p.callTelegram(ctx,token,"sendMessage",map[string]any{
-		"chat_id":chatID,"text":fmt.Sprintf("欢迎 %s！请在 %d 秒内完成验证：%d + %d = ?",renderNotice("{user}",member,""),cfg.TimeoutSeconds,a,b),
+		"chat_id":chatID,"text":fmt.Sprintf("欢迎 %s！请在 %d 秒内完成验证：%d + %d = ?%s",renderNotice("{user}",member,""),cfg.TimeoutSeconds,a,b,requiredChannelPrompt(cfg.RequiredChannels)),
 		"reply_markup":map[string]any{"inline_keyboard":buttons},
 	},&sent)
 	if err!=nil {
@@ -130,18 +131,29 @@ func (p *Poller) handleVerificationCallback(ctx context.Context, bot managedBot,
 	var challengeID,groupID string
 	var expected int64
 	var chatID int64
-	err=p.pool.QueryRow(ctx,`SELECT c.id::text,c.group_id::text,c.answer,g.telegram_chat_id
+	var requiredChannelsJSON []byte
+	err=p.pool.QueryRow(ctx,`SELECT c.id::text,c.group_id::text,c.answer,g.telegram_chat_id,c.required_channels
 		FROM telegram_join_verification_challenges c JOIN telegram_groups g
 		ON g.id=c.group_id AND g.tenant_id=c.tenant_id
 		WHERE c.id=$1 AND c.tenant_id=$2 AND c.bot_id=$3 AND c.telegram_user_id=$4
 		AND c.status='pending' AND c.expires_at>now() AND g.telegram_chat_id=$5
 		AND c.challenge_message_id=$6`,
-		parts[1],bot.tenantID,bot.id,query.From.ID,query.Message.Chat.ID,query.Message.MessageID).Scan(&challengeID,&groupID,&expected,&chatID)
+		parts[1],bot.tenantID,bot.id,query.From.ID,query.Message.Chat.ID,query.Message.MessageID).Scan(&challengeID,&groupID,&expected,&chatID,&requiredChannelsJSON)
 	if err!=nil {
 		_ = p.answerCallback(ctx,token,query.ID,"验证已过期或该按钮不属于你的验证",true); return
 	}
 	if answer!=expected {
 		_ = p.answerCallback(ctx,token,query.ID,"答案不正确，请重新选择",true); return
+	}
+	var requiredChannels []string
+	if err:=json.Unmarshal(requiredChannelsJSON,&requiredChannels);err!=nil {
+		_ = p.answerCallback(ctx,token,query.ID,"验证配置读取失败，请联系管理员",true);return
+	}
+	if missing,checkErr:=p.checkRequiredChannels(ctx,token,requiredChannels,query.From.ID);checkErr!=nil {
+		_ = p.answerCallback(ctx,token,query.ID,"暂时无法核验频道成员状态，请稍后重试",true)
+		p.logger.Warn("verify required Telegram channel membership","challenge_id",challengeID,"error",checkErr);return
+	} else if len(missing)>0 {
+		_ = p.answerCallback(ctx,token,query.ID,"请先加入必需频道："+strings.Join(missing,", ")+"，再点击正确答案",true);return
 	}
 	tag,err:=p.pool.Exec(ctx,`UPDATE telegram_join_verification_challenges SET status='verifying',updated_at=now()
 		WHERE id=$1 AND status='pending' AND telegram_user_id=$2 AND expires_at>now()`,challengeID,query.From.ID)
@@ -212,4 +224,29 @@ func joinChallengeOptions(answer int64) []int64 {
 	if wrongOne>18 { wrongOne,wrongTwo=answer-1,answer-2 }
 	if wrongTwo<2 { wrongOne,wrongTwo=answer+1,answer+2 }
 	return []int64{answer,wrongOne,wrongTwo}
+}
+
+func mustJSON(value any) []byte {
+	data,err:=json.Marshal(value)
+	if err!=nil { return []byte("[]") }
+	return data
+}
+
+func requiredChannelPrompt(channels []string) string {
+	if len(channels)==0 { return "" }
+	return "\n请先加入以下频道，再完成验证：\n"+strings.Join(channels,"\n")
+}
+
+func (p *Poller) checkRequiredChannels(ctx context.Context,token string,channels []string,userID int64)([]string,error) {
+	missing:=make([]string,0)
+	for _,channel:=range channels {
+		var member telegramChatMember
+		if err:=p.callTelegram(ctx,token,"getChatMember",map[string]any{"chat_id":channel,"user_id":userID},&member);err!=nil {
+			return nil,fmt.Errorf("check channel %s membership: %w",channel,err)
+		}
+		if member.Status!="member" && member.Status!="administrator" && member.Status!="creator" {
+			missing=append(missing,channel)
+		}
+	}
+	return missing,nil
 }
