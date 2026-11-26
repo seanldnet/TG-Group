@@ -3,7 +3,7 @@ CREATE TABLE telegram_group_member_warnings (
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     group_id UUID NOT NULL REFERENCES telegram_groups(id) ON DELETE CASCADE,
     telegram_user_id BIGINT NOT NULL CHECK (telegram_user_id > 0),
-    actor_telegram_user_id BIGINT NOT NULL CHECK (actor_telegram_user_id > 0),
+    actor_telegram_user_id BIGINT CHECK (actor_telegram_user_id IS NULL OR actor_telegram_user_id > 0),
     reason VARCHAR(500) NOT NULL,
     source VARCHAR(24) NOT NULL DEFAULT 'manual' CHECK (source IN ('manual','automatic')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
