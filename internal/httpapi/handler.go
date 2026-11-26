@@ -19,11 +19,16 @@ type Handler struct {
 	auth *auth.Service
 	bots *bots.Service
 	captcha *CaptchaVerifier
+	telegramAuthBotUsername string
 }
 
 func NewHandler(logger *slog.Logger, authService *auth.Service, botService *bots.Service, captcha *CaptchaVerifier) http.Handler {
+	return NewHandlerWithTelegramAuthBot(logger, authService, botService, captcha, "")
+}
+
+func NewHandlerWithTelegramAuthBot(logger *slog.Logger, authService *auth.Service, botService *bots.Service, captcha *CaptchaVerifier, telegramBotUsername string) http.Handler {
 	if logger == nil { logger = slog.Default() }
-	h := &Handler{logger:logger,auth:authService,bots:botService,captcha:captcha}
+	h := &Handler{logger:logger,auth:authService,bots:botService,captcha:captcha,telegramAuthBotUsername:telegramBotUsername}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz",h.health)
 	mux.HandleFunc("GET /api/v1/security/captcha",h.captchaConfig)
@@ -31,6 +36,9 @@ func NewHandler(logger *slog.Logger, authService *auth.Service, botService *bots
 	mux.HandleFunc("POST /api/v1/auth/login",h.login)
 	mux.HandleFunc("POST /api/v1/auth/logout",h.logout)
 	mux.HandleFunc("GET /api/v1/auth/me",h.me)
+	mux.HandleFunc("GET /api/v1/auth/telegram",h.telegramIdentity)
+	mux.HandleFunc("POST /api/v1/auth/telegram/link",h.createTelegramLink)
+	mux.HandleFunc("DELETE /api/v1/auth/telegram",h.unlinkTelegramIdentity)
 	mux.HandleFunc("GET /api/v1/bots",h.listBots)
 	mux.HandleFunc("GET /api/v1/groups",h.listGroups)
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/events",h.listGroupEvents)
@@ -124,6 +132,39 @@ func (h *Handler) me(w http.ResponseWriter,r *http.Request) {
 	user,err:=h.auth.Authenticate(r.Context(),bearerToken(r))
 	if err!=nil { writeError(w,http.StatusUnauthorized,"unauthorized");return }
 	writeJSON(w,http.StatusOK,user)
+}
+
+func (h *Handler) telegramIdentity(w http.ResponseWriter,r *http.Request) {
+    if !h.requireAuthStore(w) { return }
+    user,err:=h.auth.Authenticate(r.Context(),bearerToken(r))
+    if err!=nil { writeError(w,http.StatusUnauthorized,"unauthorized");return }
+    identity,err:=h.auth.TelegramIdentity(r.Context(),user.ID)
+    if err!=nil { h.logger.Error("read Telegram identity","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return }
+    writeJSON(w,http.StatusOK,map[string]any{"linked":identity.ID!=nil,"telegram":identity})
+}
+
+func (h *Handler) createTelegramLink(w http.ResponseWriter,r *http.Request) {
+    if !h.requireAuthStore(w) { return }
+    if h.telegramAuthBotUsername=="" { writeError(w,http.StatusServiceUnavailable,"平台 Telegram 身份 Bot 尚未配置");return }
+    user,err:=h.auth.Authenticate(r.Context(),bearerToken(r))
+    if err!=nil { writeError(w,http.StatusUnauthorized,"unauthorized");return }
+    identity,err:=h.auth.TelegramIdentity(r.Context(),user.ID)
+    if err!=nil { h.logger.Error("read Telegram identity before link","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return }
+    if identity.ID!=nil { writeError(w,http.StatusConflict,"该账号已经绑定 Telegram");return }
+    challenge,err:=h.auth.CreateTelegramLinkChallenge(r.Context(),user.ID)
+    if err!=nil { h.logger.Error("create Telegram link challenge","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return }
+    writeJSON(w,http.StatusCreated,map[string]any{"url":"https://t.me/"+h.telegramAuthBotUsername+"?start="+challenge.Token,"expires_at":challenge.ExpiresAt})
+}
+
+func (h *Handler) unlinkTelegramIdentity(w http.ResponseWriter,r *http.Request) {
+    if !h.requireAuthStore(w) { return }
+    user,err:=h.auth.Authenticate(r.Context(),bearerToken(r))
+    if err!=nil { writeError(w,http.StatusUnauthorized,"unauthorized");return }
+    if err:=h.auth.UnlinkTelegramIdentity(r.Context(),user.ID);err!=nil {
+        if errors.Is(err,auth.ErrTelegramNotLinked) { writeError(w,http.StatusConflict,"当前账号尚未绑定 Telegram");return }
+        h.logger.Error("unlink Telegram identity","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return
+    }
+    w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) requireAuthStore(w http.ResponseWriter) bool {
