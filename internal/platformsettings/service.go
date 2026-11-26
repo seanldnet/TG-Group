@@ -8,6 +8,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -16,7 +19,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var ErrInvalidConfig = errors.New("invalid Telegram platform Bot configuration")
+var (
+ ErrInvalidConfig = errors.New("invalid Telegram platform Bot configuration")
+ ErrTelegramRejected = errors.New("Telegram rejected the platform Bot credentials")
+ ErrTelegramUnavailable = errors.New("Telegram verification is unavailable")
+)
 
 type Service struct { pool *pgxpool.Pool; aead cipher.AEAD }
 
@@ -44,7 +51,9 @@ func normalizeUsername(value string)(string,error){
 
 func (s *Service) Status(ctx context.Context)(Status,error){
 	var status Status
-	err:=s.pool.QueryRow(ctx,`SELECT username,updated_at FROM platform_telegram_auth_bot_settings WHERE id=1`).Scan(&status.Username,&status.UpdatedAt)
+	var updatedAt time.Time
+	err:=s.pool.QueryRow(ctx,`SELECT username,updated_at FROM platform_telegram_auth_bot_settings WHERE id=1`).Scan(&status.Username,&updatedAt)
+	status.UpdatedAt=&updatedAt
 	if err!=nil {
 		if errors.Is(err,pgx.ErrNoRows) { return Status{Configured:false},nil }
 		return Status{},fmt.Errorf("read platform Telegram Bot settings: %w",err)
@@ -80,5 +89,28 @@ func (s *Service) LoadToken(ctx context.Context)(string,string,error){
 func (s *Service) Clear(ctx context.Context)error{
 	_,err:=s.pool.Exec(ctx,`DELETE FROM platform_telegram_auth_bot_settings WHERE id=1`)
 	if err!=nil{return fmt.Errorf("clear platform Telegram Bot settings: %w",err)}
+	return nil
+}
+
+func validTokenShape(token string) bool {
+	if len(token)<30||len(token)>256||strings.ContainsAny(token," \r\n\t") {return false}
+	parts:=strings.Split(token,":")
+	if len(parts)!=2||len(parts[0])<5||len(parts[1])<20{return false}
+	for _,r:=range parts[0]{if r<'0'||r>'9'{return false}}
+	return true
+}
+
+func (s *Service) VerifyToken(ctx context.Context,token,username string) error {
+	username,err:=normalizeUsername(username);if err!=nil||!validTokenShape(strings.TrimSpace(token)){return ErrInvalidConfig}
+	req,err:=http.NewRequestWithContext(ctx,http.MethodGet,"https://api.telegram.org/bot"+strings.TrimSpace(token)+"/getMe",nil)
+	if err!=nil{return ErrInvalidConfig}
+	client:=&http.Client{Timeout:10*time.Second}
+	response,err:=client.Do(req);if err!=nil{return ErrTelegramUnavailable}
+	defer response.Body.Close()
+	data,err:=io.ReadAll(io.LimitReader(response.Body,1<<20));if err!=nil{return ErrTelegramUnavailable}
+	var result struct{OK bool `json:"ok"`;Description string `json:"description"`;Result struct{Username string `json:"username"`} `json:"result"`}
+	if json.Unmarshal(data,&result)!=nil{return ErrTelegramUnavailable}
+	if response.StatusCode!=http.StatusOK||!result.OK{return ErrTelegramRejected}
+	if !strings.EqualFold(result.Result.Username,username){return ErrInvalidConfig}
 	return nil
 }
