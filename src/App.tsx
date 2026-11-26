@@ -20,6 +20,7 @@ import RegisterPage from "@/pages/RegisterPage"
 import DashboardPage from "@/pages/DashboardPage"
 import SecurityPage from "@/pages/SecurityPage"
 import PlatformSettingsPage from "@/pages/PlatformSettingsPage"
+import AdminUsersPage from "@/pages/AdminUsersPage"
 import AccountLinksPage from "@/pages/AccountLinksPage"
 import BotsPage from "@/pages/BotsPage"
 import GroupsPage from "@/pages/GroupsPage"
@@ -366,6 +367,7 @@ export default function App() {
   let page: ReactNode = null
   if (pathname === "/dashboard") page = <DashboardPage />
   else if (pathname === "/dashboard/platform") page = <PlatformSettingsPage />
+  else if (pathname === "/dashboard/admin/users") page = <AdminUsersPage />
   else if (pathname === "/dashboard/account/links") page = <AccountLinksPage />
   else if (pathname === "/dashboard/security/password") page = <SecurityPage section="password" />
   else if (pathname === "/dashboard/security/sessions") page = <SecurityPage section="sessions" />
