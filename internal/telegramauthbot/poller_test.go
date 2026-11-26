@@ -2,6 +2,9 @@ package telegramauthbot
 
 import (
 	"encoding/json"
+	"strings"
+
+	"github.com/seanldnet/tg-group/internal/auth"
 	"testing"
 	"time"
 )
@@ -68,5 +71,12 @@ func TestBotTokenPromptExpires(t *testing.T) {
 	p := &Poller{awaitingBotToken: map[int64]time.Time{123: time.Now().Add(-time.Second)}}
 	if p.consumeBotTokenPrompt(123) {
 		t.Fatal("expired token prompt must not accept a message")
+	}
+}
+
+func TestRegistrationCredentialsUseCopyableCodeEntities(t *testing.T) {
+	message:=registrationCredentialsHTML(auth.TelegramRegistration{UserID:"user-123",Password:"pass-456"})
+	if !strings.Contains(message,"<code>user-123</code>") || !strings.Contains(message,"<code>pass-456</code>") {
+		t.Fatalf("credentials are not wrapped in Telegram copyable code entities: %s",message)
 	}
 }
