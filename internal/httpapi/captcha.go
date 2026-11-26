@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 var ErrCaptchaRejected = errors.New("captcha verification rejected")
