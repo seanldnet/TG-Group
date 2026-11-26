@@ -11,8 +11,7 @@ CREATE TABLE telegram_group_warning_escalations (
     detail TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (tenant_id,group_id,rule_id,telegram_user_id,warning_count),
-    FOREIGN KEY (tenant_id,group_id) REFERENCES telegram_groups(tenant_id,id) ON DELETE CASCADE
+    UNIQUE (tenant_id,group_id,rule_id,telegram_user_id,warning_count)
 );
 CREATE INDEX telegram_group_warning_escalations_recent_idx
     ON telegram_group_warning_escalations(tenant_id,group_id,created_at DESC);
