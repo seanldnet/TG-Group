@@ -12,7 +12,6 @@ import (
 
 const (
 	loginFailureLimit = 5
-	loginFailureWindow = "15 minutes"
 )
 
 type loginIdentifier struct {
