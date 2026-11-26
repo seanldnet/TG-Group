@@ -319,9 +319,10 @@ export type TelegramGroupMemberWarning = {
   created_at: string
 }
 
-export function listGroupMemberWarnings(groupID: string, userID: number) {
-  return request<{ items: TelegramGroupMemberWarning[]; total: number }>(
-    `/api/v1/groups/${encodeURIComponent(groupID)}/members/${userID}/warnings`,
+export function listGroupMemberWarnings(groupID: string, userID: number, limit = 10, offset = 0) {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  return request<{ items: TelegramGroupMemberWarning[]; total: number; limit: number; offset: number }>(
+    `/api/v1/groups/${encodeURIComponent(groupID)}/members/${userID}/warnings?${params.toString()}`,
     { headers: authenticatedHeaders() },
   )
 }
