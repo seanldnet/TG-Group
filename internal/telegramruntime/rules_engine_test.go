@@ -1,6 +1,6 @@
 package telegramruntime
 
-import ("testing"; "encoding/json"; "github.com/seanldnet/tg-group/internal/bots")
+import ("testing"; "encoding/json"; "strconv"; "github.com/seanldnet/tg-group/internal/bots")
 
 func TestRenderNotice(t *testing.T) {
 	member:=telegramSender{ID:42,Username:"ada",FirstName:"Ada",LastName:"Lovelace"}
@@ -159,4 +159,15 @@ func TestGroupRuleEditConfigProducesValidTypeSpecificConfig(t *testing.T) {
 		if err:=bots.ValidateGroupRule(bots.GroupRuleInput{RuleType:tt.kind,Name:"test",Enabled:true,Priority:10,Config:json.RawMessage(config)});err!=nil { t.Errorf("%s/%s config invalid: %v",tt.kind,tt.preset,err) }
 	}
 	if config:=groupRuleEditConfig("welcome","k1");config!=nil { t.Fatal("mismatched preset should be rejected") }
+}
+
+func TestParseGroupMemberDetailCallback(t *testing.T) {
+	tests:=[]struct{value string;want int64;ok bool}{
+		{"123",123,true},{"0",0,false},{"-1",0,false},{"abc",0,false},{"9223372036854775808",0,false},
+	}
+	for _,tt:=range tests {
+		got,err:=strconv.ParseInt(tt.value,10,64)
+		ok:=err==nil && got>0
+		if ok!=tt.ok || (ok && got!=tt.want) { t.Errorf("parse member detail id %q = (%d,%v), want (%d,%v)",tt.value,got,ok,tt.want,tt.ok) }
+	}
 }
