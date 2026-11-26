@@ -218,15 +218,22 @@ func (p *Poller) requireGroupOwner(ctx context.Context,bot managedBot,telegramUs
 		_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"暂时无法验证平台主人身份，请稍后重试。"},nil)
 		return false
 	}
-	if !hasLinkedOwner {
+	switch groupOwnerAccess(hasLinkedOwner,isOwner) {
+	case "unbound":
 		_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"当前平台账号尚未绑定 Telegram 主人账号。请先登录 TG-Group 网站，进入“账号设置 → 账号关联”完成绑定。绑定后，你的全部群管 Bot 都会自动使用这个账号作为统一主人，无需逐个设置。"},nil)
 		return false
-	}
-	if !isOwner {
+	case "not_owner":
 		_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"此操作仅限已绑定 TG-Group 的主人账号使用。"},nil)
 		return false
+	default:
+		return true
 	}
-	return true
+}
+
+func groupOwnerAccess(hasLinkedOwner,isOwner bool) string {
+	if !hasLinkedOwner { return "unbound" }
+	if !isOwner { return "not_owner" }
+	return "owner"
 }
 
 func (p *Poller) sendGroupMenu(ctx context.Context,chatID,messageID int64,token string) {
