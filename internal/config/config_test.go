@@ -11,6 +11,8 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("CAP_SITE_KEY", "")
 	t.Setenv("CAP_SECRET", "")
 	t.Setenv("CAP_WIDGET_URL", "")
+	t.Setenv("TELEGRAM_AUTH_BOT_TOKEN", "")
+	t.Setenv("TELEGRAM_AUTH_BOT_USERNAME", "")
 
 	got, err := Load()
 	if err != nil {
@@ -52,4 +54,28 @@ func TestLoadReadsCompleteCAPConfiguration(t *testing.T) {
 	if got.CAPBaseURL != "https://captcha.example.com" || got.CAPSiteKey != "site-key" || got.CAPSecret != "secret" || got.CAPWidgetURL != "https://captcha.example.com/assets/widget.js" {
 		t.Fatalf("unexpected CAP configuration: %+v", got)
 	}
+}
+
+func TestLoadRejectsPartialTelegramAuthBotConfiguration(t *testing.T) {
+    t.Setenv("TG_GROUP_HTTP_PORT","8080")
+    t.Setenv("CAP_BASE_URL","")
+    t.Setenv("CAP_SITE_KEY","")
+    t.Setenv("CAP_SECRET","")
+    t.Setenv("TELEGRAM_AUTH_BOT_TOKEN","123:token")
+    t.Setenv("TELEGRAM_AUTH_BOT_USERNAME","")
+    if _,err:=Load();err==nil { t.Fatal("Load() error = nil, want incomplete Telegram auth Bot configuration error") }
+}
+
+func TestLoadReadsTelegramAuthBotConfiguration(t *testing.T) {
+    t.Setenv("TG_GROUP_HTTP_PORT","8080")
+    t.Setenv("CAP_BASE_URL","")
+    t.Setenv("CAP_SITE_KEY","")
+    t.Setenv("CAP_SECRET","")
+    t.Setenv("TELEGRAM_AUTH_BOT_TOKEN","123:token")
+    t.Setenv("TELEGRAM_AUTH_BOT_USERNAME","@tg_group_identity_bot")
+    got,err:=Load()
+    if err!=nil { t.Fatalf("Load() error = %v",err) }
+    if got.TelegramAuthBotToken!="123:token" || got.TelegramAuthBotUsername!="tg_group_identity_bot" {
+        t.Fatalf("unexpected Telegram auth Bot config: %+v",got)
+    }
 }
