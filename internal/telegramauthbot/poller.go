@@ -83,6 +83,8 @@ func (p *Poller) handleMessage(ctx context.Context, message *struct {
 }) {
     if message == nil || message.From == nil || message.From.IsBot || message.Chat.Type != "private" || message.From.ID != message.Chat.ID { return }
     command := strings.TrimSpace(message.Text)
+    if command=="/menu" || command=="主菜单" { _ = p.sendMessage(ctx,message.Chat.ID,"TG-Group 平台主菜单：请选择账号信息或查看使用帮助。"); return }
+    if command=="使用帮助" || command=="/help" { _ = p.sendMessage(ctx,message.Chat.ID,"TG-Group 使用帮助：\n/start：注册账号或完成网站账号绑定\n/account：查询当前绑定账号\n网站控制台可管理你的群管 Bot、群组和安全规则。"); return }
     if command == "/account" || command == "账号信息" {
         account, err := p.auth.TelegramAccount(ctx,message.From.ID)
         if err != nil {
@@ -132,7 +134,7 @@ func (p *Poller) handleMessage(ctx context.Context, message *struct {
 }
 
 func (p *Poller) sendMessage(ctx context.Context, chatID int64, text string) error {
-    payload,_ := json.Marshal(map[string]any{"chat_id":chatID,"text":text})
+    payload,_ := json.Marshal(map[string]any{"chat_id":chatID,"text":text,"reply_markup":map[string]any{"keyboard":[][]string{{"账号信息","使用帮助"}},"resize_keyboard":true,"is_persistent":true}})
     req,err := http.NewRequestWithContext(ctx,http.MethodPost,"https://api.telegram.org/bot"+p.token+"/sendMessage",strings.NewReader(string(payload)))
     if err != nil { return err }
     req.Header.Set("Content-Type","application/json")
