@@ -137,7 +137,7 @@ DATABASE_URL="postgres://tg_group:tg_group_dev@127.0.0.1:5432/tg_group?sslmode=d
 go run ./cmd/api
 ```
 
-三项 CAP 配置必须同时设置；全部留空时 CAPTCHA 功能关闭。配置完成后，访问 `GET /api/v1/security/captcha` 应返回 `enabled=true` 和公开 endpoint（不含 secret）。注册页和登录页加载官方验证组件；完成后提交的 token 会由 Go 后端调用 Cap Standalone 的 `/{site_key}/siteverify` 校验。验证失败、token 重放或 Cap 服务不可用时，注册/登录会被拒绝。
+三项 CAP 配置必须同时设置；全部留空时 CAPTCHA 功能关闭。可选设置 `CAP_WIDGET_URL` 指向自托管或镜像的官方 `widget.js`，例如 `https://captcha.example.com/assets/widget.js`；不设置则使用固定版本 CDN。若使用 Cap Standalone 的 assets server，请按官方文档固定 `WIDGET_VERSION`/`WASM_VERSION`，并确保浏览器可加载对应 WASM 资源。配置完成后，访问 `GET /api/v1/security/captcha` 应返回 `enabled=true` 和公开 endpoint（不含 secret）。注册页和登录页加载官方验证组件；完成后提交的 token 会由 Go 后端调用 Cap Standalone 的 `/{site_key}/siteverify` 校验。验证失败、token 重放或 Cap 服务不可用时，注册/登录会被拒绝。
 
 验收步骤：
 1. 浏览器打开注册页和登录页，确认显示 CAP 官方验证组件且可完成验证。
