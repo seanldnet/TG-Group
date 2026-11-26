@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react"
 import { Bot, LogOut, ShieldCheck, UsersRound } from "lucide-react"
 
-import { clearToken, currentUser, logout, getTelegramIdentity, createTelegramLink, unlinkTelegramIdentity, type TelegramIdentityStatus, type User } from "@/lib/api"
+import { clearToken, currentUser, logout, getTelegramIdentity, createTelegramLink, unlinkTelegramIdentity, changePassword, saveToken, type TelegramIdentityStatus, type User } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Card,
   CardContent,
@@ -20,6 +22,12 @@ export default function DashboardPage() {
   const [telegram, setTelegram] = useState<TelegramIdentityStatus | null>(null)
   const [telegramBusy, setTelegramBusy] = useState(false)
   const [telegramError, setTelegramError] = useState("")
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [passwordBusy, setPasswordBusy] = useState(false)
+  const [passwordMessage, setPasswordMessage] = useState("")
+  const [passwordError, setPasswordError] = useState("")
 
   useEffect(() => {
     let active = true
@@ -65,6 +73,32 @@ export default function DashboardPage() {
       setTelegramError(cause instanceof Error ? cause.message : "解除 Telegram 绑定失败")
     } finally {
       setTelegramBusy(false)
+    }
+  }
+
+  async function handlePasswordChange() {
+    setPasswordMessage("")
+    setPasswordError("")
+    if (newPassword.length < 10 || newPassword.length > 72) {
+      setPasswordError("新密码长度必须为 10-72 个字符")
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("两次输入的新密码不一致")
+      return
+    }
+    setPasswordBusy(true)
+    try {
+      const session = await changePassword({ current_password: currentPassword, new_password: newPassword })
+      saveToken(session.token, session.refresh_token)
+      setCurrentPassword("")
+      setNewPassword("")
+      setConfirmPassword("")
+      setPasswordMessage("密码修改成功，其他设备的登录会话已全部退出。")
+    } catch (cause) {
+      setPasswordError(cause instanceof Error ? cause.message : "修改密码失败")
+    } finally {
+      setPasswordBusy(false)
     }
   }
 
@@ -144,6 +178,34 @@ export default function DashboardPage() {
                 </div>
               )}
               {telegramError && <p role="alert" className="text-sm text-destructive">{telegramError}</p>}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mb-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>修改登录密码</CardTitle>
+              <CardDescription>修改后会撤销所有旧登录会话，当前设备将自动换发新会话。</CardDescription>
+            </CardHeader>
+            <CardContent className="max-w-xl space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="current-password">当前密码</Label>
+                <Input id="current-password" type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-password">新密码（10-72 个字符）</Label>
+                <Input id="new-password" type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">确认新密码</Label>
+                <Input id="confirm-password" type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+              </div>
+              {passwordError && <p role="alert" className="text-sm text-destructive">{passwordError}</p>}
+              {passwordMessage && <p role="status" className="text-sm text-emerald-600">{passwordMessage}</p>}
+              <Button onClick={handlePasswordChange} disabled={passwordBusy || !currentPassword || !newPassword || !confirmPassword}>
+                {passwordBusy ? "正在修改..." : "确认修改密码"}
+              </Button>
             </CardContent>
           </Card>
         </div>
