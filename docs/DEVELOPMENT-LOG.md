@@ -240,3 +240,13 @@
 - **集成测试修正与复验**：规则集成测试最初插入在群组创建之前，CI run `45724386591` 因测试代码引用尚未声明的 `groupID` 编译失败；已将断言移动到群组创建之后，提交 `df312bb0f58b0acdc97aa4d50cde9f344686d5fb` 正在执行完整 CI。API 文档换行格式已修正。
 
 - **CI 最终验收**：修正后的集成测试提交 `df312bb0f58b0acdc97aa4d50cde9f344686d5fb` 对应 GitHub Actions run `45724599031` Go/PostgreSQL 测试、`go vet` 和前端生产构建均通过；最后修正规则页重复导航后的提交 `ae3f3520bec219b180904ce0b81168e613d2c0aa` 对应 run `45724721446` 两个 Job 也全部 success。规则配置/执行记录查询的跨租户集成测试现已通过云端 PostgreSQL 验证。
+
+
+### Telegram 入群数学题验证（第十五批，基础验证阶段）
+- **规则类型**：新增 `join_verification`，服务端严格校验 `challenge_type=math`、超时 30–600 秒、失败动作仅允许 `restrict` 或 `kick`。
+- **数据模型**：新增迁移 `000008_join_verification`，建立挑战表，按群组/成员唯一保存待验证挑战、答案、状态、超时时间和失败动作；同步 internal 与根目录迁移文件。
+- **入群处理**：对新加入的非 Bot 成员，仅在 Telegram supergroup 中执行；实时检查 Bot 是否为群主/管理员并具备 `can_restrict_members`，随后临时关闭成员发送权限，发送随机加法题和三个 Inline Keyboard 选项。
+- **答题校验**：订阅 `callback_query` 更新，验证 challenge、租户、Bot、群组、成员 Telegram ID 和有效期；其他成员无法代答。答对后读取 Telegram 群默认权限并原样恢复，不授予超出群默认设置的权限；成功后清理验证按钮。
+- **超时处理**：worker 每轮长轮询前扫描到期挑战；`restrict` 保持限制，`kick` 通过封禁后立即解封实现移出群组。失败不会假报成功。
+- **安全边界**：当前为数学题基础验证，不是 CAP.js；仅适用于 supergroup。若 Bot 无限制成员权限、群组默认权限不可读取或 Telegram API 调用失败，会跳过/记录错误或保留限制，需管理员检查。尚未实现频道关注验证、CAP.js 服务端验证、chat_member 更新驱动挑战和可配置复杂题型。
+- **测试**：新增规则配置合法性测试和数学题选项边界/去重单测；等待云端 CI 完整验证。
