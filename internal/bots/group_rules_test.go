@@ -33,6 +33,10 @@ func TestValidateGroupRule(t *testing.T) {
 		{"unsafe action", GroupRuleInput{RuleType:"keyword_filter",Name:"x",Config:json.RawMessage(`{"words":["x"],"action":"ban"}`)},false},
 		{"invalid spam window", GroupRuleInput{RuleType:"anti_spam",Name:"x",Config:json.RawMessage(`{"max_messages":1,"window_seconds":10,"action":"delete"}`)},false},
 		{"empty notice", GroupRuleInput{RuleType:"welcome",Name:"x",Config:json.RawMessage(`{"text":" "}`)},false},
+		{"valid QA exact", GroupRuleInput{RuleType:"qa",Name:"faq",Config:json.RawMessage(`{"triggers":["群规"],"match_mode":"exact","response":"请看公告","case_sensitive":false}`)},true},
+		{"valid QA contains", GroupRuleInput{RuleType:"qa",Name:"faq",Config:json.RawMessage(`{"triggers":["群规","规则"],"match_mode":"contains","response":"请看公告","case_sensitive":false}`)},true},
+		{"invalid QA match mode", GroupRuleInput{RuleType:"qa",Name:"faq",Config:json.RawMessage(`{"triggers":["群规"],"match_mode":"regex","response":"请看公告","case_sensitive":false}`)},false},
+		{"empty QA response", GroupRuleInput{RuleType:"qa",Name:"faq",Config:json.RawMessage(`{"triggers":["群规"],"match_mode":"exact","response":" ","case_sensitive":false}`)},false},
 		{"priority out of range", GroupRuleInput{RuleType:"welcome",Name:"x",Priority:1001,Config:json.RawMessage(`{"text":"hi"}`)},false},
 	}
 	for _,tt:=range tests {
