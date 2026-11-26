@@ -117,7 +117,7 @@ func (s *Service) Login(ctx context.Context, email, password, userAgent, remoteA
 	var user User
 	var passwordHash,status,tenantStatus string
 	err=tx.QueryRow(ctx,`SELECT u.id::text,u.tenant_id::text,u.email,u.display_name,u.role,u.password_hash,u.status,u.created_at,t.status
-		FROM users u JOIN tenants t ON t.id=u.tenant_id WHERE u.email=$1`,email).
+		FROM users u JOIN tenants t ON t.id=u.tenant_id WHERE u.email=$1 OR u.id::text=$1 ORDER BY CASE WHEN u.email=$1 THEN 0 ELSE 1 END LIMIT 1`,email).
 		Scan(&user.ID,&user.TenantID,&user.Email,&user.DisplayName,&user.Role,&passwordHash,&status,&user.CreatedAt,&tenantStatus)
 	if err!=nil && !errors.Is(err,pgx.ErrNoRows) {
 		return Session{},fmt.Errorf("load account for login: %w",err)
