@@ -52,17 +52,8 @@ export default function GroupRuleEventsPage({ groupID }: { groupID: string }) {
   useEffect(() => { void refresh() }, [refresh])
 
   return (
-    <main className="min-h-svh bg-muted/25">
-      <header className="border-b border-border/70 bg-background">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
-          <a href={`/dashboard/groups/${groupID}/rules`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="size-4" /> 返回规则管理
-          </a>
-          <span className="text-sm font-semibold">TG-Group · 规则执行记录</span>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-6xl space-y-6 px-5 py-9 sm:px-8 sm:py-12">
+    <main className="w-full"><a href={`/dashboard/groups/${groupID}/rules`} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4"/>返回规则管理</a>
+      <div className="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>
             <Badge variant="secondary" className="mb-3">自动化审计</Badge>
