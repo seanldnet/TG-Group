@@ -35,7 +35,7 @@ export default function RegisterPage() {
         password,
         captcha_token: captchaToken,
       })
-      saveToken(session.token)
+      saveToken(session.token, session.refresh_token)
       window.location.assign("/dashboard")
     } catch (cause) {
       setCaptchaToken("")
