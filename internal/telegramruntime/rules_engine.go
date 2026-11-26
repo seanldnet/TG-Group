@@ -864,7 +864,7 @@ func (p *Poller) processPendingGroupInput(ctx context.Context,bot managedBot,gro
   _,err=p.botService.UpdateGroupRule(ctx,bot.tenantID,groupID,ruleID,bots.GroupRuleInput{RuleType:current.RuleType,Name:current.Name,Enabled:current.Enabled,Priority:current.Priority,Config:encoded})
   if err!=nil { _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":message.Chat.ID,"text":"内容未通过规则校验，原配置保持不变。请检查格式后重新发送。"},nil); return true }
   _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":message.Chat.ID,"text":"自定义内容已校验并保存。"},nil)
-  p.sendGroupRules(ctx,bot,groupID,message.Chat.ID,token)
+  p.refreshGroupRuleCategory(ctx,bot,groupID,message.Chat.ID,current.RuleType,token)
  default: return true
  }
  _,_=p.pool.Exec(ctx,"DELETE FROM telegram_group_pending_inputs WHERE tenant_id=$1 AND group_id=$2 AND telegram_user_id=$3",bot.tenantID,groupID,message.From.ID)
