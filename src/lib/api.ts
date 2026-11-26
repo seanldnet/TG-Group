@@ -304,3 +304,36 @@ export function listGroupRuleEvents(groupID: string, limit = 50) {
     { headers: authenticatedHeaders() },
   )
 }
+
+
+export type TelegramIdentity = {
+  id: number | null
+  username: string
+  first_name: string
+  last_name: string
+}
+
+export type TelegramIdentityStatus = {
+  linked: boolean
+  telegram: TelegramIdentity
+}
+
+export function getTelegramIdentity() {
+  return request<TelegramIdentityStatus>("/api/v1/auth/telegram", {
+    headers: authenticatedHeaders(),
+  })
+}
+
+export function createTelegramLink() {
+  return request<{ url: string; expires_at: string }>("/api/v1/auth/telegram/link", {
+    method: "POST",
+    headers: authenticatedHeaders(),
+  })
+}
+
+export function unlinkTelegramIdentity() {
+  return request<void>("/api/v1/auth/telegram", {
+    method: "DELETE",
+    headers: authenticatedHeaders(),
+  })
+}
