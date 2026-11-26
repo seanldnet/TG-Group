@@ -76,9 +76,16 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 	if p.handleJoinVerificationText(ctx,bot,groupID,message,token) { return }
 	if content=="" || senderID==nil || message.From.IsBot { return }
 	var matched *executableRule
+	var matchedQA *executableRule
+	var qaResponse string
 	for i:=range rules {
 		rule:=&rules[i]
 		switch rule.Type {
+		case "qa":
+			var cfg struct { Triggers []string `json:"triggers"`; MatchMode string `json:"match_mode"`; Response string `json:"response"`; CaseSensitive bool `json:"case_sensitive"` }
+			if json.Unmarshal(rule.Config,&cfg)==nil && matchesQARule(content,cfg.Triggers,cfg.MatchMode,cfg.CaseSensitive) {
+				matchedQA=rule; qaResponse=cfg.Response
+			}
 		case "keyword_filter","sensitive_word":
 			var cfg struct{Words []string `json:"words"`;Action string `json:"action"`}
 			if json.Unmarshal(rule.Config,&cfg)!=nil || cfg.Action!="delete" {continue}
@@ -101,9 +108,29 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 		}
 		if matched!=nil{break}
 	}
+	if matchedQA!=nil {
+		p.executeRuleNotice(ctx,bot,groupID,item.UpdateID,message.MessageID,message.From.ID,*matchedQA,"qa_reply",qaResponse,token)
+		return
+	}
 	if matched==nil{return}
 	if message.MessageID<=0{return}
 	p.executeDeleteRule(ctx,bot,groupID,item.UpdateID,message.MessageID,senderID.(int64),*matched,token)
+}
+
+func matchesQARule(message string,triggers []string,mode string,caseSensitive bool) bool {
+	value:=strings.TrimSpace(message)
+	if !caseSensitive { value=strings.ToLower(value) }
+	for _,trigger:=range triggers {
+		term:=strings.TrimSpace(trigger)
+		if !caseSensitive { term=strings.ToLower(term) }
+		if term=="" { continue }
+		switch mode {
+		case "exact": if value==term { return true }
+		case "prefix": if strings.HasPrefix(value,term) { return true }
+		case "contains": if strings.Contains(value,term) { return true }
+		}
+	}
+	return false
 }
 
 type groupMemberListPolicy struct {
@@ -367,7 +394,7 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 	case query.Data=="group:rules": p.sendGroupRules(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case strings.HasPrefix(query.Data,"group:rules:"):
 		category:=strings.TrimPrefix(query.Data,"group:rules:")
-		if category=="notices"||category=="spam"||category=="ads"||category=="verify" { p.sendGroupRulesForCategory(ctx,bot,groupID,query.Message.Chat.ID,category,token) }
+		if category=="notices"||category=="spam"||category=="ads"||category=="verify"||category=="qa" { p.sendGroupRulesForCategory(ctx,bot,groupID,query.Message.Chat.ID,category,token) }
 	case query.Data=="group:members" || strings.HasPrefix(query.Data,"group:members:page:"):
 		offset:=0
 		if query.Data!="group:members" { parsed,err:=strconv.Atoi(strings.TrimPrefix(query.Data,"group:members:page:"));if err!=nil||parsed<0||parsed>100000{return};offset=parsed }
@@ -696,6 +723,7 @@ func groupRuleCategory(ruleType string) string {
 	case "welcome","leave_notice": return "notices"
 	case "anti_spam": return "spam"
 	case "anti_ad","keyword_filter","sensitive_word": return "ads"
+	case "qa": return "qa"
 	case "join_verification": return "verify"
 	default: return "all"
 	}
@@ -713,12 +741,13 @@ func (p *Poller) sendGroupRulesForCategory(ctx context.Context,bot managedBot,gr
 		"spam":{"anti_spam":true},
 		"ads":{"anti_ad":true,"keyword_filter":true,"sensitive_word":true},
 		"verify":{"join_verification":true},
+		"qa":{"qa":true},
 	}
 	rows,err:=p.pool.Query(ctx,"SELECT id::text,name,rule_type,enabled,config FROM telegram_group_rules WHERE tenant_id=$1 AND group_id=$2 ORDER BY priority,created_at LIMIT 100",bot.tenantID,groupID)
 	if err!=nil { p.logger.Error("load rules for Telegram group menu","group_id",groupID,"error",err);return }
 	defer rows.Close()
 	title:="群组规则管理"
-	switch category { case "notices": title="提示设置";case "spam":title="刷屏检测";case "ads":title="广告检测";case "verify":title="入群验证设置" }
+	switch category { case "notices": title="提示设置";case "spam":title="刷屏检测";case "ads":title="广告检测";case "verify":title="入群验证设置";case "qa":title="问答系统" }
 	lines:=[]string{title+"："}
 	keyboard:=[][]map[string]string{}
 	count:=0
@@ -743,6 +772,8 @@ func (p *Poller) sendGroupRulesForCategory(ctx context.Context,bot managedBot,gr
 		keyboard=append(keyboard,[]map[string]string{{"text":"添加刷屏限制","callback_data":"group:create:anti_spam"}})
 	case "ads":
 		keyboard=append(keyboard,[]map[string]string{{"text":"添加广告拦截","callback_data":"group:create:anti_ad"},{"text":"添加关键词过滤","callback_data":"group:create:keyword"}})
+	case "qa":
+		keyboard=append(keyboard,[]map[string]string{{"text":"添加问答规则","callback_data":"group:create:qa"}})
 	case "verify":
 		lines=append(lines,"当前已接通：数字加法选择、字母验证码、数字字母组合验证码、验证时限、失败处理、必需频道成员核验。")
 		lines=append(lines,"私聊验证及图片 CAPTCHA 尚未接通。")
