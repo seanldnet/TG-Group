@@ -68,8 +68,8 @@ func insertWarningRetryFixture(t *testing.T, f warningRetryFixture, tenantID, gr
 	err := f.db.Pool.QueryRow(ctx, `INSERT INTO telegram_group_warning_escalations(
 		tenant_id,group_id,rule_id,telegram_user_id,warning_count,action,duration_minutes,status,attempt_count,next_retry_at,processing_started_at
 	) VALUES($1,$2,gen_random_uuid(),$3,1,'ban',0,$4,$5,
-		CASE WHEN $4='failed' THEN $6 ELSE NULL END,
-		CASE WHEN $4='processing' THEN $6 ELSE NULL END
+		CASE WHEN $4='failed' THEN $6::timestamptz ELSE NULL END,
+		CASE WHEN $4='processing' THEN $6::timestamptz ELSE NULL END
 	) RETURNING id`, tenantID, groupID, userID, status, attempt, due).Scan(&id)
 	if err != nil { t.Fatalf("insert retry fixture: %v", err) }
 	return id
