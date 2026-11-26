@@ -617,3 +617,5 @@
 - **安全边界**：普通成员、restricted、left、kicked 均不能操作；群管理员权限仅限当前群，不会获得 TG-Group 网站后台或平台 API 管理权限。
 - **测试**：新增 `/start`、`/menu`、`/help` 命令解析（含 `/start@BotName`）与 Telegram 管理员状态判定测试。
 - **验证边界**：代码与文档已推送 main；CI/Docker 构建及真实 Telegram 私聊、群内唤起菜单、管理员升降级现场验证待完成。
+
+- **成员处罚兼容**：未绑定 TG-Group 平台账号的 Telegram 群管理员也可执行禁言/封禁/解除操作；复用原 `ModerateGroupMember` 的 Bot 权限、目标管理员保护、Telegram API 与事务审计校验，审计记录通过 `metadata.telegram_user_id` 记录操作者 Telegram ID，`actor_user_id` 保持 NULL，不伪造平台账号。
