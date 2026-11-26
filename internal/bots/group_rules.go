@@ -97,7 +97,7 @@ func ValidateGroupRule(input GroupRuleInput) error {
 		if decode(&cfg) != nil || strings.TrimSpace(cfg.Text) == "" || len([]rune(cfg.Text)) > 4096 { return ErrInvalidGroupRule }
 	case "join_verification":
 		var cfg joinVerificationRuleConfig
-		if decode(&cfg) != nil || cfg.ChallengeType != "math" || cfg.TimeoutSeconds < 30 || cfg.TimeoutSeconds > 600 || (cfg.FailureAction != "restrict" && cfg.FailureAction != "kick") || len(cfg.RequiredChannels) > 10 { return ErrInvalidGroupRule }
+		if decode(&cfg) != nil || (cfg.ChallengeType != "math" && cfg.ChallengeType != "letters" && cfg.ChallengeType != "alphanumeric") || cfg.TimeoutSeconds < 30 || cfg.TimeoutSeconds > 600 || (cfg.FailureAction != "restrict" && cfg.FailureAction != "kick") || len(cfg.RequiredChannels) > 10 { return ErrInvalidGroupRule }
 		seen := make(map[string]struct{}, len(cfg.RequiredChannels))
 		for _, channel := range cfg.RequiredChannels { if !validRequiredChannel(channel) { return ErrInvalidGroupRule }; if _, exists := seen[channel]; exists { return ErrInvalidGroupRule }; seen[channel] = struct{}{} }
 	default:
