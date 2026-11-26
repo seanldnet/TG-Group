@@ -393,6 +393,6 @@
 
 ### PostgreSQL 持久卷密码同步修复（部署联调）
 - **问题证据**：用户首次部署时 PostgreSQL 容器健康，但 API 日志持续出现 SQLSTATE 28P01（tg_group 密码认证失败）。此前中断/旧安装留下的 PostgreSQL 数据卷保留了初始化密码，而安装器补齐的 .env 密码与数据库角色密码不一致。
-- **修复**：安装器拉取镜像后先单独启动 PostgreSQL并等待就绪，再通过容器内本地 postgres 超级用户连接执行 `ALTER ROLE tg_group WITH PASSWORD`，将角色密码同步到当前持久化 .env；随后才启动 API 和 Web。
+- **修复**：安装器拉取镜像后先单独启动 PostgreSQL并等待就绪，再通过容器内配置的 tg_group 初始化超级用户连接执行 `ALTER ROLE tg_group WITH PASSWORD`，将角色密码同步到当前持久化 .env；随后才启动 API 和 Web。
 - **数据边界**：只修改数据库登录角色密码，不删除或重建数据库、不清空 volume、不改业务数据；.env 中已存在的密码仍被保留。
 - **验证边界**：安装器修复已提交；尚待用户服务器重新执行脚本，确认 API 健康检查通过及 Web 正常启动。
