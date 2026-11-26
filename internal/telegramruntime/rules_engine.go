@@ -246,7 +246,7 @@ func (p *Poller) sendGroupMenu(ctx context.Context,chatID,messageID int64,token 
 
 func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID string,query telegramCallbackQuery,token string) {
 	_ = p.callTelegram(ctx,token,"answerCallbackQuery",map[string]any{"callback_query_id":query.ID},nil)
-	if query.Message==nil || query.From.ID<=0 { return }
+	if query.Message==nil || query.From==nil || query.From.ID<=0 { return }
 	if !p.requireGroupOwner(ctx,bot,query.From.ID,query.Message.Chat.ID,token) { return }
 	switch {
 	case query.Data=="group:rules": p.sendGroupRules(ctx,bot,groupID,query.Message.Chat.ID,token)
