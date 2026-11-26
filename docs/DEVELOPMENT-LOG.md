@@ -438,3 +438,13 @@
 - **侧边栏**：明确分为工作空间与安全中心两个导航分组。尚未开发完成的平台设置菜单暂不展示，避免用户点击后回到公开首页或进入空页面。
 - **实现约束**：继续使用仓库已有 shadcn/ui 官方 Button、Badge、Card、Input、Label 组件，没有引入自制 UI 框架。
 - **验证边界**：代码已提交 main，GitHub Actions CI 正在运行；未通过 CI 前不宣称前端构建验收。平台 Bot 可视化配置与动态重载仍待下一步实现。
+
+
+## 2026-11-26（平台管理员 Telegram Bot 配置第一阶段）
+- 新增 `platform_telegram_auth_bot_settings` 单例表，存储加密 Token、随机 nonce、Bot Username、启用状态、修改人和更新时间。
+- 新增 `internal/platformsettings`：复用 `BOT_TOKEN_ENCRYPTION_KEY`，采用 AES-256-GCM 和固定 AAD 加密；增加 Token 形状检查、Username 检查和 Telegram `getMe` 身份验证。
+- 新增管理员专属 API：读取状态、保存配置、停用配置。非管理员被拒绝；Token 不在任何 API 响应中出现。
+- 新增 Telegram 注册 Bot Manager，支持取消旧 poller、启动新 poller；主程序优先恢复数据库托管配置，保留尚未迁移安装的环境变量兼容路径。
+- 停用时写入持久化 disabled 标记，防止部署环境仍保留旧 Token 时重启后自动恢复。
+- 新增平台设置前端页面；侧边栏平台管理分组只对 admin 显示。页面职责仍按控制台首页、机器人、群组、安全中心、平台设置分开。
+- 新增 Token/Username 格式验证单元测试。尚待 CI、部署后 API 权限检查和真实 Telegram 消息联调；管理器 running 仅表示轮询 goroutine 已启动，不代表 Telegram 端已持续正常。
