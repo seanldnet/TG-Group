@@ -9,7 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"unicode"
+	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -21,7 +23,7 @@ type Service struct { pool *pgxpool.Pool; aead cipher.AEAD }
 type Status struct {
 	Configured bool `json:"configured"`
 	Username string `json:"username"`
-	UpdatedAt any `json:"updated_at,omitempty"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 }
 
 func New(pool *pgxpool.Pool, encodedKey string) (*Service,error) {
@@ -36,7 +38,7 @@ func New(pool *pgxpool.Pool, encodedKey string) (*Service,error) {
 func normalizeUsername(value string)(string,error){
 	value=strings.TrimPrefix(strings.TrimSpace(value),"@")
 	if len(value)<5||len(value)>32||!strings.HasSuffix(strings.ToLower(value),"bot"){return "",ErrInvalidConfig}
-	for _,r:=range value { if !(unicode.IsLetter(r)&&r<128)&&!(r>='0'&&r<='9')&&r!='_' { return "",ErrInvalidConfig } }
+	for _,r:=range value { if !((r>='a'&&r<='z')||(r>='A'&&r<='Z')||(r>='0'&&r<='9')||r=='_') { return "",ErrInvalidConfig } }
 	return value,nil
 }
 
@@ -44,7 +46,7 @@ func (s *Service) Status(ctx context.Context)(Status,error){
 	var status Status
 	err:=s.pool.QueryRow(ctx,`SELECT username,updated_at FROM platform_telegram_auth_bot_settings WHERE id=1`).Scan(&status.Username,&status.UpdatedAt)
 	if err!=nil {
-		if strings.Contains(err.Error(),"no rows in result set") { return Status{Configured:false},nil }
+		if errors.Is(err,pgx.ErrNoRows) { return Status{Configured:false},nil }
 		return Status{},fmt.Errorf("read platform Telegram Bot settings: %w",err)
 	}
 	status.Configured=true
