@@ -46,7 +46,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>
 }
 
-export type CaptchaConfig = { enabled: boolean; endpoint?: string }
+export type CaptchaConfig = { enabled: boolean; endpoint?: string; widget_url?: string }
 
 export function getCaptchaConfig() {
   return request<CaptchaConfig>("/api/v1/security/captcha")
