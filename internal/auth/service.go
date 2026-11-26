@@ -23,6 +23,7 @@ var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrUnauthorized = errors.New("unauthorized")
 	ErrAccountInactive = errors.New("account is not active")
+	ErrLoginRateLimited = errors.New("login temporarily rate limited")
 )
 
 
