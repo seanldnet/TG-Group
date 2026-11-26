@@ -119,7 +119,8 @@ func (p *Poller) handleMessage(ctx context.Context,message *telegramMessage) {
         }
         account,lookupErr:=p.auth.TelegramAccount(ctx,message.From.ID)
         if lookupErr==nil {
-            _=p.sendMessage(ctx,message.Chat.ID,"欢迎回来，"+account.DisplayName+"。请选择下方菜单操作。")
+            _=account
+            _=p.sendIntroMenu(ctx,message.Chat.ID)
             return
         }
         _=p.sendIntroMenu(ctx,message.Chat.ID)
@@ -248,7 +249,21 @@ func platformIntroText() string {
 }
 
 func (p *Poller) sendIntroMenu(ctx context.Context,chatID int64) error {
-    return p.sendMessageWithKeyboard(ctx,chatID,platformIntroText(),"",platformIntroKeyboard())
+    if err:=p.sendMessageWithKeyboard(ctx,chatID,platformIntroText(),"",platformIntroKeyboard());err!=nil{return err}
+    return p.sendReplyKeyboard(ctx,chatID,"常用操作已固定在聊天输入框下方菜单中。")
+}
+
+func (p *Poller) sendReplyKeyboard(ctx context.Context,chatID int64,text string) error {
+    payload,_:=json.Marshal(map[string]any{"chat_id":chatID,"text":text,"reply_markup":platformReplyKeyboard()})
+    req,err:=http.NewRequestWithContext(ctx,http.MethodPost,"https://api.telegram.org/bot"+p.token+"/sendMessage",strings.NewReader(string(payload)))
+    if err!=nil{return err}
+    req.Header.Set("Content-Type","application/json")
+    response,err:=p.client.Do(req);if err!=nil{return err};defer response.Body.Close()
+    data,err:=io.ReadAll(io.LimitReader(response.Body,1<<20));if err!=nil{return err}
+    if response.StatusCode!=http.StatusOK{return fmt.Errorf("Telegram sendMessage returned HTTP %d",response.StatusCode)}
+    var result struct{OK bool `json:"ok"`}
+    if json.Unmarshal(data,&result)!=nil||!result.OK{return fmt.Errorf("Telegram sendMessage returned ok=false")}
+    return nil
 }
 
 func platformIntroKeyboard() map[string]any {
@@ -280,7 +295,7 @@ func (p *Poller) sendMessageWithParseMode(ctx context.Context, chatID int64, tex
 }
 
 func (p *Poller) sendMessageWithKeyboard(ctx context.Context,chatID int64,text,parseMode string,keyboard map[string]any) error {
-    payloadData:=map[string]any{"chat_id":chatID,"text":text,"reply_markup":map[string]any{"inline_keyboard":keyboard["inline_keyboard"],"keyboard":platformReplyKeyboard()["keyboard"],"resize_keyboard":true,"is_persistent":true,"input_field_placeholder":"请选择菜单操作…"}}
+    payloadData:=map[string]any{"chat_id":chatID,"text":text,"reply_markup":keyboard}
     if parseMode!="" { payloadData["parse_mode"]=parseMode }
     payload,_:=json.Marshal(payloadData)
     req,err:=http.NewRequestWithContext(ctx,http.MethodPost,"https://api.telegram.org/bot"+p.token+"/sendMessage",strings.NewReader(string(payload)))
