@@ -13,22 +13,27 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { CaptchaField } from "@/components/CaptchaField"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState("")
+  const [captchaReset, setCaptchaReset] = useState(0)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError("")
     setLoading(true)
     try {
-      const session = await login({ email, password })
+      const session = await login({ email, password, captcha_token: captchaToken })
       saveToken(session.token)
       window.location.assign("/dashboard")
     } catch (cause) {
+      setCaptchaToken("")
+      setCaptchaReset((value) => value + 1)
       setError(cause instanceof Error ? cause.message : "登录失败，请稍后重试")
     } finally {
       setLoading(false)
@@ -81,6 +86,7 @@ export default function LoginPage() {
                   required
                 />
               </div>
+              <CaptchaField key={captchaReset} onToken={setCaptchaToken} />
               {error && (
                 <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
                   {error}
