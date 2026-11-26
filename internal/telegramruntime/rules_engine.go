@@ -681,6 +681,7 @@ func (p *Poller) sendGroupMemberDetail(ctx context.Context,bot managedBot,groupI
 	if warningErr==nil { lines=append(lines,fmt.Sprintf("当前警告次数：%d",len(warnings)));for i:=0;i<len(warnings)&&i<5;i++ { lines=append(lines,fmt.Sprintf("警告：%s（%s）",warnings[i].Reason,warnings[i].CreatedAt.Format("01-02 15:04"))) } }
 	keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{
 		{{"text":"添加警告","callback_data":fmt.Sprintf("group:warn:add:%d",userID)}},
+		{{"text":"清零警告","callback_data":fmt.Sprintf("group:warn:clear:ask:%d",userID)}},
 		{{"text":"加入黑名单","callback_data":fmt.Sprintf("group:list:add:blacklist:%d",userID)},{"text":"加入白名单","callback_data":fmt.Sprintf("group:list:add:whitelist:%d",userID)}},
 		{{"text":"设为豁免成员","callback_data":fmt.Sprintf("group:list:add:exempt:%d",userID)}},
 		{{"text":"返回成员列表","callback_data":"group:members"}},
@@ -1164,10 +1165,25 @@ func (p *Poller) handleGroupMemberListDelete(ctx context.Context,bot managedBot,
 
 func (p *Poller) handleGroupMemberWarning(ctx context.Context,bot managedBot,groupID string,query telegramCallbackQuery,token string) {
 	parts:=strings.Split(query.Data,":")
-	if len(parts)!=4 || parts[2]!="add" {return}
-	userID,err:=strconv.ParseInt(parts[3],10,64);if err!=nil||userID<=0{return}
-	item,err:=p.botService.AddGroupMemberWarning(ctx,bot.tenantID,groupID,userID,query.From.ID,"管理员手动警告","manual")
-	if err!=nil {p.logger.Warn("add group member warning","error",err);_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"添加警告失败，请稍后重试。"},nil);return}
-	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":fmt.Sprintf("已记录用户 %d 的警告（记录 #%d）。当前仅记录，不会触发自动处罚。",userID,item.ID)},nil)
-	p.sendGroupMemberDetail(ctx,bot,groupID,query.Message.Chat.ID,fmt.Sprintf("group:member:detail:%d",userID),token)
+	if len(parts)<4 || parts[0]!="group" || parts[1]!="warn" {return}
+	if parts[2]=="add" && len(parts)==4 {
+		userID,err:=strconv.ParseInt(parts[3],10,64);if err!=nil||userID<=0{return}
+		item,err:=p.botService.AddGroupMemberWarning(ctx,bot.tenantID,groupID,userID,query.From.ID,"管理员手动警告","manual")
+		if err!=nil {p.logger.Warn("add group member warning","error",err);_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"添加警告失败，请稍后重试。"},nil);return}
+		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":fmt.Sprintf("已记录用户 %d 的警告（记录 #%d）。当前仅记录，不会触发自动处罚。",userID,item.ID)},nil)
+		p.sendGroupMemberDetail(ctx,bot,groupID,query.Message.Chat.ID,fmt.Sprintf("group:member:detail:%d",userID),token)
+		return
+	}
+	if len(parts)!=5 || parts[2]!="clear" {return}
+	userID,err:=strconv.ParseInt(parts[4],10,64);if err!=nil||userID<=0{return}
+	switch parts[3] {
+	case "ask":
+		keyboard:=[][]map[string]string{{{"text":"确认清零","callback_data":fmt.Sprintf("group:warn:clear:confirm:%d",userID)},{"text":"取消","callback_data":fmt.Sprintf("group:member:detail:%d",userID)}}}
+		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":fmt.Sprintf("确认清除用户 %d 的全部警告记录？该操作不可恢复。",userID),"reply_markup":map[string]any{"inline_keyboard":keyboard}},nil)
+	case "confirm":
+		count,err:=p.botService.ClearGroupMemberWarnings(ctx,bot.tenantID,groupID,userID)
+		if err!=nil {p.logger.Warn("clear group member warnings","group_id",groupID,"user_id",userID,"error",err);_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"清零失败，请稍后重试。"},nil);return}
+		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":fmt.Sprintf("已清除用户 %d 的 %d 条警告记录。",userID,count)},nil)
+		p.sendGroupMemberDetail(ctx,bot,groupID,query.Message.Chat.ID,fmt.Sprintf("group:member:detail:%d",userID),token)
+	}
 }
