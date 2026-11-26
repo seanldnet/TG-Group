@@ -187,3 +187,48 @@ func TestLoginRateLimitByEmailAndIPPostgres(t *testing.T) {
 		t.Fatalf("login from a fresh email/IP pair: %v",err)
 	}
 }
+
+func TestListAndRevokeOtherSessionsPostgres(t *testing.T) {
+	databaseURL:=os.Getenv("TEST_DATABASE_URL")
+	if databaseURL=="" { t.Skip("TEST_DATABASE_URL is not configured") }
+	ctx,cancel:=context.WithTimeout(context.Background(),30*time.Second)
+	defer cancel()
+	db,err:=database.Open(ctx,databaseURL)
+	if err!=nil { t.Fatalf("open test database: %v",err) }
+	defer db.Close()
+	if err:=db.Migrate(ctx);err!=nil { t.Fatalf("apply migrations: %v",err) }
+
+	service:=NewService(db.Pool)
+	email:=fmt.Sprintf("session-list-%d@example.test",time.Now().UnixNano())
+	current,err:=service.Register(ctx,email,"correct-password-123","Session Test","","127.0.0.1:4401")
+	if err!=nil { t.Fatalf("register: %v",err) }
+	other,err:=service.Login(ctx,email,"correct-password-123","","127.0.0.1:4402")
+	if err!=nil { t.Fatalf("login from second device: %v",err) }
+
+	sessions,err:=service.ListSessions(ctx,current.Token,100)
+	if err!=nil { t.Fatalf("list sessions: %v",err) }
+	if len(sessions)!=2 { t.Fatalf("session count = %d, want 2",len(sessions)) }
+	var currentID,otherID string
+	for _,item:=range sessions {
+		if item.Current { currentID=item.ID } else { otherID=item.ID }
+	}
+	if currentID=="" || otherID=="" { t.Fatalf("current/other session not identified: %+v",sessions) }
+	if err:=service.RevokeSession(ctx,current.Token,currentID,"127.0.0.1:4401");!errors.Is(err,ErrCurrentSessionRevoke) {
+		t.Fatalf("revoke current session error = %v, want ErrCurrentSessionRevoke",err)
+	}
+	if err:=service.RevokeSession(ctx,current.Token,otherID,"127.0.0.1:4401");err!=nil {
+		t.Fatalf("revoke other session: %v",err)
+	}
+	if _,err:=service.Authenticate(ctx,other.Token);!errors.Is(err,ErrUnauthorized) {
+		t.Fatalf("authenticate revoked other session error = %v, want ErrUnauthorized",err)
+	}
+	if _,err:=service.Refresh(ctx,other.RefreshToken,"","");!errors.Is(err,ErrRefreshUnauthorized) {
+		t.Fatalf("refresh revoked other session error = %v, want ErrRefreshUnauthorized",err)
+	}
+	if _,err:=service.Authenticate(ctx,current.Token);err!=nil { t.Fatalf("current session unexpectedly revoked: %v",err) }
+	events,err:=service.ListSecurityEvents(ctx,current.User.ID,100)
+	if err!=nil { t.Fatalf("list security events: %v",err) }
+	found:=false
+	for _,event:=range events { if event.Action=="auth.session_revoke" { found=true } }
+	if !found { t.Fatal("security history missing auth.session_revoke") }
+}
