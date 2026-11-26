@@ -117,9 +117,8 @@ func (p *Poller) handleMessage(ctx context.Context,message *telegramMessage) {
                 return
             }
         }
-        account,lookupErr:=p.auth.TelegramAccount(ctx,message.From.ID)
+        _,lookupErr:=p.auth.TelegramAccount(ctx,message.From.ID)
         if lookupErr==nil {
-            _=account
             _=p.sendIntroMenu(ctx,message.Chat.ID)
             return
         }
@@ -276,9 +275,9 @@ func platformIntroKeyboard() map[string]any {
 func platformReplyKeyboard() map[string]any {
     return map[string]any{
         "keyboard":[][]map[string]string{
-            {{"text":"平台介绍"},{"text":"账号信息"}},
-            {{"text":"添加群管 Bot"},{"text":"使用帮助"}},
-            {{"text":"取消操作"}},
+            {{"text":"平台介绍"},{"text":"开始注册"}},
+            {{"text":"账号信息"},{"text":"添加群管 Bot"}},
+            {{"text":"使用帮助"},{"text":"取消操作"}},
         },
         "resize_keyboard":true,
         "is_persistent":true,
