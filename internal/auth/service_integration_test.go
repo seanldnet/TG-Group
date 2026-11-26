@@ -26,7 +26,7 @@ func TestRegistrationSessionLifecyclePostgres(t *testing.T) {
 	email := fmt.Sprintf("auth-%d@example.test", time.Now().UnixNano())
 	registered, err := service.Register(ctx,email,"correct-horse-battery","Integration Test","","127.0.0.1:4321")
 	if err != nil { t.Fatalf("register: %v",err) }
-	if registered.User.Email != email || registered.User.TenantID == "" || registered.Token == "" {
+	if registered.User.Email != email || registered.User.TenantID == "" || registered.Token == "" || registered.RefreshToken == "" {
 		t.Fatalf("unexpected registration response: %+v",registered)
 	}
 
@@ -47,6 +47,25 @@ func TestRegistrationSessionLifecyclePostgres(t *testing.T) {
 	loggedIn, err := service.Login(ctx,email,"correct-horse-battery","","127.0.0.1:4321")
 	if err != nil { t.Fatalf("login: %v",err) }
 	if _, err := service.Authenticate(ctx,loggedIn.Token); err != nil { t.Fatalf("authenticate login session: %v",err) }
+	rotated,err:=service.Refresh(ctx,loggedIn.RefreshToken,"integration-test","127.0.0.1:4321")
+	if err!=nil { t.Fatalf("refresh login session: %v",err) }
+	if rotated.Token=="" || rotated.RefreshToken=="" || rotated.RefreshToken==loggedIn.RefreshToken {
+		t.Fatalf("refresh did not rotate credentials: %+v",rotated)
+	}
+	if _,err:=service.Authenticate(ctx,rotated.Token);err!=nil { t.Fatalf("authenticate rotated access token: %v",err) }
+	if _,err:=service.Refresh(ctx,loggedIn.RefreshToken,"integration-test","127.0.0.1:4321");!errors.Is(err,ErrRefreshReuse) {
+		t.Fatalf("reused refresh token error = %v, want ErrRefreshReuse",err)
+	}
+	if _,err:=service.Authenticate(ctx,rotated.Token);!errors.Is(err,ErrUnauthorized) {
+		t.Fatalf("authenticate session after refresh reuse error = %v, want ErrUnauthorized",err)
+	}
+	freshLogin,err:=service.Login(ctx,email,"correct-horse-battery","","127.0.0.1:4321")
+	if err!=nil { t.Fatalf("login after refresh reuse: %v",err) }
+	if err:=service.Logout(ctx,freshLogin.Token);err!=nil { t.Fatalf("logout refreshed family: %v",err) }
+	if _,err:=service.Refresh(ctx,freshLogin.RefreshToken,"","");!errors.Is(err,ErrRefreshUnauthorized) {
+		t.Fatalf("refresh after logout error = %v, want ErrRefreshUnauthorized",err)
+	}
+
 
     if _,err:=service.CreateTelegramLinkChallenge(ctx,registered.User.ID);err!=nil { t.Fatalf("create Telegram link challenge: %v",err) }
     challenge,err:=service.CreateTelegramLinkChallenge(ctx,registered.User.ID)
