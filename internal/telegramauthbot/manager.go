@@ -7,11 +7,13 @@ import (
 	"sync"
 
 	"github.com/seanldnet/tg-group/internal/auth"
+	"github.com/seanldnet/tg-group/internal/bots"
 )
 
 type Manager struct {
 	mu sync.Mutex
 	auth *auth.Service
+	bots *bots.Service
 	logger *slog.Logger
 	cancel context.CancelFunc
 	username string
@@ -36,11 +38,13 @@ func (m *Manager) Configure(token,username string){
 		ctx,cancel:=context.WithCancel(context.Background())
 		m.cancel=cancel
 		m.running=true
-		poller:=New(token,m.auth,m.logger)
+		poller:=NewWithBotService(token,m.auth,m.bots,m.logger)
 		go func(){poller.Run(ctx);m.mu.Lock();if m.generation==generation{m.running=false;m.cancel=nil};m.mu.Unlock()}()
 	}
 	m.mu.Unlock()
 }
+
+func (m *Manager) SetBotService(service *bots.Service){m.mu.Lock();m.bots=service;m.mu.Unlock()}
 
 func (m *Manager) Stop(){
 	m.mu.Lock()
