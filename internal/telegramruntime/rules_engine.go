@@ -351,7 +351,7 @@ func (p *Poller) sendGroupMemberDetail(ctx context.Context,bot managedBot,groupI
 	var username,firstName,lastName,status string
 	var joinedAt,lastSeenAt *time.Time
 	var isAnonymous,canManageChat,canDeleteMessages,canRestrictMembers,canInviteUsers,canPinMessages,canManageTopics bool
-	err=p.pool.QueryRow(ctx,`SELECT username,first_name,last_name,status,joined_at,last_seen_at,is_anonymous,
+	err:=p.pool.QueryRow(ctx,`SELECT username,first_name,last_name,status,joined_at,last_seen_at,is_anonymous,
 		can_manage_chat,can_delete_messages,can_restrict_members,can_invite_users,can_pin_messages,can_manage_topics
 		FROM telegram_group_members WHERE tenant_id=$1 AND group_id=$2 AND telegram_user_id=$3 AND is_bot=false`,
 		bot.tenantID,groupID,userID).Scan(&username,&firstName,&lastName,&status,&joinedAt,&lastSeenAt,&isAnonymous,
