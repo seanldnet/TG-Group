@@ -49,6 +49,8 @@ CAP 采用官方 Cap Standalone 服务端和官方 `cap-widget` Web Component。
 
 `POST /api/v1/auth/login`
 
+网站邮箱注册账号使用邮箱登录；通过平台 Telegram 注册管理 Bot 创建的账号可使用返回的用户 ID 登录。登录账号字段统一为字符串，服务端优先按邮箱匹配，其次按用户 UUID 匹配。
+
 请求：
 
 ```json
@@ -125,7 +127,17 @@ CAP 采用官方 Cap Standalone 服务端和官方 `cap-widget` Web Component。
 
 需要 Bearer 登录。返回当前用户最近的认证安全事件，默认 20 条，limit 范围 1–100。仅查询当前用户作为 actor 的 `auth.*` 审计记录，包含操作类型、资源、来源 IP 和时间；不会返回同租户其他用户的记录。覆盖注册、登录、退出、会话续期、密码修改及 Telegram 身份绑定/解绑。
 
-## Telegram Bot 管理
+## Telegram 注册管理 Bot
+
+平台专用 Bot 由 API 环境变量 `TELEGRAM_AUTH_BOT_TOKEN` 与 `TELEGRAM_AUTH_BOT_USERNAME` 配置，两项必须同时设置。该 Bot 与用户在“机器人管理”中添加的群管 Bot 是不同角色，不能共用同一 Token。API 启动后使用 Telegram `getUpdates` 长轮询接收私聊消息。
+
+- 用户在 Bot 私聊发送 `/start`：服务端生成随机初始密码，在一个 PostgreSQL 事务内创建独立租户、普通用户账号并绑定 Telegram ID；Bot 私聊返回用户 ID 和初始密码。网站登录时使用用户 ID + 初始密码。初始密码仅在注册成功消息中展示一次，请用户立即修改。
+- 同一 Telegram ID 再次发送 `/start` 不会重复创建账号，会提示使用原账号登录或走网站绑定流程。
+- 网站账号在账号安全中发起绑定后，Bot 收到 `/start <一次性挑战>` 完成可信 ID 绑定；挑战有效期 5 分钟且只能使用一次。
+- Bot 仅处理用户本人私聊（From ID 必须等于 Chat ID），忽略群聊、机器人账号及非 `/start` 消息。
+- 当前注册管理 Bot 只交付注册和身份绑定基础流程；套餐查询/购买、提交群管 Bot Token、账户查询和 Inline Keyboard 管理菜单尚未完成。
+
+### Telegram Bot 管理
 
 所有 Bot 接口均要求 Bearer 登录认证，并按当前用户所属租户过滤数据。
 
