@@ -46,17 +46,32 @@ cd "$APP_DIR"
 # Remove legacy Compose manifests so Docker cannot auto-select an obsolete stack.
 rm -f "$APP_DIR/compose.yaml" "$APP_DIR/compose.yml"
 
-if [[ ! -f .env ]]; then
-  if command -v openssl >/dev/null 2>&1; then
-    DB_PASSWORD="$(openssl rand -hex 32)"
-    BOT_KEY="$(openssl rand -base64 32 | tr -d '\n')"
-  else
-    DB_PASSWORD="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
-    BOT_KEY="$(head -c 32 /dev/urandom | base64 | tr -d '\n')"
+# Keep existing secrets, but repair missing/empty values from interrupted or older installs.
+read_env_value() {
+  local key="$1"
+  if [[ -f .env ]]; then
+    sed -n "s/^\${key}=//p" .env | tail -n 1
   fi
-  umask 077
-  printf 'TG_GROUP_DB_PASSWORD=%s\nTG_GROUP_BOT_ENCRYPTION_KEY=%s\n' "$DB_PASSWORD" "$BOT_KEY" > .env
+}
+
+DB_PASSWORD="$(read_env_value TG_GROUP_DB_PASSWORD)"
+BOT_KEY="$(read_env_value TG_GROUP_BOT_ENCRYPTION_KEY)"
+
+if command -v openssl >/dev/null 2>&1; then
+  [[ -n "$DB_PASSWORD" ]] || DB_PASSWORD="$(openssl rand -hex 32)"
+  [[ -n "$BOT_KEY" ]] || BOT_KEY="$(openssl rand -base64 32 | tr -d '\\n')"
+else
+  [[ -n "$DB_PASSWORD" ]] || DB_PASSWORD="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \\n')"
+  [[ -n "$BOT_KEY" ]] || BOT_KEY="$(head -c 32 /dev/urandom | base64 | tr -d '\\n')"
 fi
+
+umask 077
+TMP_ENV="$(mktemp)"
+if [[ -f .env ]]; then
+  grep -vE '^(TG_GROUP_DB_PASSWORD|TG_GROUP_BOT_ENCRYPTION_KEY)=' .env > "$TMP_ENV" || true
+fi
+printf 'TG_GROUP_DB_PASSWORD=%s\\nTG_GROUP_BOT_ENCRYPTION_KEY=%s\\n' "$DB_PASSWORD" "$BOT_KEY" >> "$TMP_ENV"
+mv "$TMP_ENV" .env
 chmod 600 .env
 
 TMP_COMPOSE="$(mktemp)"
