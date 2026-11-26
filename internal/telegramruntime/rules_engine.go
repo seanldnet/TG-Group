@@ -679,7 +679,9 @@ func (p *Poller) createGroupRulePreset(ctx context.Context,bot managedBot,groupI
 		"anti_ad":{"anti_ad","基础广告拦截","{\"patterns\":[\"http://\",\"https://\",\"t.me/\"],\"action\":\"delete\"}"},
 		"keyword":{"keyword_filter","关键词过滤示例","{\"words\":[\"加我\",\"私聊我\"],\"action\":\"delete\"}"},
 		"anti_spam":{"anti_spam","基础刷屏限制","{\"max_messages\":6,\"window_seconds\":10,\"action\":\"delete\"}"},
-		"verify":{"join_verification","数学入群验证","{\"challenge_type\":\"math\",\"timeout_seconds\":180,\"failure_action\":\"kick\",\"required_channels\":[]}"},
+		"verify":{"join_verification","数字入群验证","{\"challenge_type\":\"math\",\"timeout_seconds\":180,\"failure_action\":\"kick\",\"required_channels\":[]}"},
+		"verify_letters":{"join_verification","字母入群验证","{\"challenge_type\":\"letters\",\"timeout_seconds\":180,\"failure_action\":\"kick\",\"required_channels\":[]}"},
+		"verify_alphanumeric":{"join_verification","数字字母组合验证","{\"challenge_type\":\"alphanumeric\",\"timeout_seconds\":180,\"failure_action\":\"kick\",\"required_channels\":[]}"},
 	}
 	item,ok:=presets[preset];if !ok{return}
 	_,err:=p.botService.CreateGroupRule(ctx,bot.tenantID,groupID,bots.GroupRuleInput{RuleType:item.kind,Name:item.name,Enabled:true,Priority:100,Config:[]byte(item.config)})
