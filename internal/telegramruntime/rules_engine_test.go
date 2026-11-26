@@ -106,3 +106,27 @@ func TestParseGroupMemberCallback(t *testing.T) {
 		})
 	}
 }
+
+func TestParseGroupRuleDeleteCallback(t *testing.T) {
+	const ruleID = "00000000-0000-4000-8000-000000000001"
+	tests := []struct {
+		name string
+		data string
+		stage string
+		wantOK bool
+	}{
+		{name:"ask",data:"group:delete:ask:"+ruleID+":rule",stage:"ask",wantOK:true},
+		{name:"confirm",data:"group:delete:confirm:"+ruleID+":rule",stage:"confirm",wantOK:true},
+		{name:"invalid uuid",data:"group:delete:confirm:not-a-uuid:rule"},
+		{name:"invalid stage",data:"group:delete:remove:"+ruleID+":rule"},
+		{name:"invalid suffix",data:"group:delete:confirm:"+ruleID+":other"},
+		{name:"unrelated callback",data:"group:rules"},
+	}
+	for _,test:=range tests {
+		t.Run(test.name,func(t *testing.T){
+			stage,id,ok:=parseGroupRuleDeleteCallback(test.data)
+			if ok!=test.wantOK { t.Fatalf("ok=%v want %v",ok,test.wantOK) }
+			if ok && (stage!=test.stage || id!=ruleID) { t.Fatalf("got (%q,%q), want (%q,%q)",stage,id,test.stage,ruleID) }
+		})
+	}
+}
