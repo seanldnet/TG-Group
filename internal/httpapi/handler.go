@@ -421,15 +421,21 @@ func (h *Handler) listGroupEvents(w http.ResponseWriter,r *http.Request){
 func (h *Handler) listGroupMembers(w http.ResponseWriter,r *http.Request){
 	if !h.botServicesReady(w){return}
 	user,ok:=h.currentUser(w,r);if !ok{return}
-	limit:=100
+	limit:=20
 	if raw:=r.URL.Query().Get("limit");raw!=""{
 		value,err:=strconv.Atoi(raw)
-		if err!=nil || value<1 || value>200{writeError(w,http.StatusBadRequest,"limit must be between 1 and 200");return}
+		if err!=nil || value<1 || value>100{writeError(w,http.StatusBadRequest,"limit must be between 1 and 100");return}
 		limit=value
 	}
-	result,err:=h.bots.ListGroupMembers(r.Context(),user.TenantID,r.PathValue("groupID"),limit)
+	offset:=0
+	if raw:=r.URL.Query().Get("offset");raw!=""{
+		value,err:=strconv.Atoi(raw)
+		if err!=nil || value<0 || value>100000{writeError(w,http.StatusBadRequest,"offset must be between 0 and 100000");return}
+		offset=value
+	}
+	result,total,err:=h.bots.ListGroupMembersPage(r.Context(),user.TenantID,r.PathValue("groupID"),limit,offset)
 	if err!=nil{h.logger.Error("list Telegram group members","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return}
-	writeJSON(w,http.StatusOK,map[string]any{"items":result})
+	writeJSON(w,http.StatusOK,map[string]any{"items":result,"total":total,"limit":limit,"offset":offset})
 }
 
 
