@@ -362,3 +362,14 @@
 - **验证状态**：代码已提交 main；等待 GitHub Actions Go/PostgreSQL 测试、go vet 和前端生产构建结果。
 
 - **CI 验证**：登录设备管理代码提交 `71e35019c1079307388466be8ff54255329a109c` 对应 Actions run `45739299233` 的 Go 格式检查、Go/PostgreSQL 集成测试、go vet 和前端生产构建均 success。集成测试覆盖当前设备不能撤销、其他设备 access/refresh token 撤销和审计事件。
+
+
+### Docker 零配置一键部署（第十七批）
+- **预构建镜像**：新增 `Dockerfile.api`（Go 静态二进制多阶段构建）和 `Dockerfile.web`（Vite 构建后由 Nginx 提供 SPA 与 API 反向代理）；GitHub Actions 自动发布 GHCR amd64/arm64 镜像：`ghcr.io/seanldnet/tg-group-api:latest`、`ghcr.io/seanldnet/tg-group-web:latest`。部署服务器只执行 pull，不执行编译。
+- **一键脚本**：`deploy/install.sh` 支持 Ubuntu/Debian apt 和 RHEL 系 dnf；缺少 Docker 时自动安装；下载 Compose 部署定义；自动生成随机 PostgreSQL 密码与 Bot Token 加密密钥（权限 0600），无需用户填写或编辑配置。
+- **服务编排**：PostgreSQL 仅加入 Docker 内部网络，不暴露宿主机端口；API 仅内网可访问；Nginx Web 映射 TCP 18680，反代 `/api` 到 API。数据库使用持久化 volume。
+- **管理员**：数据库迁移完成后幂等创建 `admin@tg-group.local` 演示管理员，登录用户名支持 `admin`，密码 `123456`；仅当账号不存在时创建，不会重置已有管理员密码。登录页输入框已支持用户名。
+- **测试**：新增 PostgreSQL 集成测试覆盖首次初始化、重复启动不重复创建和 admin 别名登录。
+- **使用方式**：`curl -fsSL https://raw.githubusercontent.com/seanldnet/Tg-group/main/deploy/install.sh | sudo bash`，访问 `http://服务器IP:18680`。
+- **安全边界**：默认账号密码仅供测试，公网使用前必须修改密码；自动生成的密钥保存在安装目录，用户无需编辑。GHCR 包必须允许匿名拉取。
+- **CI 状态**：正在验证镜像构建、推送、公开可拉取及 Go/前端 CI；若 GHCR 包可见性无法由工作流令牌自动调整，需要在仓库所有者侧完成一次 Package visibility 设置，之后服务器部署完全无需登录镜像仓库。
