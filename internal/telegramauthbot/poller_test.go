@@ -106,7 +106,7 @@ func TestPlatformReplyKeyboardIsPersistentAndUsesButtonLabels(t *testing.T) {
     if keyboard["resize_keyboard"]!=true || keyboard["is_persistent"]!=true {
         t.Fatalf("reply keyboard must be resized and persistent: %s",encoded)
     }
-    for _,label:=range []string{"平台介绍","账号信息","添加群管 Bot","使用帮助","取消操作"} {
+    for _,label:=range []string{"平台介绍","开始注册","账号信息","添加群管 Bot","使用帮助","取消操作"} {
         if !strings.Contains(string(encoded),label) { t.Fatalf("reply keyboard missing %q",label) }
     }
     if strings.Contains(string(encoded),"inline_keyboard") { t.Fatal("reply keyboard payload must not mix inline_keyboard") }
