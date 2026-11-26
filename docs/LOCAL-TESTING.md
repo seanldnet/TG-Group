@@ -114,7 +114,7 @@ docker compose -f compose.dev.yml down -v
 ## Telegram 入群数学题验证测试
 
 1. 使用独立测试 Bot 和 Telegram supergroup；将 Bot 设为群管理员并授予“封禁用户/限制成员”权限。普通基础群组不支持当前验证流程。
-2. 网站登录后进入测试群组的“规则管理”，新增规则类型“入群验证（数学题）”，默认配置为 `challenge_type=math`、`timeout_seconds=120`、`failure_action=kick`。可将失败动作改为 `restrict`，超时范围 30–600 秒。
+2. 网站登录后进入测试群组的“规则管理”，新增规则类型“入群验证（数学题）”，配置 `challenge_type=math`、`timeout_seconds=120`、`failure_action=kick`。如需频道关注验证，增加 `required_channels`，例如 `["@your_public_channel"]`；Bot 必须加入每个目标频道并建议设为管理员。可将失败动作改为 `restrict`，超时范围 30–600 秒。
 3. 使用另一个测试账号加入群组。Bot 应立即限制该成员发言，并发送随机加法题与三个按钮选项。
 4. 使用加入者本人点击正确答案；成功后 Bot 应读取群默认权限并恢复该成员权限。其他成员点击按钮应收到“该按钮不属于你的验证”提示。
 5. 再用另一个测试账号加入但不答题；到期后若配置 `kick`，Bot 应封禁后立即解封以移出群组；若配置 `restrict`，成员将继续保持受限状态。
