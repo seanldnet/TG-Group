@@ -241,6 +241,13 @@ func isManagedChat(value *chat) bool {
 	return value!=nil && value.ID!=0 && (value.Type=="group" || value.Type=="supergroup" || value.Type=="channel")
 }
 
+func isBotEntryCommand(value string) bool {
+	fields:=strings.Fields(strings.TrimSpace(value))
+	if len(fields)==0 { return false }
+	command:=strings.ToLower(strings.SplitN(fields[0],"@",2)[0])
+	return command=="/start" || command=="/menu" || command=="/help"
+}
+
 func groupStatus(item update) string {
 	if item.MyChatMember==nil{return "active"}
 	switch item.MyChatMember.NewChatMember.Status {
@@ -281,6 +288,16 @@ func (p *Poller) upsertGroupMember(ctx context.Context, bot managedBot, groupID 
 
 func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update,token string)error {
 	value:=chatFromUpdate(item)
+	message:=messageFromUpdate(item)
+	// Private chats are not persisted as managed groups, but must still answer
+	// the Bot's entry/help actions. Previously they were discarded here.
+	if value!=nil && value.Type=="private" {
+		if message!=nil && message.From!=nil && isBotEntryCommand(message.Text) {
+			text:="这是 TG-Group 群管 Bot。请先将我添加到需要管理的群组，并授予必要的管理员权限；然后在群内发送 /start，打开按钮式管理菜单。群内的管理操作通过按钮完成。"
+			_ = p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":value.ID,"text":text},nil)
+		}
+		return nil
+	}
 	if !isManagedChat(value){return nil}
 	var groupID string
 	err:=p.pool.QueryRow(ctx,`INSERT INTO telegram_groups(tenant_id,bot_id,telegram_chat_id,title,username,chat_type,is_forum,status,last_seen_at)
@@ -291,6 +308,10 @@ func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update,to
 		RETURNING id::text`,
 		bot.tenantID,bot.id,value.ID,value.Title,value.Username,value.Type,value.IsForum,groupStatus(item)).Scan(&groupID)
 	if err!=nil{return fmt.Errorf("upsert Telegram group: %w",err)}
+	if message!=nil && isBotEntryCommand(message.Text) {
+		p.sendGroupMenu(ctx,value.ID,message.MessageID,token)
+		return nil
+	}
 	if item.MyChatMember != nil && (item.MyChatMember.NewChatMember.Status == "administrator" || item.MyChatMember.NewChatMember.Status == "creator") {
 		// Publish the interactive management entry point as soon as the Bot is
 		// promoted in a group; owners never need to type a management command.
