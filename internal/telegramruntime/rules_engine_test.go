@@ -89,3 +89,30 @@ func TestValidRuleUUID(t *testing.T) {
         }
     }
 }
+
+func TestParseGroupMemberCallback(t *testing.T) {
+	tests := []struct {
+		name string
+		data string
+		stage string
+		action string
+		targetID int64
+		wantOK bool
+	}{
+		{name: "ask mute", data: "group:member:ask:mute:123456", stage: "ask", action: "mute", targetID: 123456, wantOK: true},
+		{name: "confirm ban", data: "group:member:confirm:ban:987654", stage: "confirm", action: "ban", targetID: 987654, wantOK: true},
+		{name: "reject zero id", data: "group:member:confirm:ban:0", wantOK: false},
+		{name: "reject negative id", data: "group:member:ask:mute:-1", wantOK: false},
+		{name: "reject unsupported action", data: "group:member:ask:kick:123", wantOK: false},
+		{name: "reject malformed payload", data: "group:member:ask:mute:not-an-id", wantOK: false},
+		{name: "reject unrelated callback", data: "group:rules", wantOK: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			stage, action, targetID, ok := parseGroupMemberCallback(test.data)
+			if ok != test.wantOK || stage != test.stage || action != test.action || targetID != test.targetID {
+				t.Fatalf("parseGroupMemberCallback(%q) = (%q, %q, %d, %v)", test.data, stage, action, targetID, ok)
+			}
+		})
+	}
+}
