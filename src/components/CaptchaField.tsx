@@ -26,6 +26,8 @@ function loadCapWidget(): Promise<void> {
 
 export function CaptchaField({ onToken }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const onTokenRef = useRef(onToken)
+  onTokenRef.current = onToken
   const [enabled, setEnabled] = useState(false)
   const [status, setStatus] = useState<"loading" | "disabled" | "ready" | "error">("loading")
 
@@ -34,9 +36,9 @@ export function CaptchaField({ onToken }: Props) {
     let widget: HTMLElement | null = null
     const handleSolve = (event: Event) => {
       const token = (event as CustomEvent<{ token?: string }>).detail?.token
-      if (typeof token === "string" && token.length > 0) onToken(token)
+      if (typeof token === "string" && token.length > 0) onTokenRef.current(token)
     }
-    const handleError = () => onToken("")
+    const handleError = () => onTokenRef.current("")
 
     async function initialize() {
       try {
@@ -71,7 +73,7 @@ export function CaptchaField({ onToken }: Props) {
         widget.remove()
       }
     }
-  }, [onToken])
+  }, [])
 
   if (status === "disabled") return null
 
