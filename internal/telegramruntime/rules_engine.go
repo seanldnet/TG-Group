@@ -48,6 +48,8 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 
 	if len(message.NewChatMembers)>0 {
 		for _, member := range message.NewChatMembers {
+			blocked, bypassVerification := p.applyGroupMemberListPolicy(ctx, bot, groupID, member.ID, token)
+			if blocked { continue }
 			for _, rule := range rules {
 				switch rule.Type {
 				case "welcome":
@@ -56,7 +58,7 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 					text:=renderNotice(cfg.Text,member,message.Chat.Title)
 					p.executeRuleNotice(ctx,bot,groupID,item.UpdateID,message.MessageID,member.ID,rule,"welcome",text,token)
 				case "join_verification":
-					p.startJoinVerification(ctx,bot,groupID,member,rule,token)
+					if !bypassVerification { p.startJoinVerification(ctx,bot,groupID,member,rule,token) }
 				}
 			}
 		}
@@ -102,6 +104,69 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 	if matched==nil{return}
 	if message.MessageID<=0{return}
 	p.executeDeleteRule(ctx,bot,groupID,item.UpdateID,message.MessageID,senderID.(int64),*matched,token)
+}
+
+type groupMemberListPolicy struct {
+	blacklisted bool
+	bypassVerification bool
+}
+
+// Blacklist always wins. Whitelist and exempt entries bypass join verification,
+// but do not suppress unrelated welcome/leave notices or message moderation.
+func (p *Poller) applyGroupMemberListPolicy(ctx context.Context, bot managedBot, groupID string, userID int64, token string) (bool, bool) {
+	if userID <= 0 { return false, false }
+	rows, err := p.pool.Query(ctx, `SELECT list_type FROM telegram_group_member_lists
+		WHERE tenant_id=$1 AND group_id=$2 AND telegram_user_id=$3`, bot.tenantID, groupID, userID)
+	if err != nil {
+		p.logger.Error("load Telegram group member list policy", "group_id", groupID, "user_id", userID, "error", err)
+		return false, false
+	}
+	policy := groupMemberListPolicy{}
+	for rows.Next() {
+		var listType string
+		if err := rows.Scan(&listType); err != nil {
+			rows.Close()
+			p.logger.Error("read Telegram group member list policy", "group_id", groupID, "user_id", userID, "error", err)
+			return false, false
+		}
+		switch listType {
+		case "blacklist": policy.blacklisted = true
+		case "whitelist", "exempt": policy.bypassVerification = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		p.logger.Error("iterate Telegram group member list policy", "group_id", groupID, "user_id", userID, "error", err)
+		return false, false
+	}
+	rows.Close()
+	if !policy.blacklisted { return false, policy.bypassVerification }
+
+	var chatID, botID int64
+	if err := p.pool.QueryRow(ctx, `SELECT g.telegram_chat_id,b.telegram_bot_id
+		FROM telegram_groups g JOIN telegram_bots b ON b.id=g.bot_id AND b.tenant_id=g.tenant_id
+		WHERE g.tenant_id=$1 AND g.id=$2 AND g.status='active' AND b.status='active'`,
+		bot.tenantID, groupID).Scan(&chatID, &botID); err != nil {
+		p.logger.Error("load group for blacklist enforcement", "group_id", groupID, "error", err)
+		return true, false
+	}
+	var botMember telegramChatMember
+	if err := p.callTelegram(ctx, token, "getChatMember", map[string]any{"chat_id":chatID,"user_id":botID}, &botMember); err != nil {
+		p.logger.Error("check Bot permission for blacklist enforcement", "group_id", groupID, "error", err)
+		return true, false
+	}
+	if botMember.Status != "creator" && (botMember.Status != "administrator" || !botMember.CanRestrictMembers) {
+		p.logger.Warn("blacklisted member could not be removed because Bot lacks can_restrict_members", "group_id", groupID, "user_id", userID)
+		return true, false
+	}
+	if err := p.callTelegram(ctx, token, "banChatMember", map[string]any{"chat_id":chatID,"user_id":userID}, nil); err != nil {
+		p.logger.Error("remove blacklisted Telegram member", "group_id", groupID, "user_id", userID, "error", err)
+		return true, false
+	}
+	if err := p.callTelegram(ctx, token, "unbanChatMember", map[string]any{"chat_id":chatID,"user_id":userID,"only_if_banned":true}, nil); err != nil {
+		p.logger.Error("release blacklist removal ban", "group_id", groupID, "user_id", userID, "error", err)
+	}
+	return true, false
 }
 
 func renderNotice(template string, member telegramSender, groupName string) string {
