@@ -232,3 +232,22 @@ func TestListAndRevokeOtherSessionsPostgres(t *testing.T) {
 	for _,event:=range events { if event.Action=="auth.session_revoke" { found=true } }
 	if !found { t.Fatal("security history missing auth.session_revoke") }
 }
+
+func TestEnsureDemoAdminAndLoginAliasPostgres(t *testing.T) {
+	databaseURL:=os.Getenv("TEST_DATABASE_URL")
+	if databaseURL=="" { t.Skip("TEST_DATABASE_URL is not configured") }
+	ctx,cancel:=context.WithTimeout(context.Background(),30*time.Second)
+	defer cancel()
+	db,err:=database.Open(ctx,databaseURL)
+	if err!=nil { t.Fatalf("open test database: %v",err) }
+	defer db.Close()
+	if err:=db.Migrate(ctx);err!=nil { t.Fatalf("apply migrations: %v",err) }
+	service:=NewService(db.Pool)
+	if err:=service.EnsureDemoAdmin(ctx);err!=nil { t.Fatalf("bootstrap demo admin: %v",err) }
+	if err:=service.EnsureDemoAdmin(ctx);err!=nil { t.Fatalf("repeat demo admin bootstrap: %v",err) }
+	session,err:=service.Login(ctx,"admin","123456","integration test","127.0.0.1:4545")
+	if err!=nil { t.Fatalf("login with admin alias: %v",err) }
+	if session.User.Role!="admin" || session.User.Email!="admin@tg-group.local" {
+		t.Fatalf("unexpected demo admin identity: %+v",session.User)
+	}
+}
