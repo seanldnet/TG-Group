@@ -10,6 +10,7 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("CAP_BASE_URL", "")
 	t.Setenv("CAP_SITE_KEY", "")
 	t.Setenv("CAP_SECRET", "")
+	t.Setenv("CAP_WIDGET_URL", "")
 
 	got, err := Load()
 	if err != nil {
@@ -45,9 +46,10 @@ func TestLoadReadsCompleteCAPConfiguration(t *testing.T) {
 	t.Setenv("CAP_BASE_URL", "https://captcha.example.com")
 	t.Setenv("CAP_SITE_KEY", "site-key")
 	t.Setenv("CAP_SECRET", "secret")
+	t.Setenv("CAP_WIDGET_URL", "https://captcha.example.com/assets/widget.js")
 	got, err := Load()
 	if err != nil { t.Fatalf("Load() error = %v", err) }
-	if got.CAPBaseURL != "https://captcha.example.com" || got.CAPSiteKey != "site-key" || got.CAPSecret != "secret" {
+	if got.CAPBaseURL != "https://captcha.example.com" || got.CAPSiteKey != "site-key" || got.CAPSecret != "secret" || got.CAPWidgetURL != "https://captcha.example.com/assets/widget.js" {
 		t.Fatalf("unexpected CAP configuration: %+v", got)
 	}
 }
