@@ -278,6 +278,37 @@ export function getGroupBotPermissions(groupID: string) {
   )
 }
 
+
+export type TelegramGroupMemberListEntry = {
+  telegram_user_id: number
+  list_type: "blacklist" | "whitelist" | "exempt"
+  reason: string
+  actor_telegram_user_id: number
+  created_at: string
+}
+
+export function listGroupMemberLists(groupID: string) {
+  return request<{ items: TelegramGroupMemberListEntry[] }>(
+    `/api/v1/groups/${encodeURIComponent(groupID)}/member-lists`,
+    { headers: authenticatedHeaders() },
+  )
+}
+
+export function upsertGroupMemberList(groupID: string, input: { telegram_user_id: number; list_type: TelegramGroupMemberListEntry["list_type"]; reason: string }) {
+  return request<{ ok: boolean }>(`/api/v1/groups/${encodeURIComponent(groupID)}/member-lists`, {
+    method: "POST",
+    headers: authenticatedHeaders(),
+    body: JSON.stringify(input),
+  })
+}
+
+export function deleteGroupMemberList(groupID: string, userID: number, listType: TelegramGroupMemberListEntry["list_type"]) {
+  return request<void>(
+    `/api/v1/groups/${encodeURIComponent(groupID)}/member-lists/${userID}?list_type=${encodeURIComponent(listType)}`,
+    { method: "DELETE", headers: authenticatedHeaders() },
+  )
+}
+
 export type TelegramGroupMemberWarning = {
   id: number
   telegram_user_id: number
