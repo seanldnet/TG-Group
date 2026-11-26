@@ -83,8 +83,8 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 		switch rule.Type {
 		case "qa":
 			var cfg struct { Triggers []string `json:"triggers"`; MatchMode string `json:"match_mode"`; Response string `json:"response"`; CaseSensitive bool `json:"case_sensitive"` }
-			if json.Unmarshal(rule.Config,&cfg)==nil && matchesQARule(content,cfg.Triggers,cfg.MatchMode,cfg.CaseSensitive) {
-				matchedQA=rule; qaResponse=cfg.Response
+			if matchedQA==nil && json.Unmarshal(rule.Config,&cfg)==nil && matchesQARule(content,cfg.Triggers,cfg.MatchMode,cfg.CaseSensitive) {
+				matchedQA=rule; matched=rule; qaResponse=cfg.Response
 			}
 		case "keyword_filter","sensitive_word":
 			var cfg struct{Words []string `json:"words"`;Action string `json:"action"`}
