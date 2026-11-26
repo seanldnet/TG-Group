@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react"
-import { ArrowLeft, Bot, KeyRound, Plus, RefreshCw, ShieldCheck, Trash2 } from "lucide-react"
+import { Bot, KeyRound, Plus, RefreshCw, Trash2 } from "lucide-react"
 
 import {
   addBot,
@@ -136,21 +136,8 @@ export default function BotsPage() {
   }
 
   return (
-    <main className="min-h-svh bg-muted/25">
-      <header className="border-b border-border/70 bg-background">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
-          <a href="/dashboard" className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
-            <ArrowLeft className="size-4" />
-            返回工作台
-          </a>
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <ShieldCheck className="size-5 text-primary" />
-            TG-Group
-          </div>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-6xl space-y-6 px-5 py-9 sm:px-8 sm:py-12">
+    <main className="w-full">
+      <div className="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <Badge variant="secondary" className="mb-3">资源管理</Badge>
