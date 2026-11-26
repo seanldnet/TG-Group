@@ -315,3 +315,6 @@
 - **测试**：扩展 PostgreSQL 集成测试，覆盖 refresh 轮换、旧 refresh token 重放触发 family 撤销、退出登录后 refresh token 不可用；HTTP 测试覆盖无数据库时 refresh endpoint 返回 503。
 - **文档**：更新 API、LOCAL-TESTING、README 与 DEVELOPMENT-PLAN。
 - **验证状态**：代码已提交 main，等待 GitHub Actions 全量 Go/PostgreSQL 测试、go vet 与前端构建。
+
+- **CI 修复与验证**：首次 CI 发现 refresh 审计日志把 UUID actor 参数与文本 resource_id 复用，PostgreSQL 无法推断参数类型；已拆分为独立参数。最终代码提交 `bcf9771347f266ec8dc30c97534a344e4f318d20` 对应 Actions run `45733654763` 全部 success：PostgreSQL 集成测试、`go vet ./...`、前端 TypeScript 生产构建均通过。集成测试覆盖 refresh 轮换、旧 refresh token 重放触发整个 family 撤销、退出登录后 refresh token 失效。
+- **当前验收边界**：CI 已通过；尚未在真实部署环境等待 15 分钟验证浏览器自动续期。现有旧版本登录会话没有 refresh family，用户升级后首次重新登录即可获得新双令牌。
