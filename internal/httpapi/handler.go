@@ -227,6 +227,7 @@ func (h *Handler) writeAuthError(w http.ResponseWriter,err error) {
 	case errors.Is(err,auth.ErrInvalidInput): writeError(w,http.StatusBadRequest,"email, display name or password is invalid; password must be 10-72 bytes")
 	case errors.Is(err,auth.ErrEmailTaken): writeError(w,http.StatusConflict,"email already registered")
 	case errors.Is(err,auth.ErrInvalidCredentials): writeError(w,http.StatusUnauthorized,"invalid email or password")
+	case errors.Is(err,auth.ErrLoginRateLimited): w.Header().Set("Retry-After","900");writeError(w,http.StatusTooManyRequests,"登录失败次数过多，请 15 分钟后再试")
 	case errors.Is(err,auth.ErrAccountInactive): writeError(w,http.StatusForbidden,"account is not active")
 	default: h.logger.Error("authentication request failed","error",err);writeError(w,http.StatusInternalServerError,"internal server error")
 	}
