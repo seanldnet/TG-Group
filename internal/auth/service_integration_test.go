@@ -47,8 +47,19 @@ func TestRegistrationSessionLifecyclePostgres(t *testing.T) {
 	loggedIn, err := service.Login(ctx,email,"correct-horse-battery","","127.0.0.1:4321")
 	if err != nil { t.Fatalf("login: %v",err) }
 	if _, err := service.Authenticate(ctx,loggedIn.Token); err != nil { t.Fatalf("authenticate login session: %v",err) }
+	beforeRefreshSessions,err:=service.ListSessions(ctx,loggedIn.Token,20)
+	if err!=nil { t.Fatalf("list sessions before refresh: %v",err) }
+	var previousCurrentID string
+	for _,item:=range beforeRefreshSessions { if item.Current { previousCurrentID=item.ID } }
 	rotated,err:=service.Refresh(ctx,loggedIn.RefreshToken,"integration-test","127.0.0.1:4321")
 	if err!=nil { t.Fatalf("refresh login session: %v",err) }
+	afterRefreshSessions,err:=service.ListSessions(ctx,rotated.Token,20)
+	if err!=nil { t.Fatalf("list sessions after refresh: %v",err) }
+	var nextCurrentID string
+	for _,item:=range afterRefreshSessions { if item.Current { nextCurrentID=item.ID } }
+	if previousCurrentID=="" || nextCurrentID!=previousCurrentID {
+		t.Fatalf("refresh should retain one device session: before=%q after=%q",previousCurrentID,nextCurrentID)
+	}
 	if rotated.Token=="" || rotated.RefreshToken=="" || rotated.RefreshToken==loggedIn.RefreshToken {
 		t.Fatalf("refresh did not rotate credentials: %+v",rotated)
 	}
