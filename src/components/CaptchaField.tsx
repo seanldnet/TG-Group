@@ -57,7 +57,10 @@ export function CaptchaField({ onToken }: Props) {
         containerRef.current.replaceChildren(widget)
         setStatus("ready")
       } catch {
-        if (!cancelled) setStatus("error")
+        // CAPTCHA is optional. If its public config cannot be loaded, keep the
+        // field hidden; the API remains responsible for enforcing CAPTCHA
+        // whenever the server has actually enabled it.
+        if (!cancelled) setStatus("disabled")
       }
     }
 
