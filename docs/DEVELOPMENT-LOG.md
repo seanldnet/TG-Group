@@ -468,3 +468,13 @@
 ## 2026-11-26（账号关联与安全中心进一步分离）
 - Telegram 身份绑定页面独立为“账号设置 → 账号关联”，保留一次性 challenge 绑定、状态查看和解除关联能力。
 - 安全中心仅保留修改密码、登录设备和安全日志，避免账号关联配置与登录安全功能混在一起。
+
+
+## 2026-11-26（平台 Bot 交互菜单与错误排查）
+- 将平台 Bot 的日常入口改为 Telegram Inline Keyboard：账号信息、添加群管 Bot、使用帮助和取消操作均通过 callback 按钮触发，不再要求用户输入 `/account`、`/help` 或 `/addbot <Token>`。
+- 点击“添加群管 Bot”后，Bot 进入该 Telegram 用户的一次性输入状态；用户直接发送 Token，服务端先尝试删除含 Token 的消息，删除失败则拒绝保存；成功删除后才执行 Token 验证和加密保存。输入状态按 Telegram 用户 ID 隔离，并在消费后立即清除。
+- 长轮询显式订阅 `callback_query`，处理回调后调用 `answerCallbackQuery`，避免 Telegram 客户端按钮持续显示加载状态。
+- `/start` 仅保留为 Telegram 官方首次启动/网站绑定深链入口；后续业务操作均通过按钮完成。旧版斜杠业务命令不再作为功能入口。
+- 新增单测覆盖 callback payload 解析、一次性 Token 输入状态和 Inline Keyboard callback 数据。
+- 平台设置页保存时报 `internal server error` 的问题仍需结合部署 API 容器日志中的 `save platform Telegram Bot settings` / `read platform Telegram Bot status` 具体数据库错误确认；当前服务端已记录底层错误，但 API 为避免泄露数据库细节仍返回通用 500。下一步补充部署迁移状态诊断并依据实际日志定位，不将未复现的问题宣称已彻底修复。
+- **验证边界**：代码已提交 main；等待 CI。尚未在真实 Telegram Bot 环境验证 Inline Keyboard callback 与私聊消息删除权限。
