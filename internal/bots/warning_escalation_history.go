@@ -46,15 +46,15 @@ func (s *Service) ListWarningEscalations(ctx context.Context, tenantID, groupID 
 // RetryWarningEscalation retries only a previously failed execution. The status
 // transition is an atomic compare-and-set, so concurrent requests cannot apply
 // the same Telegram moderation action twice.
-func (s *Service) RetryWarningEscalation(ctx context.Context, tenantID, actorUserID, groupID string, executionID int64) (WarningEscalationExecution, error) {
+func (s *Service) RetryWarningEscalation(ctx context.Context, tenantID, actorUserID, groupID string, userID, executionID int64) (WarningEscalationExecution, error) {
 	var item WarningEscalationExecution
 	err := s.pool.QueryRow(ctx, `UPDATE telegram_group_warning_escalations e
 		SET status='processing',detail='manual retry requested',updated_at=now()
 		FROM telegram_groups g
 		WHERE e.id=$1 AND e.tenant_id=$2 AND e.group_id=$3
-		AND e.status='failed' AND g.id=e.group_id AND g.tenant_id=e.tenant_id
+		AND e.telegram_user_id=$4 AND e.status='failed' AND g.id=e.group_id AND g.tenant_id=e.tenant_id
 		RETURNING e.id,e.group_id::text,e.rule_id::text,e.telegram_user_id,e.warning_count,e.action,e.duration_minutes,e.status,e.detail,e.created_at,e.updated_at`,
-		executionID,tenantID,groupID).Scan(&item.ID,&item.GroupID,&item.RuleID,&item.TelegramUserID,&item.WarningCount,&item.Action,&item.DurationMinutes,&item.Status,&item.Detail,&item.CreatedAt,&item.UpdatedAt)
+		executionID,tenantID,groupID,userID).Scan(&item.ID,&item.GroupID,&item.RuleID,&item.TelegramUserID,&item.WarningCount,&item.Action,&item.DurationMinutes,&item.Status,&item.Detail,&item.CreatedAt,&item.UpdatedAt)
 	if errors.Is(err,pgx.ErrNoRows) { return WarningEscalationExecution{},ErrWarningEscalationNotRetryable }
 	if err != nil { return WarningEscalationExecution{},fmt.Errorf("reserve warning escalation retry: %w",err) }
 
