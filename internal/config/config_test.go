@@ -7,6 +7,9 @@ import (
 func TestLoadDefaults(t *testing.T) {
 	t.Setenv("TG_GROUP_HTTP_PORT", "")
 	t.Setenv("TG_GROUP_ENV", "")
+	t.Setenv("CAP_BASE_URL", "")
+	t.Setenv("CAP_SITE_KEY", "")
+	t.Setenv("CAP_SECRET", "")
 
 	got, err := Load()
 	if err != nil {
@@ -24,5 +27,27 @@ func TestLoadRejectsInvalidPort(t *testing.T) {
 	t.Setenv("TG_GROUP_HTTP_PORT", "70000")
 	if _, err := Load(); err == nil {
 		t.Fatal("Load() error = nil, want invalid port error")
+	}
+}
+
+func TestLoadRejectsPartialCAPConfiguration(t *testing.T) {
+	t.Setenv("TG_GROUP_HTTP_PORT", "8080")
+	t.Setenv("CAP_BASE_URL", "https://captcha.example.com")
+	t.Setenv("CAP_SITE_KEY", "site-key")
+	t.Setenv("CAP_SECRET", "")
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() error = nil, want incomplete CAP configuration error")
+	}
+}
+
+func TestLoadReadsCompleteCAPConfiguration(t *testing.T) {
+	t.Setenv("TG_GROUP_HTTP_PORT", "8080")
+	t.Setenv("CAP_BASE_URL", "https://captcha.example.com")
+	t.Setenv("CAP_SITE_KEY", "site-key")
+	t.Setenv("CAP_SECRET", "secret")
+	got, err := Load()
+	if err != nil { t.Fatalf("Load() error = %v", err) }
+	if got.CAPBaseURL != "https://captcha.example.com" || got.CAPSiteKey != "site-key" || got.CAPSecret != "secret" {
+		t.Fatalf("unexpected CAP configuration: %+v", got)
 	}
 }
