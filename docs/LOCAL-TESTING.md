@@ -223,3 +223,16 @@ go run ./cmd/api
 7. 删除浏览器当前会话存储中的 refresh token，再等待 access token 过期，受保护 API 应要求重新登录。
 
 测试需要启用 PostgreSQL；GitHub CI 的集成测试覆盖轮换、重放撤销和退出登录撤销。
+
+
+## 警告递进处罚自动重试队列验证（新增，待 CI/集成环境验收）
+
+- 数据库迁移新增 `000019_warning_escalation_retry_queue`，需由正常启动迁移流程自动应用；不要手工只更新其中一个迁移目录。仓库同时维护 `internal/database/migrations`（Go embed 使用）与根目录 `migrations`，两份 SQL 必须保持一致。
+- API 进程启动后，在 Bot 加密服务可用时会启动警告递进处罚恢复 worker。worker 每 10 秒扫描 PostgreSQL 队列，不依赖 Redis。
+- 首次处罚失败后 30 秒进入自动重试；后续采用指数退避，最长 1 小时，自动尝试上限 8 次。超过 5 分钟仍处于 `processing` 的记录会被回收并重新领取。
+- 达到自动重试上限后记录继续保留为 `failed`，网站管理员仍可通过原执行历史入口手动重试；手动重试会重新开启自动重试计数。
+- 单元测试：`go test ./internal/bots -run WarningEscalationRetry -count=1`。
+- 全量后端测试：`go test ./...`；静态检查：`go vet ./...`。
+- 真实测试必须使用专用 Telegram 测试群和普通测试成员，分别覆盖成功、Bot 权限不足、目标管理员保护、Telegram 网络超时、自动重试、达到上限后人工重试。
+- **执行语义说明**：队列使用至少一次执行语义。若 Telegram 已完成处罚，但服务在写入成功状态前崩溃，超过 lease 后可能再次调用 Telegram API。测试需核对封禁/禁言状态与重复调用的实际影响；不得宣称跨 Telegram API 与 PostgreSQL 已实现分布式 exactly-once。
+- 本文档描述新 worker 的预期验证步骤；在 GitHub CI 与真实 Telegram 测试完成前，不代表本批已验收。
