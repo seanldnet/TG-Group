@@ -94,7 +94,7 @@ func TestBotEndpointsRequireConfiguredServices(t *testing.T) {
 }
 
 func TestCaptchaPublicConfigDoesNotExposeSecret(t *testing.T) {
-	verifier, err := NewCaptchaVerifier("https://captcha.example.com", "public-site-key", "private-secret")
+	verifier, err := NewCaptchaVerifier("https://captcha.example.com", "public-site-key", "private-secret", "https://captcha.example.com/assets/widget.js")
 	if err != nil { t.Fatal(err) }
 	handler := NewHandler(slog.Default(), nil, nil, verifier)
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/security/captcha", nil)
@@ -102,7 +102,7 @@ func TestCaptchaPublicConfigDoesNotExposeSecret(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK { t.Fatalf("status = %d", response.Code) }
 	body := response.Body.String()
-	if !strings.Contains(body, `"enabled":true`) || !strings.Contains(body, "https://captcha.example.com/public-site-key/") {
+	if !strings.Contains(body, `"enabled":true`) || !strings.Contains(body, "https://captcha.example.com/public-site-key/") || !strings.Contains(body, "https://captcha.example.com/assets/widget.js") {
 		t.Fatalf("unexpected public CAPTCHA config: %s", body)
 	}
 	if strings.Contains(body, "private-secret") { t.Fatal("CAP secret leaked in public config") }
