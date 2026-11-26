@@ -138,6 +138,10 @@ func TestTelegramRegistrationCreatesLinkedAccountPostgres(t *testing.T) {
 	if err != nil || linked.ID == nil || *linked.ID != identity.ID {
 		t.Fatalf("Telegram identity not linked to registered account: %+v, err=%v", linked, err)
 	}
+	summary, err := service.TelegramAccount(ctx, identity.ID)
+	if err != nil || summary.UserID != created.UserID || summary.Email != created.Email {
+		t.Fatalf("Telegram account lookup mismatch: %+v, err=%v", summary, err)
+	}
 }
 
 func TestChangePasswordRevokesPreviousSessionsPostgres(t *testing.T) {
