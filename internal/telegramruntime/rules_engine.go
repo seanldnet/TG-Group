@@ -300,12 +300,17 @@ func parseGroupMemberMuteConfirm(data string)(stage,action string,minutes int,ta
 func (p *Poller) executeGroupMemberAction(ctx context.Context,bot managedBot,groupID string,telegramUserID,chatID,targetID int64,action string,duration int,token string) {
 	if p.botService==nil { _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"成员管理服务暂不可用，请稍后重试。"},nil);return }
 	var actorID string
-	if err:=p.pool.QueryRow(ctx,"SELECT id::text FROM users WHERE tenant_id=$1 AND telegram_id=$2 AND status='active'",bot.tenantID,telegramUserID).Scan(&actorID);err!=nil {
-		p.logger.Warn("resolve Telegram group owner for member action","tenant_id",bot.tenantID,"error",err)
-		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"无法确认平台主人账号，请重新绑定 Telegram 身份后重试。"},nil);return
+	actorErr:=p.pool.QueryRow(ctx,"SELECT id::text FROM users WHERE tenant_id=$1 AND telegram_id=$2 AND status='active'",bot.tenantID,telegramUserID).Scan(&actorID)
+	var actionErr error
+	if actorErr==nil {
+		actionErr=p.botService.ModerateGroupMember(ctx,bot.tenantID,actorID,groupID,targetID,action,duration)
+	} else {
+		// A Telegram group administrator does not need a TG-Group platform
+		// account. Preserve attribution in audit metadata via Telegram user ID.
+		actionErr=p.botService.ModerateGroupMemberForTelegramAdmin(ctx,bot.tenantID,telegramUserID,groupID,targetID,action,duration)
 	}
-	if err:=p.botService.ModerateGroupMember(ctx,bot.tenantID,actorID,groupID,targetID,action,duration);err!=nil {
-		p.logger.Warn("Telegram inline member moderation failed","group_id",groupID,"telegram_user_id",targetID,"action",action,"error",err)
+	if actionErr!=nil {
+		p.logger.Warn("Telegram inline member moderation failed","group_id",groupID,"telegram_user_id",targetID,"action",action,"error",actionErr)
 		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"操作未完成。请检查 Bot 是否拥有管理成员权限、目标成员是否为普通成员，并在网站成员管理页查看详细状态。"},nil);return
 	}
 	label:=map[string]string{"mute":fmt.Sprintf("禁言 %d 分钟",duration),"ban":"封禁","unmute":"解除禁言","unban":"解除封禁"}[action]
