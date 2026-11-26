@@ -21,6 +21,7 @@ type Poller struct {
 	botService *bots.Service
 	logger *slog.Logger
 	client *http.Client
+	apiBaseURL string
 }
 
 type managedBot struct {
@@ -107,7 +108,7 @@ type updatesResponse struct {
 
 func NewPoller(pool *pgxpool.Pool, botService *bots.Service, logger *slog.Logger) *Poller {
 	if logger == nil { logger = slog.Default() }
-	return &Poller{pool:pool,botService:botService,logger:logger,client:&http.Client{Timeout:40*time.Second}}
+	return &Poller{pool:pool,botService:botService,logger:logger,client:&http.Client{Timeout:40*time.Second},apiBaseURL:"https://api.telegram.org"}
 }
 
 // Run continuously reconciles active Bot records and runs one isolated long-poll loop per Bot.
