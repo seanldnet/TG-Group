@@ -84,4 +84,6 @@ curl -fsSL https://raw.githubusercontent.com/seanldnet/Tg-group/main/deploy/inst
 - 更新镜像：`cd /opt/tg-group && docker compose pull && docker compose up -d`
 - 停止：`cd /opt/tg-group && docker compose down`（不会删除数据库卷）；彻底删除数据需另行执行 `docker compose down -v`。
 
-**安全提示：**这是测试用默认管理员密码，任何公网环境都必须在测试后立即修改密码并限制访问。请在云服务器安全组/防火墙放行 TCP 18680。GHCR 镜像需为 Public，发布工作流会尝试自动设置包可见性；首次发布后请确认两个容器包均允许匿名拉取。
+**首次使用前的一次性仓库操作：**GHCR 新建镜像默认可能是 Private，GitHub Actions 的仓库令牌不能代替包所有者修改可见性。请仓库所有者打开 [API 镜像包](https://github.com/users/seanldnet/packages/container/tg-group-api) 和 [Web 镜像包](https://github.com/users/seanldnet/packages/container/tg-group-web)，在 Package settings 中将 Visibility 设为 **Public**。这是 GitHub 侧的一次性设置，不需要在服务器登录镜像仓库，也不需要编辑部署配置文件。
+
+**安全提示：**这是测试用默认管理员密码，任何公网环境都必须在测试后立即修改密码并限制访问。请在云服务器安全组/防火墙放行 TCP 18680。
