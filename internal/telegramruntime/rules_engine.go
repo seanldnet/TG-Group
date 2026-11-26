@@ -273,6 +273,8 @@ func (p *Poller) sendGroupCategory(ctx context.Context,bot managedBot,groupID st
 	case "retract": keyboard=append(keyboard,[]map[string]string{{"text":"最近群消息","callback_data":"group:messages"}})
 	case "admins": keyboard=append(keyboard,[]map[string]string{{"text":"查看 Bot 权限","callback_data":"group:status"}})
 	case "verify": keyboard=append(keyboard,[]map[string]string{{"text":"入群验证规则","callback_data":"group:rules:verify"}})
+	case "lists": keyboard=append(keyboard,[]map[string]string{{"text":"查看群组黑白名单","callback_data":"group:lists"}})
+	case "warnings": keyboard=append(keyboard,[]map[string]string{{"text":"警告记录说明","callback_data":"group:warnings"}})
 	case "settings": keyboard=append(keyboard,[]map[string]string{{"text":"打开群组设置","callback_data":"group:settings"}})
 	}
 	if len(keyboard)==0 { keyboard=append(keyboard,[]map[string]string{{"text":"返回菜单","callback_data":"group:home"}}) } else { keyboard=append(keyboard,[]map[string]string{{"text":"返回菜单","callback_data":"group:home"}}) }
@@ -295,6 +297,10 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 		if query.Data!="group:members" { parsed,err:=strconv.Atoi(strings.TrimPrefix(query.Data,"group:members:page:"));if err!=nil||parsed<0||parsed>100000{return};offset=parsed }
 		p.sendGroupMembers(ctx,bot,groupID,query.Message.Chat.ID,token,offset)
 	case query.Data=="group:rule-events": p.sendGroupRuleEvents(ctx,bot,groupID,query.Message.Chat.ID,token)
+	case query.Data=="group:lists": p.sendGroupMemberLists(ctx,bot,groupID,query.Message.Chat.ID,token)
+	case query.Data=="group:warnings": _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"警告系统：可在成员详情中为成员添加警告并查看最近记录。警告阈值自动处罚策略正在开发，当前不会自动封禁或禁言。"},nil)
+	case strings.HasPrefix(query.Data,"group:list:add:"): p.handleGroupMemberListAdd(ctx,bot,groupID,query,token)
+	case strings.HasPrefix(query.Data,"group:warn:"): p.handleGroupMemberWarning(ctx,bot,groupID,query,token)
 	case query.Data=="group:messages": p.sendGroupMessages(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:announce": p.beginGroupAnnouncement(ctx,bot,groupID,query.From.ID,query.Message.Chat.ID,token)
 	case query.Data=="group:settings": p.sendGroupSettings(ctx,query.Message.Chat.ID,token)
@@ -566,7 +572,14 @@ func (p *Poller) sendGroupMemberDetail(ctx context.Context,bot managedBot,groupI
 		if count==0 { lines=append(lines,"暂无处罚记录。") }
 		rows.Close()
 	}
-	keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{{{"text":"返回成员列表","callback_data":"group:members"}}}}
+	warnings,warningErr:=p.botService.ListGroupMemberWarnings(ctx,bot.tenantID,groupID,userID)
+	if warningErr==nil { lines=append(lines,fmt.Sprintf("当前警告次数：%d",len(warnings)));for i:=0;i<len(warnings)&&i<5;i++ { lines=append(lines,fmt.Sprintf("警告：%s（%s）",warnings[i].Reason,warnings[i].CreatedAt.Format("01-02 15:04"))) } }
+	keyboard:=map[string]any{"inline_keyboard":[][]map[string]string{
+		{{"text":"添加警告","callback_data":fmt.Sprintf("group:warn:add:%d",userID)}},
+		{{"text":"加入黑名单","callback_data":fmt.Sprintf("group:list:add:blacklist:%d",userID)},{"text":"加入白名单","callback_data":fmt.Sprintf("group:list:add:whitelist:%d",userID)}},
+		{{"text":"设为豁免成员","callback_data":fmt.Sprintf("group:list:add:exempt:%d",userID)}},
+		{{"text":"返回成员列表","callback_data":"group:members"}},
+	}}
 	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\n"),"reply_markup":keyboard},nil)
 }
 
@@ -987,3 +1000,33 @@ func (p *Poller) sendGroupStatus(ctx context.Context,bot managedBot,groupID stri
 }
 
 func yesNo(value bool) string { if value { return "具备" }; return "未具备" }
+
+func (p *Poller) sendGroupMemberLists(ctx context.Context,bot managedBot,groupID string,chatID int64,token string) {
+	items,err:=p.botService.ListGroupMemberLists(ctx,bot.tenantID,groupID)
+	if err!=nil { p.logger.Warn("list group member lists","error",err);return }
+	lines:=[]string{"群组黑白名单（最多显示 30 条）："}
+	for i,item:=range items { if i>=30 {break};lines=append(lines,fmt.Sprintf("%d. %s｜用户 %d｜%s",i+1,item.ListType,item.TelegramUserID,item.Reason)) }
+	if len(items)==0 {lines=append(lines,"暂无名单条目。请从成员详情添加。")}
+	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\\n"),"reply_markup":map[string]any{"inline_keyboard":[][]map[string]string{{{"text":"刷新","callback_data":"group:lists"},{"text":"返回菜单","callback_data":"group:home"}}}}},nil)
+}
+
+func (p *Poller) handleGroupMemberListAdd(ctx context.Context,bot managedBot,groupID string,query telegramCallbackQuery,token string) {
+	parts:=strings.Split(query.Data,":")
+	if len(parts)!=5 || (parts[3]!="blacklist"&&parts[3]!="whitelist"&&parts[3]!="exempt") {return}
+	userID,err:=strconv.ParseInt(parts[4],10,64);if err!=nil||userID<=0{return}
+	if err:=p.botService.UpsertGroupMemberList(ctx,bot.tenantID,groupID,userID,query.From.ID,parts[3],"由群管理员从成员详情添加");err!=nil {
+		p.logger.Warn("add group member list entry","error",err);_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"名单添加失败，请稍后重试。"},nil);return
+	}
+	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":fmt.Sprintf("已将用户 %d 加入%s。注意：入群拦截和消息执行策略尚未启用。",userID,parts[3])},nil)
+	p.sendGroupMemberLists(ctx,bot,groupID,query.Message.Chat.ID,token)
+}
+
+func (p *Poller) handleGroupMemberWarning(ctx context.Context,bot managedBot,groupID string,query telegramCallbackQuery,token string) {
+	parts:=strings.Split(query.Data,":")
+	if len(parts)!=4 || parts[2]!="add" {return}
+	userID,err:=strconv.ParseInt(parts[3],10,64);if err!=nil||userID<=0{return}
+	item,err:=p.botService.AddGroupMemberWarning(ctx,bot.tenantID,groupID,userID,query.From.ID,"管理员手动警告","manual")
+	if err!=nil {p.logger.Warn("add group member warning","error",err);_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"添加警告失败，请稍后重试。"},nil);return}
+	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":fmt.Sprintf("已记录用户 %d 的警告（记录 #%d）。当前仅记录，不会触发自动处罚。",userID,item.ID)},nil)
+	p.sendGroupMemberDetail(ctx,bot,groupID,query.Message.Chat.ID,fmt.Sprintf("group:member:detail:%d",userID),token)
+}
