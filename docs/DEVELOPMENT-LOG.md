@@ -1,3 +1,12 @@
+## 2026-11-27（警告递进处罚执行记录与手动重试第一阶段）
+
+- **执行记录查询**：新增按 tenant/group/member 三重范围过滤的执行记录查询服务与 API；网站成员警告面板同步展示每条递进处罚的状态、动作、警告次数、失败原因和更新时间。
+- **失败重试**：新增失败记录手动重试 API。数据库使用 status='failed' 条件更新原子抢占，防止并发重复重试；重新执行时复用现有成员处罚服务，实时检查 Bot 管理员身份、can_restrict_members 权限和目标成员是否为管理员/群主。
+- **安全修正**：重试 SQL 在执行 Telegram 操作之前就限定 tenant_id、group_id、telegram_user_id 和 execution_id；不能通过伪造路径成员 ID 触发其他成员的处罚记录。
+- **涉及文件**：internal/bots/warning_escalation_history.go、internal/httpapi/handler.go、internal/httpapi/warning_escalation.go、src/lib/api.ts、src/pages/GroupMembersPage.tsx、docs/API.md。
+- **当前边界**：目前是网站端手动重试，不是自动重试队列；processing 状态崩溃恢复、退避调度、自动 worker 和 Telegram 真实群组验收仍未完成。失败重试依旧受实时 Telegram 权限保护。
+- **验证**：代码与文档已提交 main；当前未取得本批对应 GitHub Actions 结果，不能标记 Go/PostgreSQL 测试或前端构建通过。尚未进行真实 Telegram 群组联调。
+
 ## 2026-11-27（群成员警告递进处罚执行链路第一阶段）
 
 - **执行接入**：新增 ApplyWarningEscalation，网站端手动添加警告和 Telegram 群管 Bot 的“添加警告”按钮都会在警告落库后评估当前群启用的递进规则。
