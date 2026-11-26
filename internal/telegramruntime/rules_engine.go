@@ -180,36 +180,6 @@ func (p *Poller) callTelegram(ctx context.Context,token,method string,payload an
 	return nil
 }
 
-func parseGroupBotCommand(text string) string {
-	fields:=strings.Fields(text)
-	if len(fields)==0 || !strings.HasPrefix(fields[0],"/") { return "" }
-	command:=strings.TrimPrefix(fields[0],"/")
-	if at:=strings.IndexByte(command,'@');at>=0 { command=command[:at] }
-	return strings.ToLower(command)
-}
-
-func (p *Poller) handleGroupCommand(ctx context.Context,bot managedBot,groupID string,message *telegramMessage,token string) bool {
-	if message==nil || message.From==nil || message.From.IsBot || (message.Chat.Type!="group" && message.Chat.Type!="supergroup") { return false }
-	command:=parseGroupBotCommand(message.Text)
-	switch command {
-	case "start","help","menu","rules","status","members":
-		if !p.requireGroupOwner(ctx,bot,message.From.ID,message.Chat.ID,token) { return true }
-	default:
-		return false
-	}
-	switch command {
-	case "start","help","menu":
-		p.sendGroupMenu(ctx,message.Chat.ID,message.MessageID,token)
-	case "rules":
-		p.sendGroupRules(ctx,bot,groupID,message.Chat.ID,token)
-	case "status":
-		p.sendGroupStatus(ctx,bot,groupID,message.Chat.ID,token)
-	case "members":
-		p.sendGroupMembers(ctx,bot,groupID,message.Chat.ID,token)
-	}
-	return true
-}
-
 // Every Bot in a tenant shares the same owner: the active platform user whose
 // Telegram identity is linked to the sender. No per-Bot owner configuration exists.
 func (p *Poller) requireGroupOwner(ctx context.Context,bot managedBot,telegramUserID,chatID int64,token string) bool {
