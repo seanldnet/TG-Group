@@ -262,3 +262,5 @@
 - **安全限制**：Bot 必须加入目标频道，建议授予频道管理员身份，以确保 Telegram 允许查询其他用户的成员状态。频道用户名和数字 ID 均可配置；私密邀请链接本身不能作为频道 ID 使用。
 - **测试**：增加频道引用格式校验、频道成员状态识别、Telegram API 权限失败关闭和提示文本单测；通过可注入 Telegram API base URL 的 httptest server 模拟 Telegram 响应。
 - **文档**：更新 API、开发计划和人工验收步骤。CAP.js 官方服务端验证仍未接入。
+
+- **频道验证测试修复与 CI**：首轮频道验证 CI run `45726378568` 发现运行时测试错误引用了 bots 包内未导出的配置校验 helper，已删除跨包引用；该校验本身由 `internal/bots/group_rules_test.go` 覆盖。修复提交 `38d8fba244e4e4dd6d0a66dad9aa88aa0e096633` 对应 run `45726537680` 的 Go 格式检查、Go/PostgreSQL 测试、`go vet ./...` 和前端生产构建均通过。
