@@ -34,6 +34,10 @@ function memberStatusLabel(status: TelegramGroupMember["status"]) {
 
 export default function GroupMembersPage({ groupID }: { groupID: string }) {
   const [items, setItems] = useState<TelegramGroupMember[]>([])
+  const [page, setPage] = useState(1)
+  const pageSize = 20
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize))
+  const pageItems = items.slice((page - 1) * pageSize, page * pageSize)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState("")
@@ -51,6 +55,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
     try {
       const [response, permissionResult] = await Promise.all([listGroupMembers(groupID, 200), getGroupBotPermissions(groupID)])
       setItems(response.items)
+      setPage(1)
       setPermissions(permissionResult)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "加载群成员失败")
@@ -188,7 +193,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
               </div>
               <div>
                 <CardTitle>已记录成员</CardTitle>
-                <CardDescription>当前展示最近活动的最多 200 位成员；状态来自 Telegram 成员更新。</CardDescription>
+                <CardDescription>按最近活动排序，最多读取 200 位已采集成员；每页显示 20 位。状态来自 Telegram 成员更新。</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -214,7 +219,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {items.map((member) => {
+                  {pageItems.map((member) => {
                     const name = [member.first_name, member.last_name].filter(Boolean).join(" ") || "未设置名称"
                     const memberPermissions = [
                       member.can_delete_messages && "删消息",
@@ -239,6 +244,17 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
                   })}
                 </TableBody>
               </Table>
+            )}
+            {!loading && items.length > 0 && (
+              <div className="mt-4 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-muted-foreground">
+                  共 {items.length} 位已采集成员 · 第 {page} / {pageCount} 页
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>上一页</Button>
+                  <Button size="sm" variant="outline" disabled={page >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>下一页</Button>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
