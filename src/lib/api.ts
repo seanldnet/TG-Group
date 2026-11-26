@@ -553,3 +553,32 @@ export function setAdminUserStatus(userID: string, status: "active" | "locked") 
     { method: "PATCH", headers: authenticatedHeaders(), body: JSON.stringify({ status }) },
   )
 }
+
+
+export type TelegramWarningEscalationExecution = {
+  id: number
+  group_id: string
+  rule_id: string
+  telegram_user_id: number
+  warning_count: number
+  action: "mute" | "ban"
+  duration_minutes: number
+  status: "processing" | "succeeded" | "failed" | "skipped"
+  detail: string
+  created_at: string
+  updated_at: string
+}
+
+export function listWarningEscalations(groupID: string, userID: number, limit = 50) {
+  return request<{ items: TelegramWarningEscalationExecution[] }>(
+    `/api/v1/groups/${encodeURIComponent(groupID)}/members/${userID}/warning-escalations?limit=${limit}`,
+    { headers: authenticatedHeaders() },
+  )
+}
+
+export function retryWarningEscalation(groupID: string, userID: number, executionID: number) {
+  return request<TelegramWarningEscalationExecution>(
+    `/api/v1/groups/${encodeURIComponent(groupID)}/members/${userID}/warning-escalations/${executionID}/retry`,
+    { method: "POST", headers: authenticatedHeaders() },
+  )
+}
