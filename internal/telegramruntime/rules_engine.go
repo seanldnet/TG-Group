@@ -661,7 +661,7 @@ func (p *Poller) createGroupRulePreset(ctx context.Context,bot managedBot,groupI
 	item,ok:=presets[preset];if !ok{return}
 	_,err:=p.botService.CreateGroupRule(ctx,bot.tenantID,groupID,bots.GroupRuleInput{RuleType:item.kind,Name:item.name,Enabled:true,Priority:100,Config:[]byte(item.config)})
 	if err!=nil {
-		if errors.Is(err,bots.ErrGroupRuleConflict) { _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"该预设规则已经存在。可在规则列表中启用或停用。"},nil) } else { p.logger.Warn("create Telegram group rule preset","group_id",groupID,"preset",preset,"error",err);_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"创建规则失败，请稍后重试。"},nil) }
+		if errors.Is(err,bots.ErrGroupRuleConflict) { _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"该预设规则已经存在。可在对应分类的规则列表中启用或停用。"},nil); p.refreshGroupRuleCategory(ctx,bot,groupID,chatID,item.kind,token) } else { p.logger.Warn("create Telegram group rule preset","group_id",groupID,"preset",preset,"error",err);_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"创建规则失败，请稍后重试。"},nil) }
 		return
 	}
 	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"规则已创建并启用："+item.name},nil)
@@ -915,16 +915,17 @@ func parseGroupRuleDeleteCallback(data string) (stage,ruleID string,ok bool) {
 func (p *Poller) handleGroupRuleDelete(ctx context.Context,bot managedBot,groupID string,chatID int64,data,token string) {
 	stage,ruleID,ok:=parseGroupRuleDeleteCallback(data)
 	if !ok { return }
+	var ruleType string
+	if err:=p.pool.QueryRow(ctx,"SELECT rule_type FROM telegram_group_rules WHERE tenant_id=$1 AND group_id=$2 AND id=$3::uuid",bot.tenantID,groupID,ruleID).Scan(&ruleType);err!=nil{return}
+	category:=groupRuleCategory(ruleType)
 	if stage=="ask" {
 		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"确定删除这条群规吗？历史执行记录会保留。","reply_markup":map[string]any{"inline_keyboard":[][]map[string]string{
 			{{"text":"确认删除","callback_data":"group:delete:confirm:"+ruleID+":rule"}},
-			{{"text":"取消","callback_data":"group:rules"}},
+			{{"text":"取消","callback_data":"group:rules:"+category}},
 		}}},nil)
 		return
 	}
 	if p.botService==nil{return}
-	var ruleType string
-	if err:=p.pool.QueryRow(ctx,"SELECT rule_type FROM telegram_group_rules WHERE tenant_id=$1 AND group_id=$2 AND id=$3::uuid",bot.tenantID,groupID,ruleID).Scan(&ruleType);err!=nil{return}
 	if err:=p.botService.DeleteGroupRule(ctx,bot.tenantID,groupID,ruleID);err!=nil { p.logger.Warn("delete Telegram group rule","group_id",groupID,"rule_id",ruleID,"error",err);_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"删除失败，该规则可能已不存在。"},nil);return }
 	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"群规已删除，历史执行记录仍保留。"},nil)
 	p.refreshGroupRuleCategory(ctx,bot,groupID,chatID,ruleType,token)
