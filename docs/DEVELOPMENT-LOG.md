@@ -360,3 +360,5 @@
 - **测试**：PostgreSQL 集成测试覆盖当前设备保护、其他设备 access/refresh token 失效及审计事件；HTTP 测试覆盖 sessions API 在数据库未配置时返回 503。
 - **文档**：更新 API、LOCAL-TESTING 和 DEVELOPMENT-PLAN。
 - **验证状态**：代码已提交 main；等待 GitHub Actions Go/PostgreSQL 测试、go vet 和前端生产构建结果。
+
+- **CI 验证**：登录设备管理代码提交 `71e35019c1079307388466be8ff54255329a109c` 对应 Actions run `45739299233` 的 Go 格式检查、Go/PostgreSQL 集成测试、go vet 和前端生产构建均 success。集成测试覆盖当前设备不能撤销、其他设备 access/refresh token 撤销和审计事件。
