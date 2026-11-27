@@ -363,7 +363,7 @@ func (p *Poller) sendGroupMenu(ctx context.Context,chatID,messageID int64,token 
 
 func validGroupCategory(category string) bool {
 	switch category {
-	case "qa","review","notices","basic","spam","ads","retract","admins","lists","verify","warnings","profile","schedule","polls","stats","settings":
+	case "qa","review","notices","basic","spam","ads","retract","admins","lists","verify","warnings","profile","schedule","polls","stats","settings","media":
 		return true
 	default:
 		return false
@@ -389,6 +389,7 @@ func (p *Poller) sendGroupCategory(ctx context.Context,bot managedBot,groupID st
 		"polls":{"投票管理","创建群投票并查看投票结果。","开发中"},
 		"stats":{"群组统计","查看消息量、活跃成员、进退群和处罚统计。","开发中"},
 		"settings":{"群组设置","修改群名称、群简介和邀请链接。","已开放"},
+		"media":{"消息与媒体限制","按类型删除图片、视频、文件、贴纸、语音、投票、联系人和位置等消息。","已开放"},
 	}
 	info,ok:=categories[category];if !ok || !validGroupCategory(category){return}
 	text:=info.title+"\n"+info.description+"\n功能状态："+info.status
@@ -398,6 +399,7 @@ func (p *Poller) sendGroupCategory(ctx context.Context,bot managedBot,groupID st
 	case "notices": keyboard=append(keyboard,[]map[string]string{{"text":"欢迎语与离群通知","callback_data":"group:rules:notices"},{"text":"发布群公告","callback_data":"group:announce"}})
 	case "spam": keyboard=append(keyboard,[]map[string]string{{"text":"刷屏限制规则","callback_data":"group:rules:spam"}})
 	case "ads": keyboard=append(keyboard,[]map[string]string{{"text":"广告拦截与关键词规则","callback_data":"group:rules:ads"}})
+	case "media": keyboard=append(keyboard,[]map[string]string{{"text":"消息与媒体限制规则","callback_data":"group:rules:media"}})
 	case "retract": keyboard=append(keyboard,[]map[string]string{{"text":"最近群消息","callback_data":"group:messages"}})
 	case "admins": keyboard=append(keyboard,[]map[string]string{{"text":"查看 Bot 权限","callback_data":"group:status"}})
 	case "verify": keyboard=append(keyboard,[]map[string]string{{"text":"入群验证规则","callback_data":"group:rules:verify"}})
@@ -420,7 +422,7 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 	case query.Data=="group:rules": p.sendGroupRules(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case strings.HasPrefix(query.Data,"group:rules:"):
 		category:=strings.TrimPrefix(query.Data,"group:rules:")
-		if category=="notices"||category=="spam"||category=="ads"||category=="verify"||category=="qa" { p.sendGroupRulesForCategory(ctx,bot,groupID,query.Message.Chat.ID,category,token) }
+		if category=="notices"||category=="spam"||category=="ads"||category=="media"||category=="verify"||category=="qa" { p.sendGroupRulesForCategory(ctx,bot,groupID,query.Message.Chat.ID,category,token) }
 	case query.Data=="group:members" || strings.HasPrefix(query.Data,"group:members:page:"):
 		offset:=0
 		if query.Data!="group:members" { parsed,err:=strconv.Atoi(strings.TrimPrefix(query.Data,"group:members:page:"));if err!=nil||parsed<0||parsed>100000{return};offset=parsed }
@@ -835,6 +837,7 @@ func (p *Poller) createGroupRulePreset(ctx context.Context,bot managedBot,groupI
 		"verify_letters":{"join_verification","字母入群验证","{\"challenge_type\":\"letters\",\"timeout_seconds\":180,\"failure_action\":\"kick\",\"required_channels\":[]}"},
 		"verify_alphanumeric":{"join_verification","数字字母组合验证","{\"challenge_type\":\"alphanumeric\",\"timeout_seconds\":180,\"failure_action\":\"kick\",\"required_channels\":[]}"},
 		"qa":{"qa","群常见问题问答",`{"triggers":["群规","规则"],"match_mode":"contains","response":"请查看群公告中的群规说明。","case_sensitive":false}`},
+		"media":{"media_restriction","媒体类型限制","{\"types\":[\"photo\",\"video\",\"animation\",\"sticker\",\"voice\",\"audio\",\"document\",\"video_note\",\"poll\",\"contact\",\"location\",\"venue\"],\"action\":\"delete\"}"},
 	}
 	item,ok:=presets[preset];if !ok{return}
 	_,err:=p.botService.CreateGroupRule(ctx,bot.tenantID,groupID,bots.GroupRuleInput{RuleType:item.kind,Name:item.name,Enabled:true,Priority:100,Config:[]byte(item.config)})
