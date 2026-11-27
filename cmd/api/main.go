@@ -99,6 +99,7 @@ func main() {
 	defer stop()
 	var pollerDone chan struct{}
 	var escalationWorkerDone chan struct{}
+	var paymentReconciliationDone chan struct{}
 	defer func(){if telegramIdentityManager!=nil {telegramIdentityManager.Stop()}}()
 	if botPoller != nil {
 		pollerDone = make(chan struct{})
@@ -107,6 +108,11 @@ func main() {
 			botPoller.Run(ctx)
 		}()
 		logger.Info("Telegram Bot long-polling manager started")
+	}
+	if rechargeService!=nil{
+		paymentReconciliationDone=make(chan struct{})
+		go func(){defer close(paymentReconciliationDone);runPaymentReconciliation(ctx,logger,rechargeService)}()
+		logger.Info("wallet recharge reconciliation worker started")
 	}
 	if botService != nil {
 		escalationWorkerDone = make(chan struct{})
@@ -131,6 +137,9 @@ func main() {
 				logger.Warn("Telegram Bot workers did not stop before shutdown deadline")
 			}
 		}
+		if paymentReconciliationDone!=nil{
+			select{case <-paymentReconciliationDone:case <-shutdownCtx.Done():logger.Warn("payment reconciliation worker did not stop before shutdown deadline")}
+		}
 		if escalationWorkerDone != nil {
 			select {
 			case <-escalationWorkerDone:
@@ -139,5 +148,21 @@ func main() {
 			}
 		}
 		logger.Info("HTTP server stopped")
+	}
+}
+
+
+func runPaymentReconciliation(ctx context.Context,logger *slog.Logger,service *payments.RechargeService){
+	ticker:=time.NewTicker(30*time.Second)
+	defer ticker.Stop()
+	for{
+		select{
+		case <-ctx.Done():return
+		case <-ticker.C:
+			runCtx,cancel:=context.WithTimeout(ctx,20*time.Second)
+			checked,err:=service.ReconcilePendingOrders(runCtx,50)
+			cancel()
+			if err!=nil{logger.Warn("wallet recharge reconciliation encountered errors","checked",checked,"error",err)}else if checked>0{logger.Info("wallet recharge orders reconciled","checked",checked)}
+		}
 	}
 }
