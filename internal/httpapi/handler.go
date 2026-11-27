@@ -52,6 +52,7 @@ func NewHandlerWithPlatformBot(logger *slog.Logger, authService *auth.Service, b
 	mux.HandleFunc("POST /api/v1/auth/password/change",h.changePassword)
 	mux.HandleFunc("POST /api/v1/auth/logout",h.logout)
 	mux.HandleFunc("GET /api/v1/auth/me",h.me)
+	mux.HandleFunc("PATCH /api/v1/auth/profile",h.updateProfile)
 	mux.HandleFunc("GET /api/v1/auth/security-events",h.securityEvents)
 	mux.HandleFunc("GET /api/v1/auth/sessions",h.listAuthSessions)
 	mux.HandleFunc("DELETE /api/v1/auth/sessions/{sessionID}",h.revokeAuthSession)
@@ -95,6 +96,7 @@ type credentialsRequest struct {
 	CaptchaToken string `json:"captcha_token"`
 }
 type refreshRequest struct { RefreshToken string `json:"refresh_token"` }
+type updateProfileRequest struct { DisplayName string `json:"display_name"` }
 type changePasswordRequest struct {
 	CurrentPassword string `json:"current_password"`
 	NewPassword string `json:"new_password"`
@@ -201,6 +203,20 @@ func (h *Handler) logout(w http.ResponseWriter,r *http.Request) {
 	if token=="" { writeError(w,http.StatusUnauthorized,"unauthorized");return }
 	if err:=h.auth.Logout(r.Context(),token,r.RemoteAddr);err!=nil { h.logger.Error("logout failed","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return }
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) updateProfile(w http.ResponseWriter,r *http.Request) {
+	if !h.requireAuthStore(w) { return }
+	user,ok:=h.currentUser(w,r);if !ok{return}
+	var input updateProfileRequest
+	if !decodeJSON(w,r,&input){return}
+	updated,err:=h.auth.UpdateDisplayName(r.Context(),user.ID,input.DisplayName)
+	switch {
+	case err==nil: writeJSON(w,http.StatusOK,updated)
+	case errors.Is(err,auth.ErrInvalidDisplayName): writeError(w,http.StatusBadRequest,"显示名称不能为空且不能超过 40 个字符")
+	case errors.Is(err,auth.ErrProfileUserNotFound): writeError(w,http.StatusNotFound,"账户不存在或不可用")
+	default: h.logger.Error("update account profile","error",err);writeError(w,http.StatusInternalServerError,"更新个人资料失败")
+	}
 }
 
 func (h *Handler) me(w http.ResponseWriter,r *http.Request) {
