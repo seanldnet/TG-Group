@@ -1023,6 +1023,8 @@ func groupRuleEditConfig(kind,preset string) []byte {
 		case "s1": return []byte(`{"max_messages":10,"window_seconds":10,"duplicate_count":3,"action":"delete"}`)
 		case "s2": return []byte(`{"max_messages":6,"window_seconds":10,"duplicate_count":3,"action":"delete"}`)
 		case "s3": return []byte(`{"max_messages":4,"window_seconds":10,"duplicate_count":2,"action":"delete"}`)
+		case "s4": return []byte(`{"max_messages":6,"window_seconds":10,"duplicate_count":3,"levels":[{"threshold":6,"action":"mute","duration_minutes":5},{"threshold":15,"action":"mute","duration_minutes":60}],"action":"delete"}`)
+		case "s5": return []byte(`{"max_messages":4,"window_seconds":10,"duplicate_count":2,"levels":[{"threshold":4,"action":"mute","duration_minutes":10},{"threshold":12,"action":"ban"}],"action":"delete"}`)
 		}
 	case "anti_bot":
 		if preset=="b1" { return []byte(`{"allowed_usernames":[],"action":"ban"}`) }
@@ -1255,7 +1257,7 @@ func (p *Poller) handleGroupRuleEdit(ctx context.Context,bot managedBot,groupID 
 		case "anti_ad": add("广告：链接类","a1");add("广告：推广话术","a2")
 		case "media_restriction": add("媒体限制：常见类型","m1")
 		case "anti_bot": add("防机器人：默认封禁","b1")
-		case "anti_spam": add("刷屏：宽松（10条/10秒）","s1");add("刷屏：标准（6条/10秒）","s2");add("刷屏：严格（4条/10秒）","s3")
+		case "anti_spam": add("刷屏：宽松（10条/10秒）","s1");add("刷屏：标准（6条/10秒）","s2");add("刷屏：严格（4条/10秒）","s3");add("分级处罚：禁言升级","s4");add("分级处罚：禁言后封禁","s5")
 		case "join_verification": add("验证方式：数字加法","v2");add("验证方式：字母验证码","v4");add("验证方式：数字+字母","v5");add("验证超时：60秒","v1");add("验证超时：180秒","v2");add("验证超时：300秒","v3");add("失败后：限制发言","vr");add("失败后：移出群组","vk")
 		default: return
 		}
