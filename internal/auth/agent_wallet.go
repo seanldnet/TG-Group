@@ -195,6 +195,7 @@ func (s *Service) UpgradeAgentWithWallet(ctx context.Context, userID, targetLeve
 
 
 var ErrInvalidAgentLevel = errors.New("invalid agent level")
+	ErrAgentLevelConflict = errors.New("agent level code already exists")
 
 func validateAgentLevel(code,name string,price int64,sortOrder int32) error {
 	if len(code)<2 || len(code)>40 || len(name)==0 || len(name)>80 || price<0 || sortOrder<0 {
@@ -227,6 +228,7 @@ func (s *Service) CreateAdminAgentLevel(ctx context.Context,actorID,code,name st
 	err=tx.QueryRow(ctx,`INSERT INTO agent_levels(code,name,price_usdt,sort_order,benefits) VALUES($1,$2,$3,$4,$5::jsonb)
 		RETURNING id::text,code,name,price_usdt,sort_order,benefits,enabled`,code,name,price,sortOrder,string(raw)).
 		Scan(&item.ID,&item.Code,&item.Name,&item.PriceUSDT,&item.SortOrder,&item.Benefits,&item.Enabled)
+	if isUniqueViolation(err){return AgentLevel{},ErrAgentLevelConflict}
 	if err!=nil{return AgentLevel{},fmt.Errorf("create agent level: %w",err)}
 	var tenantID string
 	if err:=tx.QueryRow(ctx,`SELECT tenant_id::text FROM users WHERE id=$1`,actorID).Scan(&tenantID);err!=nil{return AgentLevel{},fmt.Errorf("load agent level actor tenant: %w",err)}
