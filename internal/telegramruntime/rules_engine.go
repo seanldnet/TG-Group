@@ -143,9 +143,8 @@ func matchesBlockedLink(content string, blockedDomains, allowedDomains []string,
 		candidate=strings.TrimRight(candidate,".")
 		if candidate=="" { continue }
 		lower:=strings.ToLower(candidate)
-		if !strings.Contains(lower,"://") && !strings.HasPrefix(lower,"www.") && !strings.Contains(lower,".") { continue }
+		if !strings.Contains(lower,"://") { parseValue:="https://"+candidate; candidate=parseValue }
 		parseValue:=candidate
-		if strings.HasPrefix(lower,"www.") { parseValue="https://"+candidate }
 		parsed,err:=url.Parse(parseValue)
 		if err!=nil || parsed.Hostname()=="" { continue }
 		host:=strings.ToLower(strings.TrimSuffix(parsed.Hostname(),"."))
@@ -978,7 +977,7 @@ func (p *Poller) handleGroupSettings(ctx context.Context,bot managedBot,groupID 
 func parseGroupRuleCustomEditCallback(data string)(ruleID,field string,ok bool) {
  parts:=strings.Split(data,":")
  if len(parts)!=4 || parts[0]!="group" || parts[1]!="ec" || !validRuleUUID(parts[2]) { return "", "", false }
- if parts[3]!="text" && parts[3]!="words" && parts[3]!="patterns" && parts[3]!="exceptions" && parts[3]!="media_types" && parts[3]!="channels" { return "", "", false }
+ if parts[3]!="text" && parts[3]!="words" && parts[3]!="patterns" && parts[3]!="exceptions" && parts[3]!="domains" && parts[3]!="media_types" && parts[3]!="channels" { return "", "", false }
  return parts[2],parts[3],true
 }
 func (p *Poller) saveGroupPendingInput(ctx context.Context,bot managedBot,groupID string,userID int64,action,ruleID string) error {
@@ -1007,6 +1006,9 @@ func (p *Poller) beginGroupRuleCustomEdit(ctx context.Context,bot managedBot,gro
  case "exceptions":
   if current.RuleType!="anti_ad" { return }
   action="rule_exceptions";prompt="请发送白名单例外关键词，每行一条，也可以用逗号分隔。命中例外关键词的消息不会被本条反广告规则删除；发送 none 可清空。最多 100 条。"
+ case "domains":
+  if current.RuleType!="anti_ad" { return }
+  action="rule_domains";prompt="请发送要拦截的域名，每行一个或用逗号分隔，例如 example.com、spam.example。支持子域名匹配；发送 none 清空。最多 100 个。"
  case "media_types":
   if current.RuleType!="media_restriction" { return }
   action="rule_media_types";prompt="请发送要删除的消息类型，每行一个或用逗号分隔。支持 photo、video、animation、sticker、voice、audio、document、video_note、poll、contact、location、venue。最多 12 项。"
@@ -1087,6 +1089,12 @@ func (p *Poller) processPendingGroupInput(ctx context.Context,bot managedBot,gro
    if json.Unmarshal(current.Config,&existing)!=nil { return true }
    exceptions:=[]string{};if strings.ToLower(value)!="none" { exceptions=splitRuleTerms(value) }
    config["patterns"]=existing.Patterns;config["exceptions"]=exceptions;config["action"]="delete"
+  case "rule_domains":
+   if current.RuleType!="anti_ad" { return true }
+   var existing struct { Patterns []string `json:"patterns"`; Exceptions []string `json:"exceptions"`; AllowedDomains []string `json:"allowed_domains"`; BlockInviteLinks bool `json:"block_invite_links"` }
+   if json.Unmarshal(current.Config,&existing)!=nil { return true }
+   domains:=[]string{};if strings.ToLower(value)!="none" { domains=splitRuleTerms(value) }
+   config["patterns"]=existing.Patterns;config["exceptions"]=existing.Exceptions;config["allowed_domains"]=existing.AllowedDomains;config["block_invite_links"]=existing.BlockInviteLinks;config["blocked_domains"]=domains;config["action"]="delete"
   case "rule_media_types":
    if current.RuleType!="media_restriction" { return true }
    config["types"]=splitRuleTerms(value);config["action"]="delete"
@@ -1129,7 +1137,7 @@ func (p *Poller) handleGroupRuleEdit(ctx context.Context,bot managedBot,groupID 
 		case "join_verification": add("验证方式：数字加法","v2");add("验证方式：字母验证码","v4");add("验证方式：数字+字母","v5");add("验证超时：60秒","v1");add("验证超时：180秒","v2");add("验证超时：300秒","v3");add("失败后：限制发言","vr");add("失败后：移出群组","vk")
 		default: return
 		}
-		switch current.RuleType { case "welcome","leave_notice": rows=append(rows,[]map[string]string{{"text":"自定义输入文案","callback_data":"group:ec:"+ruleID+":text"}}); case "keyword_filter","sensitive_word": rows=append(rows,[]map[string]string{{"text":"自定义关键词","callback_data":"group:ec:"+ruleID+":words"}}); case "anti_ad": rows=append(rows,[]map[string]string{{"text":"自定义广告匹配内容","callback_data":"group:ec:"+ruleID+":patterns"},{"text":"设置广告例外关键词","callback_data":"group:ec:"+ruleID+":exceptions"}}); case "media_restriction": rows=append(rows,[]map[string]string{{"text":"自定义限制消息类型","callback_data":"group:ec:"+ruleID+":media_types"}}); case "join_verification": rows=append(rows,[]map[string]string{{"text":"设置必需加入的频道","callback_data":"group:ec:"+ruleID+":channels"}}) }
+		switch current.RuleType { case "welcome","leave_notice": rows=append(rows,[]map[string]string{{"text":"自定义输入文案","callback_data":"group:ec:"+ruleID+":text"}}); case "keyword_filter","sensitive_word": rows=append(rows,[]map[string]string{{"text":"自定义关键词","callback_data":"group:ec:"+ruleID+":words"}}); case "anti_ad": rows=append(rows,[]map[string]string{{"text":"自定义广告匹配内容","callback_data":"group:ec:"+ruleID+":patterns"},{"text":"设置广告例外关键词","callback_data":"group:ec:"+ruleID+":exceptions"},{"text":"设置拦截域名","callback_data":"group:ec:"+ruleID+":domains"}}); case "media_restriction": rows=append(rows,[]map[string]string{{"text":"自定义限制消息类型","callback_data":"group:ec:"+ruleID+":media_types"}}); case "join_verification": rows=append(rows,[]map[string]string{{"text":"设置必需加入的频道","callback_data":"group:ec:"+ruleID+":channels"}}) }
 		rows=append(rows,[]map[string]string{{"text":"返回规则列表","callback_data":"group:rules:"+groupRuleCategory(current.RuleType)}})
 		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"编辑规则："+current.Name+"\n请选择要应用的配置预设。保存后立即生效；原配置会被所选预设整体替换。","reply_markup":map[string]any{"inline_keyboard":rows}},nil)
 		return
