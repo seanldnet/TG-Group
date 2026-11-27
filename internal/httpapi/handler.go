@@ -956,17 +956,21 @@ func (h *Handler) gmpayNotify(w http.ResponseWriter,r *http.Request){
 	if h.recharge==nil{http.Error(w,"payment service unavailable",http.StatusServiceUnavailable);return}
 	r.Body=http.MaxBytesReader(w,r.Body,64<<10)
 	raw,err:=io.ReadAll(r.Body);if err!=nil{http.Error(w,"invalid callback body",http.StatusBadRequest);return}
-	var rawParams map[string]json.RawMessage
+	var rawParams map[string]any
 	decoder:=json.NewDecoder(strings.NewReader(string(raw)));decoder.UseNumber()
 	if err:=decoder.Decode(&rawParams);err!=nil{http.Error(w,"invalid callback JSON",http.StatusBadRequest);return}
 	params:=make(map[string]string,len(rawParams))
 	for key,value:=range rawParams{
-		if string(value)=="null"{continue}
-		var textValue string
-		if err:=json.Unmarshal(value,&textValue);err==nil{params[key]=textValue;continue}
-		var number json.Number
-		if err:=json.Unmarshal(value,&number);err==nil{params[key]=number.String();continue}
-		http.Error(w,"invalid callback field",http.StatusBadRequest);return
+		switch typed:=value.(type){
+		case nil:
+			continue
+		case string:
+			params[key]=typed
+		case json.Number:
+			params[key]=typed.String()
+		default:
+			http.Error(w,"invalid callback field",http.StatusBadRequest);return
+		}
 	}
 	hash:=sha256.Sum256(raw)
 	ctx,cancel:=context.WithTimeout(r.Context(),10*time.Second);defer cancel()
