@@ -40,3 +40,25 @@ func TestVerifyGMPaySignatureRejectsTampering(t *testing.T) {
 	if VerifyGMPaySignature(params,"secret") { t.Fatal("tampered payload accepted") }
 	if VerifyGMPaySignature(map[string]string{"signature":"bad"},"secret") { t.Fatal("malformed signature accepted") }
 }
+
+
+func TestEPaySignatureOfficialExample(t *testing.T) {
+	params := map[string]string{
+		"money":"100",
+		"name":"VIP",
+		"notify_url":"https://merchant.example/notify",
+		"out_trade_no":"ORD202605230001",
+		"pid":"1000",
+		"return_url":"https://merchant.example/return",
+		"type":"alipay",
+	}
+	const want = "b865b0acbb2b01554c35a1bd33351452"
+	if got:=EPaySignature(params,"epusdt_secret_key");got!=want{
+		t.Fatalf("EPaySignature() = %s, want %s",got,want)
+	}
+	params["sign"]=want
+	params["sign_type"]="MD5"
+	if !VerifyEPaySignature(params,"epusdt_secret_key"){t.Fatal("official EPay example signature did not verify")}
+	params["money"]="101"
+	if VerifyEPaySignature(params,"epusdt_secret_key"){t.Fatal("tampered EPay payload accepted")}
+}
