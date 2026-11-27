@@ -102,6 +102,18 @@ CAP 采用官方 Cap Standalone 服务端和官方 `cap-widget` Web Component。
 
 新密码长度为 10–72 字节，不能与当前密码相同。服务端先验证当前会话和原密码，再在同一 PostgreSQL 事务中更新 bcrypt 密码哈希、撤销该用户所有既有访问会话及 refresh token，并为当前设备签发一组新的 access/refresh token。成功返回新的会话对象；其他设备会立即失效，需要使用新密码重新登录。密码修改操作写入 `audit_logs`。原密码错误返回 401，参数/密码长度错误返回 400。
 
+## 个人资料修改
+
+`PATCH /api/v1/auth/profile`
+
+需要 Bearer 登录。请求：
+
+```json
+{ "display_name": "新的显示名称" }
+```
+
+显示名称去除首尾空格后不能为空，最多 40 个 Unicode 字符。接口只允许修改当前登录用户的显示名称，不接受客户端指定用户 ID、邮箱、角色或租户；修改与 `auth.profile_update` 审计记录在同一数据库事务中完成。成功返回更新后的当前用户资料。
+
 ## 当前用户
 
 `GET /api/v1/auth/me`
