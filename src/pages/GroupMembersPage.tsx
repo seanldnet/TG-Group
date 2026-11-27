@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { AlertTriangle, ArrowLeft, RefreshCw, UsersRound } from "lucide-react"
 
-import { addGroupMemberWarning, clearGroupMemberWarnings, getGroupBotPermissions, listGroupMemberWarnings, listGroupMembers, moderateGroupMember, listWarningEscalations, retryWarningEscalation, type TelegramWarningEscalationExecution, type TelegramGroupBotPermissions, type TelegramGroupMember, type TelegramGroupMemberWarning } from "@/lib/api"
+import { addGroupMemberWarning, bulkModerateGroupMembers, clearGroupMemberWarnings, getGroupBotPermissions, listGroupMemberWarnings, listGroupMembers, moderateGroupMember, listWarningEscalations, retryWarningEscalation, type TelegramWarningEscalationExecution, type TelegramGroupBotPermissions, type TelegramGroupMember, type TelegramGroupMemberWarning } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,6 +39,8 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
   const [memberTotal, setMemberTotal] = useState(0)
   const [searchInput, setSearchInput] = useState("")
   const [appliedSearch, setAppliedSearch] = useState("")
+  const [selectedUserIDs, setSelectedUserIDs] = useState<number[]>([])
+  const [bulkBusy, setBulkBusy] = useState(false)
   const pageSize = 20
   const pageCount = Math.max(1, Math.ceil(memberTotal / pageSize))
   const [loading, setLoading] = useState(true)
@@ -65,6 +67,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
     try {
       const [response, permissionResult] = await Promise.all([listGroupMembers(groupID, pageSize, (targetPage - 1) * pageSize, targetSearch), getGroupBotPermissions(groupID)])
       setItems(response.items)
+      setSelectedUserIDs([])
       setMemberTotal(response.total)
       setPage(targetPage)
       setPermissions(permissionResult)
@@ -159,6 +162,30 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
     }
   }
 
+  const performBulkAction = async (action: "ban" | "unban" | "mute" | "unmute") => {
+    if (selectedUserIDs.length === 0 || selectedUserIDs.length > 50) return
+    const labels = { ban: "封禁", unban: "解封", mute: "禁言", unmute: "解除禁言" }
+    let duration = 0
+    if (action === "mute") {
+      const raw = window.prompt("请输入批量禁言时长（分钟，1-525600）", "60")
+      if (raw === null) return
+      duration = Number(raw)
+      if (!Number.isInteger(duration) || duration < 1 || duration > 525600) { setError("禁言时长必须是 1 到 525600 之间的整数分钟"); return }
+    }
+    if (!window.confirm(`确认对选中的 ${selectedUserIDs.length} 位成员执行${labels[action]}？每位成员会单独检查权限，部分失败不会回滚已成功的操作。`)) return
+    setBulkBusy(true)
+    setError("")
+    try {
+      const result = await bulkModerateGroupMembers(groupID, selectedUserIDs, action, duration)
+      const failures = result.items.filter(item => !item.ok)
+      setError(failures.length ? `批量操作完成：成功 ${result.succeeded} 位，失败 ${result.failed} 位。失败详情：${failures.slice(0, 5).map(item => `${item.telegram_user_id}: ${item.error}`).join("；")}` : `批量操作完成：成功处理 ${result.succeeded} 位成员。`)
+      setSelectedUserIDs([])
+      await refresh()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "批量成员操作失败")
+    } finally { setBulkBusy(false) }
+  }
+
   const performAction = async (member: TelegramGroupMember, action: "ban" | "unban" | "mute" | "unmute") => {
     const labels = { ban: "封禁", unban: "解封", mute: "禁言", unmute: "解除禁言" }
     const name = [member.first_name, member.last_name].filter(Boolean).join(" ") || String(member.telegram_user_id)
@@ -236,6 +263,13 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
               </div>
             </form>
             {appliedSearch && <p className="mb-3 text-xs text-muted-foreground">当前搜索：{appliedSearch} · 匹配 {memberTotal} 位成员</p>}
+            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border p-3">
+              <span className="mr-2 text-sm text-muted-foreground">已选 {selectedUserIDs.length} 位（最多 50 位）</span>
+              <Button size="sm" variant="outline" disabled={bulkBusy || selectedUserIDs.length === 0} onClick={() => void performBulkAction("mute")}>批量禁言</Button>
+              <Button size="sm" variant="outline" disabled={bulkBusy || selectedUserIDs.length === 0} onClick={() => void performBulkAction("unmute")}>批量解除禁言</Button>
+              <Button size="sm" variant="destructive" disabled={bulkBusy || selectedUserIDs.length === 0} onClick={() => void performBulkAction("ban")}>批量封禁</Button>
+              <Button size="sm" variant="outline" disabled={bulkBusy || selectedUserIDs.length === 0} onClick={() => void performBulkAction("unban")}>批量解封</Button>
+            </div>
             {loading ? (
               <p className="py-10 text-center text-sm text-muted-foreground">正在加载群成员...</p>
             ) : items.length === 0 ? (
@@ -247,6 +281,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>选择</TableHead>
                     <TableHead>成员</TableHead>
                     <TableHead>Telegram 用户 ID</TableHead>
                     <TableHead>身份</TableHead>
@@ -267,6 +302,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
                     ].filter(Boolean)
                     return (
                       <TableRow key={member.id}>
+                        <TableCell><input aria-label={`选择成员 ${member.telegram_user_id}`} type="checkbox" checked={selectedUserIDs.includes(member.telegram_user_id)} disabled={bulkBusy || member.status === "administrator" || member.status === "creator"} onChange={(event) => setSelectedUserIDs(current => event.target.checked ? [...current, member.telegram_user_id].slice(-50) : current.filter(id => id !== member.telegram_user_id))} /></TableCell>
                         <TableCell>
                           <div className="font-medium">{name}</div>
                           <div className="text-xs text-muted-foreground">{member.username ? `@${member.username}` : member.is_bot ? "机器人账号" : "无用户名"}</div>
