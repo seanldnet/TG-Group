@@ -27,6 +27,7 @@ export default function AgentCenterPage() {
   const [account, setAccount] = useState<AgentAccount | null>(null)
   const [ledger, setLedger] = useState<WalletLedgerEntry[]>([])
   const [rechargeOrders, setRechargeOrders] = useState<WalletRechargeOrder[]>([])
+  const [rechargeLoadError, setRechargeLoadError] = useState("")
   const [rechargeAmount, setRechargeAmount] = useState("100")
   const [recharging, setRecharging] = useState(false)
   const [refreshingRechargeID, setRefreshingRechargeID] = useState("")
@@ -43,19 +44,21 @@ export default function AgentCenterPage() {
   const load = useCallback(async () => {
     setLoading(true)
     setError("")
+    setRechargeLoadError("")
     try {
       const [accountResult, ledgerResult, orderResult] = await Promise.all([
         getAgentAccount(),
         listWalletLedger(20, 0),
         listAgentUpgradeOrders(10, 0),
       ])
-      const rechargeResult = await listWalletRecharges(10, 0).catch(() => ({ items: [] as WalletRechargeOrder[] }))
+      const rechargeResult = await listWalletRecharges(10, 0).then((result) => ({ result, error: "" })).catch((err) => ({ result: { items: [] as WalletRechargeOrder[] }, error: err instanceof Error ? err.message : "充值订单加载失败" }))
       setAccount(accountResult)
       setLedger(ledgerResult.items)
       setLedgerTotal(ledgerResult.total)
       setUpgradeOrders(orderResult.items)
       setUpgradeOrderTotal(orderResult.total)
-      setRechargeOrders(rechargeResult.items)
+      setRechargeOrders(rechargeResult.result.items)
+      setRechargeLoadError(rechargeResult.error)
     } catch (err) {
       setError(err instanceof Error ? err.message : "加载代理账户失败")
     } finally {
@@ -116,6 +119,7 @@ export default function AgentCenterPage() {
     try {
       const order = await createWalletRecharge(amount)
       setRechargeOrders((current) => [order, ...current.filter((item) => item.id !== order.id)].slice(0, 10))
+      setRechargeLoadError("")
       if (order.payment_url) {
         window.location.assign(order.payment_url)
         return
@@ -243,7 +247,7 @@ export default function AgentCenterPage() {
             <Button onClick={() => void handleRecharge()} disabled={recharging}>{recharging ? "正在创建订单…" : "创建充值订单"}</Button>
           </div>
           {rechargeMessage && <p className="rounded-lg border p-3 text-sm" role="status">{rechargeMessage}</p>}
-          {rechargeOrders.length > 0 && (
+          {rechargeLoadError ? <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">充值订单加载失败：{rechargeLoadError}</p> : rechargeOrders.length > 0 ? (
             <div className="space-y-2">
               <p className="text-sm font-medium">最近充值订单</p>
               {rechargeOrders.map((order) => (
@@ -253,7 +257,7 @@ export default function AgentCenterPage() {
                 </div>
               ))}
             </div>
-          )}
+          ) : !loading ? <p className="py-4 text-center text-sm text-muted-foreground">暂无充值订单。</p> : null}
         </CardContent>
       </Card>
 

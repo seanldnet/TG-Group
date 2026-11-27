@@ -48,10 +48,10 @@ export default function AdminAgentLevelsPage() {
     setNotice("")
   }
 
-  function resetForm() {
+  function resetForm(options: { clearNotice?: boolean } = {}) {
     setEditingID("")
     setForm(emptyForm)
-    setNotice("")
+    if (options.clearNotice !== false) setNotice("")
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -92,7 +92,7 @@ export default function AdminAgentLevelsPage() {
         })
         setNotice("代理等级已创建。")
       }
-      resetForm()
+      resetForm({ clearNotice: false })
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存代理等级失败")
