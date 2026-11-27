@@ -932,3 +932,11 @@
 - 增加规则配置校验、重复/非法类型拒绝、消息类型分类及分类路由测试。
 - 涉及：`internal/bots/group_rules.go`、`internal/bots/group_rules_test.go`、`internal/telegramruntime/poller.go`、`internal/telegramruntime/rules_engine.go`、`internal/telegramruntime/rules_engine_test.go`、`src/lib/api.ts`、`src/pages/GroupRulesPage.tsx`、`docs/API.md`。
 - 本批尚待 CI 验证及真实 Telegram 群组权限验收；当前规则只对 Bot 实际收到的群消息生效，受 Telegram 群组隐私模式与 Bot API 更新可见性限制。
+
+
+## 2026-11-27（群管：重复消息反刷屏）
+
+- 扩展 `anti_spam` 配置可选项 `duplicate_count`：2–100 次重复文本触发删除，0/省略关闭；原有时间窗消息频率阈值保持兼容。
+- 执行器按租户、群组、发送者、时间窗及大小写不敏感的消息文本统计重复次数，命中后复用消息删除权限检查与幂等事件记录。
+- 网站默认配置和 Telegram 预设启用重复文本检测；增加有效阈值、越界阈值测试。
+- 本项与本批媒体限制功能共同待最新 CI 验证及 Telegram 测试群联调。
