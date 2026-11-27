@@ -17,6 +17,8 @@ import (
 	"github.com/seanldnet/tg-group/internal/bots"
 )
 
+const antiSpamPenaltyCooldownSeconds = 30
+
 type spamRulePenalty struct {
 	Threshold int `json:"threshold"`
 	Action string `json:"action"`
@@ -157,6 +159,12 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 }
 
 
+func shouldApplySpamPenalty(previousAction,currentAction string) bool {
+	if previousAction=="spam_ban" { return false }
+	if previousAction=="spam_mute" && currentAction=="mute" { return false }
+	return true
+}
+
 func selectSpamPenaltyLevel(levels []spamRulePenalty,count int) *spamRulePenalty {
 	var selected *spamRulePenalty
 	for i:=range levels {
@@ -178,9 +186,9 @@ func (p *Poller) executeSpamPenalty(ctx context.Context,bot managedBot,groupID s
 		AND status='succeeded' AND action IN ('spam_mute','spam_ban')
 		AND created_at>=now()-($5 * interval '1 second') AND id<>$6
 		ORDER BY CASE action WHEN 'spam_ban' THEN 0 ELSE 1 END,created_at DESC LIMIT 1`,
-		bot.tenantID,groupID,rule.ID,userID,30,eventID).Scan(&previousAction)
+		bot.tenantID,groupID,rule.ID,userID,antiSpamPenaltyCooldownSeconds,eventID).Scan(&previousAction)
 	if err!=nil && err!=pgx.ErrNoRows { p.finishRuleEvent(ctx,eventID,"failed","could not check anti-spam punishment cooldown"); return }
-	if previousAction=="spam_ban" || (previousAction=="spam_mute" && level.Action=="mute") {
+	if !shouldApplySpamPenalty(previousAction,level.Action) {
 		p.finishRuleEvent(ctx,eventID,"skipped","anti-spam punishment cooldown is active")
 		return
 	}
