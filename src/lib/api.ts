@@ -738,6 +738,7 @@ export type WalletRechargeOrder = {
   id: string
   order_no: string
   merchant_order_id: string
+  provider_trade_id?: string
   amount_usdt: number
   actual_amount?: string
   token?: string
