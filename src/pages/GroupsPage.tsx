@@ -55,15 +55,15 @@ export default function GroupsPage() {
       <div className="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <Badge variant="secondary" className="mb-3">资源管理</Badge>
-            <h1 className="text-3xl font-semibold tracking-tight">Telegram 群组</h1>
+            
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">群组管理</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
               平台通过已启用 Bot 的 Telegram 长轮询更新自动发现群组、超级群组和频道。将 Bot 添加到目标群组后，收到相关更新即可登记。
             </p>
           </div>
           <Button variant="outline" onClick={() => void refresh(true)} disabled={refreshing}>
             <RefreshCw className={`mr-2 size-4 ${refreshing ? "animate-spin" : ""}`} />
-            刷新列表
+            刷新
           </Button>
         </div>
 
@@ -76,8 +76,8 @@ export default function GroupsPage() {
                 <UsersRound className="size-5" />
               </div>
               <div>
-                <CardTitle>已发现群组</CardTitle>
-                <CardDescription>当前租户共发现 {items.length} 个群组、超级群组或频道。</CardDescription>
+                <CardTitle>群组列表</CardTitle>
+                <CardDescription>共 {items.length} 个群组</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -88,23 +88,23 @@ export default function GroupsPage() {
               <div className="flex flex-col items-center gap-3 py-12 text-center">
                 <Hash className="size-9 text-muted-foreground/60" />
                 <div>
-                  <p className="font-medium">暂未发现群组</p>
+                  <p className="font-medium">暂无群组</p>
                   <p className="mt-1 max-w-lg text-sm text-muted-foreground">
-                    先在 Bot 管理中添加并启用 Bot，再将它添加到 Telegram 群组。群组产生消息或 Bot 成员状态更新后，平台会自动发现。
+                    添加机器人并将其邀请至 Telegram 群组，即可开始管理。
                   </p>
                 </div>
-                <Button asChild variant="outline"><a href="/dashboard/bots">前往 Bot 管理</a></Button>
+                <Button asChild variant="outline"><a href="/dashboard/bots">添加机器人</a></Button>
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>群组 / 频道</TableHead>
-                    <TableHead>Telegram Chat ID</TableHead>
+                    <TableHead>群组 ID</TableHead>
                     <TableHead>类型</TableHead>
-                    <TableHead>来源 Bot</TableHead>
-                    <TableHead>最近发现</TableHead>
-                    <TableHead>操作</TableHead>
+                    <TableHead>机器人</TableHead>
+                    <TableHead>最近活动</TableHead>
+                    <TableHead>管理</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -112,7 +112,7 @@ export default function GroupsPage() {
                     <TableRow key={group.id}>
                       <TableCell>
                         <div className="font-medium">{group.title || "未命名群组"}</div>
-                        <div className="text-xs text-muted-foreground">{group.username ? `@${group.username}` : "无公开用户名"}</div>
+                        <div className="text-xs text-muted-foreground">{group.username ? `@${group.username}` : "未设置用户名"}</div>
                       </TableCell>
                       <TableCell className="font-mono text-xs">{group.telegram_chat_id}</TableCell>
                       <TableCell><Badge variant="outline">{groupTypeLabel(group.chat_type)}</Badge>{group.is_forum && <Badge className="ml-1" variant="secondary">话题</Badge>}</TableCell>
