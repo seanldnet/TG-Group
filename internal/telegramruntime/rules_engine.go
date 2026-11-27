@@ -850,6 +850,7 @@ func (p *Poller) createGroupRulePreset(ctx context.Context,bot managedBot,groupI
 		"verify_letters":{"join_verification","字母入群验证","{\"challenge_type\":\"letters\",\"timeout_seconds\":180,\"failure_action\":\"kick\",\"required_channels\":[]}"},
 		"verify_alphanumeric":{"join_verification","数字字母组合验证","{\"challenge_type\":\"alphanumeric\",\"timeout_seconds\":180,\"failure_action\":\"kick\",\"required_channels\":[]}"},
 		"qa":{"qa","群常见问题问答",`{"triggers":["群规","规则"],"match_mode":"contains","response":"请查看群公告中的群规说明。","case_sensitive":false}`},
+		"media_restriction":{"media_restriction","媒体类型限制",`{"types":["photo","video","animation","sticker","voice","audio","document","video_note","poll","contact","location","venue"],"action":"delete"}`},
 		"media":{"media_restriction","媒体类型限制","{\"types\":[\"photo\",\"video\",\"animation\",\"sticker\",\"voice\",\"audio\",\"document\",\"video_note\",\"poll\",\"contact\",\"location\",\"venue\"],\"action\":\"delete\"}"},
 	}
 	item,ok:=presets[preset];if !ok{return}
@@ -908,6 +909,8 @@ func groupRuleEditConfig(kind,preset string) []byte {
 		case "s2": return []byte(`{"max_messages":6,"window_seconds":10,"duplicate_count":3,"action":"delete"}`)
 		case "s3": return []byte(`{"max_messages":4,"window_seconds":10,"duplicate_count":2,"action":"delete"}`)
 		}
+	case "media_restriction":
+		if preset=="m1" { return []byte(`{"types":["photo","video","animation","sticker","voice","audio","document","video_note","poll","contact","location","venue"],"action":"delete"}`) }
 	case "join_verification":
 		switch preset {
 		case "v1": return []byte(`{"challenge_type":"math","timeout_seconds":60,"failure_action":"kick","required_channels":[]}`)
@@ -952,7 +955,7 @@ func (p *Poller) handleGroupSettings(ctx context.Context,bot managedBot,groupID 
 func parseGroupRuleCustomEditCallback(data string)(ruleID,field string,ok bool) {
  parts:=strings.Split(data,":")
  if len(parts)!=4 || parts[0]!="group" || parts[1]!="ec" || !validRuleUUID(parts[2]) { return "", "", false }
- if parts[3]!="text" && parts[3]!="words" && parts[3]!="patterns" && parts[3]!="exceptions" && parts[3]!="channels" { return "", "", false }
+ if parts[3]!="text" && parts[3]!="words" && parts[3]!="patterns" && parts[3]!="exceptions" && parts[3]!="media_types" && parts[3]!="channels" { return "", "", false }
  return parts[2],parts[3],true
 }
 func (p *Poller) saveGroupPendingInput(ctx context.Context,bot managedBot,groupID string,userID int64,action,ruleID string) error {
@@ -981,6 +984,9 @@ func (p *Poller) beginGroupRuleCustomEdit(ctx context.Context,bot managedBot,gro
  case "exceptions":
   if current.RuleType!="anti_ad" { return }
   action="rule_exceptions";prompt="请发送白名单例外关键词，每行一条，也可以用逗号分隔。命中例外关键词的消息不会被本条反广告规则删除；发送 none 可清空。最多 100 条。"
+ case "media_types":
+  if current.RuleType!="media_restriction" { return }
+  action="rule_media_types";prompt="请发送要删除的消息类型，每行一个或用逗号分隔。支持 photo、video、animation、sticker、voice、audio、document、video_note、poll、contact、location、venue。最多 12 项。"
  case "channels":
   if current.RuleType!="join_verification" { return }
   action="rule_channels";prompt="请发送必需加入的频道列表，每行一个。支持 @频道用户名 或 -100 开头的频道 ID；最多 10 个。清空请发送 none。"
@@ -1058,6 +1064,9 @@ func (p *Poller) processPendingGroupInput(ctx context.Context,bot managedBot,gro
    if json.Unmarshal(current.Config,&existing)!=nil { return true }
    exceptions:=[]string{};if strings.ToLower(value)!="none" { exceptions=splitRuleTerms(value) }
    config["patterns"]=existing.Patterns;config["exceptions"]=exceptions;config["action"]="delete"
+  case "rule_media_types":
+   if current.RuleType!="media_restriction" { return true }
+   config["types"]=splitRuleTerms(value);config["action"]="delete"
   case "rule_channels":
    if current.RuleType!="join_verification" { return true }
    var existing struct { ChallengeType string "json:\"challenge_type\""; TimeoutSeconds int "json:\"timeout_seconds\""; FailureAction string "json:\"failure_action\"" }
@@ -1092,11 +1101,12 @@ func (p *Poller) handleGroupRuleEdit(ctx context.Context,bot managedBot,groupID 
 		case "leave_notice": add("离群通知：简洁","l1");add("离群通知：完整","l2")
 		case "keyword_filter","sensitive_word": add("关键词：引流词","k1");add("关键词：营销词","k2");add("关键词：推广词","k3")
 		case "anti_ad": add("广告：链接类","a1");add("广告：推广话术","a2")
+		case "media_restriction": add("媒体限制：常见类型","m1")
 		case "anti_spam": add("刷屏：宽松（10条/10秒）","s1");add("刷屏：标准（6条/10秒）","s2");add("刷屏：严格（4条/10秒）","s3")
 		case "join_verification": add("验证方式：数字加法","v2");add("验证方式：字母验证码","v4");add("验证方式：数字+字母","v5");add("验证超时：60秒","v1");add("验证超时：180秒","v2");add("验证超时：300秒","v3");add("失败后：限制发言","vr");add("失败后：移出群组","vk")
 		default: return
 		}
-		switch current.RuleType { case "welcome","leave_notice": rows=append(rows,[]map[string]string{{"text":"自定义输入文案","callback_data":"group:ec:"+ruleID+":text"}}); case "keyword_filter","sensitive_word": rows=append(rows,[]map[string]string{{"text":"自定义关键词","callback_data":"group:ec:"+ruleID+":words"}}); case "anti_ad": rows=append(rows,[]map[string]string{{"text":"自定义广告匹配内容","callback_data":"group:ec:"+ruleID+":patterns"},{"text":"设置广告例外关键词","callback_data":"group:ec:"+ruleID+":exceptions"}}); case "join_verification": rows=append(rows,[]map[string]string{{"text":"设置必需加入的频道","callback_data":"group:ec:"+ruleID+":channels"}}) }
+		switch current.RuleType { case "welcome","leave_notice": rows=append(rows,[]map[string]string{{"text":"自定义输入文案","callback_data":"group:ec:"+ruleID+":text"}}); case "keyword_filter","sensitive_word": rows=append(rows,[]map[string]string{{"text":"自定义关键词","callback_data":"group:ec:"+ruleID+":words"}}); case "anti_ad": rows=append(rows,[]map[string]string{{"text":"自定义广告匹配内容","callback_data":"group:ec:"+ruleID+":patterns"},{"text":"设置广告例外关键词","callback_data":"group:ec:"+ruleID+":exceptions"}}); case "media_restriction": rows=append(rows,[]map[string]string{{"text":"自定义限制消息类型","callback_data":"group:ec:"+ruleID+":media_types"}}); case "join_verification": rows=append(rows,[]map[string]string{{"text":"设置必需加入的频道","callback_data":"group:ec:"+ruleID+":channels"}}) }
 		rows=append(rows,[]map[string]string{{"text":"返回规则列表","callback_data":"group:rules:"+groupRuleCategory(current.RuleType)}})
 		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"编辑规则："+current.Name+"\n请选择要应用的配置预设。保存后立即生效；原配置会被所选预设整体替换。","reply_markup":map[string]any{"inline_keyboard":rows}},nil)
 		return
