@@ -167,3 +167,10 @@ func (s *RechargeService) ListUserRechargeOrders(ctx context.Context,userID stri
 	if err:=rows.Err();err!=nil{return nil,0,fmt.Errorf("iterate wallet recharge orders: %w",err)}
 	return items,total,nil
 }
+
+
+func (s *RechargeService) GetGMPayPublicConfig(ctx context.Context)(PublicConfig,error){
+	channel,err:=s.channels.Load(ctx,"epusdt_gmpay")
+	if err!=nil{return PublicConfig{},fmt.Errorf("load GMPay channel: %w",err)}
+	return s.client.GetPublicConfig(ctx,channel.BaseURL)
+}
