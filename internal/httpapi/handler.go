@@ -967,7 +967,9 @@ func (h *Handler) gmpayNotify(w http.ResponseWriter,r *http.Request){
 		case string:
 			params[key]=typed
 		case json.Number:
-			params[key]=typed.String()
+			normalized,normalizeErr:=payments.NormalizeJSONNumber(typed.String())
+			if normalizeErr!=nil{http.Error(w,"invalid callback number",http.StatusBadRequest);return}
+			params[key]=normalized
 		default:
 			http.Error(w,"invalid callback field",http.StatusBadRequest);return
 		}
