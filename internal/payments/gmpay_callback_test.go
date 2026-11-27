@@ -33,3 +33,12 @@ func TestVerifyGMPayCallbackRejectsIntegerOverflow(t *testing.T){
 	p["signature"]=GMPaySignature(p,"secret")
 	if _,err:=VerifyGMPayCallback(p,"secret","1000","RC123",25);err==nil{t.Fatal("overflow settlement accepted")}
 }
+
+
+func TestVerifyGMPayCallbackSeparatesFractionalSettlementForReview(t *testing.T){
+	params:=map[string]string{"pid":"1000","trade_id":"trade-1","order_id":"RC123","amount":"25","actual_amount":"24.99","token":"USDT","block_transaction_id":"0xabc","status":"2"}
+	params["signature"]=GMPaySignature(params,"secret")
+	verified,err:=VerifyGMPayCallback(params,"secret","1000","RC123",25)
+	if err!=ErrNonIntegerUSDT{t.Fatalf("error=%v, want ErrNonIntegerUSDT",err)}
+	if verified.TradeID!="trade-1"||verified.TransactionID!="0xabc"{t.Fatalf("signed fractional callback metadata lost: %#v",verified)}
+}
