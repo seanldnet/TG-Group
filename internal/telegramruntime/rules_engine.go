@@ -74,7 +74,8 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 	}
 
 	if p.handleJoinVerificationText(ctx,bot,groupID,message,token) { return }
-	if senderID==nil || message.From.IsBot { return }\n\tmediaType := telegramMessageMediaType(message)
+	if senderID==nil || message.From.IsBot { return }
+	mediaType := telegramMessageMediaType(message)
 	var matched *executableRule
 	var matchedQA *executableRule
 	var qaResponse string
