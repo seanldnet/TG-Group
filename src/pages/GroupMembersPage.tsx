@@ -163,6 +163,9 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
     }
   }
 
+  const selectablePageIDs = items.filter(member => member.status !== "administrator" && member.status !== "creator").map(member => member.telegram_user_id)
+  const allPageSelected = selectablePageIDs.length > 0 && selectablePageIDs.every(id => selectedUserIDs.includes(id))
+
   const performBulkAction = async (action: "ban" | "unban" | "mute" | "unmute") => {
     if (selectedUserIDs.length === 0 || selectedUserIDs.length > 50) return
     const labels = { ban: "封禁", unban: "解封", mute: "禁言", unmute: "解除禁言" }
@@ -285,7 +288,11 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>选择</TableHead>
+                    <TableHead><input aria-label="选择本页所有可管理成员" type="checkbox" checked={allPageSelected} disabled={bulkBusy || selectablePageIDs.length === 0} onChange={(event) => setSelectedUserIDs(current => {
+                      if (!event.target.checked) return current.filter(id => !selectablePageIDs.includes(id))
+                      const merged = [...current, ...selectablePageIDs.filter(id => !current.includes(id))]
+                      return merged.slice(0, 50)
+                    })} /></TableHead>
                     <TableHead>成员</TableHead>
                     <TableHead>Telegram 用户 ID</TableHead>
                     <TableHead>身份</TableHead>
