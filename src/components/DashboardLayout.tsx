@@ -43,6 +43,7 @@ const business: NavItem[] = [
 const administration: NavItem[] = [
   { href: "/dashboard/admin/users", label: "用户管理", icon: UsersRound },
   { href: "/dashboard/admin/agents", label: "平台代理管理", icon: Network },
+  { href: "/dashboard/admin/agent-levels", label: "代理等级配置", icon: Crown },
   { href: "/dashboard/admin/plans", label: "平台套餐", icon: Package },
   { href: "/dashboard/admin/orders", label: "平台订单", icon: Receipt },
   { href: "/dashboard/admin/payments", label: "支付渠道", icon: CreditCard },
