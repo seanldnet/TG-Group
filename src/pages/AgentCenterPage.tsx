@@ -57,7 +57,7 @@ export default function AgentCenterPage() {
         listWalletLedger(20, 0),
         listAgentUpgradeOrders(10, 0),
       ])
-      const rechargeResult = await listWalletRecharges(10, 0).then((result) => ({ result, error: "" })).catch((err) => ({ result: { items: [] as WalletRechargeOrder[] }, error: err instanceof Error ? err.message : "充值订单加载失败" }))
+      const rechargeResult = await listWalletRecharges(10, 0).then((result) => ({ result, error: "" })).catch((err) => ({ result: { items: [] as WalletRechargeOrder[], total: 0 }, error: err instanceof Error ? err.message : "充值订单加载失败" }))
       setAccount(accountResult)
       setLedger(ledgerResult.items)
       setLedgerTotal(ledgerResult.total)
