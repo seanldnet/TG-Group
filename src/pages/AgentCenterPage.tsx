@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { AlertCircle, RefreshCw, Wallet, Crown, ArrowDownUp } from "lucide-react"
-import { createWalletRecharge, getAgentAccount, listAgentUpgradeOrders, listWalletLedger, listWalletRecharges, upgradeAgentWithWallet, type AgentAccount, type AgentUpgradeOrder, type WalletLedgerEntry, type WalletRechargeOrder } from "@/lib/api"
+import { createWalletRecharge, getAgentAccount, listAgentUpgradeOrders, listWalletLedger, listWalletRecharges, refreshWalletRecharge, upgradeAgentWithWallet, type AgentAccount, type AgentUpgradeOrder, type WalletLedgerEntry, type WalletRechargeOrder } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,6 +29,7 @@ export default function AgentCenterPage() {
   const [rechargeOrders, setRechargeOrders] = useState<WalletRechargeOrder[]>([])
   const [rechargeAmount, setRechargeAmount] = useState("100")
   const [recharging, setRecharging] = useState(false)
+  const [refreshingRechargeID, setRefreshingRechargeID] = useState("")
   const [rechargeMessage, setRechargeMessage] = useState("")
   const [upgradeOrders, setUpgradeOrders] = useState<AgentUpgradeOrder[]>([])
   const [upgradeOrderTotal, setUpgradeOrderTotal] = useState(0)
@@ -78,6 +79,29 @@ export default function AgentCenterPage() {
       setUpgradeMessage(err instanceof Error ? err.message : "代理升级失败")
     } finally {
       setUpgradingLevelID("")
+    }
+  }
+
+  async function handleRefreshRecharge(orderID: string) {
+    setRefreshingRechargeID(orderID)
+    setRechargeMessage("")
+    try {
+      const updated = await refreshWalletRecharge(orderID)
+      setRechargeOrders((current) => current.map((item) => item.id === updated.id ? updated : item))
+      if (updated.provider_status === 2 && updated.status === "pending") {
+        setRechargeMessage("网关已确认支付，正在等待签名回调完成钱包入账。")
+      } else if (updated.provider_status === 5) {
+        setRechargeMessage("网关已检测到转账，正在等待链上确认。")
+      } else if (updated.status === "review") {
+        setRechargeMessage("该订单进入待核查状态，暂未入账。")
+      } else {
+        setRechargeMessage("支付状态已刷新。")
+      }
+      await load()
+    } catch (err) {
+      setRechargeMessage(err instanceof Error ? err.message : "刷新支付状态失败")
+    } finally {
+      setRefreshingRechargeID("")
     }
   }
 
@@ -225,7 +249,7 @@ export default function AgentCenterPage() {
               {rechargeOrders.map((order) => (
                 <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
                   <div><p className="text-sm font-medium">{order.order_no}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(order.created_at).toLocaleString()}</p></div>
-                  <div className="text-right"><p className="font-semibold tabular-nums">{formatUSDT(order.amount_usdt)} USDT</p><Badge variant={order.status === "paid" ? "default" : order.status === "pending" ? "secondary" : "destructive"}>{order.status === "paid" ? "已到账" : order.status === "pending" ? "待支付" : order.status === "review" ? "待核查" : order.status === "expired" ? "已过期" : "失败"}</Badge></div>
+                  <div className="text-right"><p className="font-semibold tabular-nums">{formatUSDT(order.amount_usdt)} USDT</p><div className="flex flex-col items-end gap-2"><Badge variant={order.status === "paid" ? "default" : order.status === "pending" ? "secondary" : "destructive"}>{order.status === "paid" ? "已到账" : order.status === "pending" ? (order.provider_status === 5 ? "链上确认中" : order.provider_status === 2 ? "等待入账回调" : "待支付") : order.status === "review" ? "待核查" : order.status === "expired" ? "已过期" : "失败"}</Badge>{order.status === "pending" && order.provider_trade_id && <Button size="sm" variant="outline" disabled={refreshingRechargeID === order.id} onClick={() => void handleRefreshRecharge(order.id)}>{refreshingRechargeID === order.id ? "查询中…" : "刷新支付状态"}</Button>}</div></div>
                 </div>
               ))}
             </div>
