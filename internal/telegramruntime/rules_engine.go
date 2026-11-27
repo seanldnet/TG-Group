@@ -139,7 +139,7 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 
 func matchesBlockedLink(content string, blockedDomains, allowedDomains []string, blockInviteLinks bool) bool {
 	for _,field:=range strings.Fields(content) {
-		candidate:=strings.Trim(field,"<>()[]{}\"'\\u201c\\u201d,;!?")
+		candidate:=strings.Trim(field, "<>()[]{}\"'“”,;!?")
 		candidate=strings.TrimRight(candidate,".")
 		if candidate=="" { continue }
 		lower:=strings.ToLower(candidate)
