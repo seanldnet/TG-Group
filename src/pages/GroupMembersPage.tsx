@@ -88,9 +88,6 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
       setWarningPage(1)
       setEscalations(executions.items)
       setEscalationTotal(executions.total)
-      setEscalationTotal(executions.total)
-      setEscalationPage(1)
-      setEscalationTotal(executions.total)
       setEscalationPage(1)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "加载警告记录失败")
@@ -114,6 +111,8 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
       setWarningTotal(response.total)
       setWarningPage(1)
       setEscalations(executions.items)
+      setEscalationTotal(executions.total)
+      setEscalationPage(1)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "添加警告失败")
     } finally {
@@ -131,6 +130,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
       setWarnings(response.items)
       setWarningTotal(response.total)
       setEscalations(executions.items)
+      setEscalationTotal(executions.total)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "重试自动处罚失败")
       try { const executions = await listWarningEscalations(groupID, warningUserID, escalationPageSize, (escalationPage - 1) * escalationPageSize); setEscalations(executions.items); setEscalationTotal(executions.total) } catch { /* preserve original error */ }
