@@ -22,7 +22,11 @@ export default function AdminPaymentsPage() {
     setLoading(true)
     setError("")
     try {
-      const result = await listAdminPaymentChannels()
+      const [result, assets] = await Promise.all([
+        listAdminPaymentChannels(),
+        getGMPaySupportedAssets().catch(() => ({ supported_assets: [] as SupportedPaymentAsset[] })),
+      ])
+      setSupportedAssets(assets.supported_assets)
       const channel = result.items.find((item) => item.code === "epusdt_gmpay")
       setStatus(channel ?? null)
       if (channel) setForm((current) => ({ ...current, name: channel.name, base_url: channel.base_url, merchant_pid: channel.merchant_pid, currency: channel.currency, token: channel.token, network: channel.network, enabled: channel.enabled, secret_key: "" }))
