@@ -13,7 +13,7 @@ const modules: Record<string, { title: string; description: string }> = {
   "/dashboard/payments": { title: "支付管理", description: "支付渠道、支付记录与交易核验" },
   "/dashboard/licenses": { title: "授权管理", description: "授权状态、开通记录、续期与变更" },
   "/dashboard/finance": { title: "财务概览", description: "收入汇总、交易流水与财务统计" },
-  "/dashboard/sponsors": { title: "赞助商管理", description: "赞助商资料、展示位置、投放时间与统计" },
+  "/dashboard/bot-sponsors": { title: "机器人赞助商", description: "按机器人或群组管理多个赞助商，配置名称、展示颜色、介绍文案、跳转链接和按钮；支持定时推送、新成员入群、群聊沉寂后重新活跃等触发条件同时启用，并分别设置触发间隔与展示频率。" },
   "/dashboard/ai": { title: "AI 智能审核", description: "AI 服务商、模型配置、审核策略与用量" },
   "/dashboard/tasks": { title: "定时任务", description: "定时公告、提醒任务、执行状态与失败记录" },
   "/dashboard/analytics": { title: "数据统计", description: "机器人、群组、成员、消息与处罚数据" },
@@ -23,7 +23,6 @@ const modules: Record<string, { title: string; description: string }> = {
   "/dashboard/admin/orders": { title: "平台订单", description: "全站订单查询、支付状态与异常处理" },
   "/dashboard/admin/payments": { title: "支付渠道", description: "USDT、EPUSDT、GMPay 等支付渠道配置" },
   "/dashboard/admin/licenses": { title: "全站授权", description: "用户授权、套餐期限与授权变更" },
-  "/dashboard/admin/sponsors": { title: "平台赞助商", description: "平台级赞助商内容与展示管理" },
   "/dashboard/admin/ai": { title: "AI 服务配置", description: "平台 AI 服务接入与全局策略" },
   "/dashboard/admin/audit": { title: "平台审计", description: "全站管理操作与系统事件" },
 }
