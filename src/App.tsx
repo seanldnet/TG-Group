@@ -37,6 +37,7 @@ import BusinessWorkspacePage from "@/pages/BusinessWorkspacePage"
 import AgentCenterPage from "@/pages/AgentCenterPage"
 import AdminAgentLevelsPage from "@/pages/AdminAgentLevelsPage"
 import AdminPaymentsPage from "@/pages/AdminPaymentsPage"
+import WalletPaymentsPage from "@/pages/WalletPaymentsPage"
 import NotFoundPage from "@/pages/NotFoundPage"
 
 import { Badge } from "@/components/ui/badge"
@@ -396,6 +397,7 @@ export default function App() {
       "/login": "登录｜TG-Group",
       "/register": "注册账号｜TG-Group",
       "/dashboard": "管理中心｜TG-Group",
+      "/dashboard/payments": "USDT 充值与支付｜TG-Group",
     }
     document.title = titles[pathname] || (pathname.startsWith("/dashboard/") ? "业务工作台｜TG-Group" : "页面不存在｜TG-Group")
   }, [pathname])
@@ -407,6 +409,7 @@ export default function App() {
   else if (pathname === "/dashboard/admin/users") page = <AdminUsersPage />
   else if (pathname === "/dashboard/admin/agent-levels") page = <AdminAgentLevelsPage />
   else if (pathname === "/dashboard/admin/payments") page = <AdminPaymentsPage />
+  else if (pathname === "/dashboard/payments") page = <WalletPaymentsPage />
   else if (pathname === "/dashboard/account/profile") page = <PersonalCenterPage />
   else if (pathname === "/dashboard/account/agent") page = <AgentCenterPage />
   else if (pathname === "/dashboard/account/links") page = <AccountLinksPage />
