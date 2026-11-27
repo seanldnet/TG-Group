@@ -875,3 +875,13 @@
 - 涉及文件：internal/bots/warning_escalation_history.go、internal/httpapi/warning_escalation.go、src/lib/api.ts、src/pages/GroupMembersPage.tsx、docs/DEVELOPMENT-PLAN.md。
 - 本批代码已提交 main；最新 CI 尚未完成，暂不宣称 Go 测试、前端构建或 Docker 发布通过。
 - 下一步：确认 CI；随后继续成员搜索（Telegram ID、username、first_name、last_name），再做受权限保护的批量成员操作。
+
+
+## 2026-11-27（群成员服务端搜索）
+
+- 群成员服务端分页查询增加搜索版本，支持 Telegram 用户 ID（转文本）、username、first_name、last_name 的参数化 ILIKE 模糊匹配。
+- 总数统计与当前页列表使用完全相同的 tenant_id、group_id 和搜索过滤条件；保留管理员优先、最近活动排序及稳定 ID 次序。
+- GET /api/v1/groups/{groupID}/members 增加 search 参数，限制最多 100 个字符；前端搜索框通过提交触发请求，不在每次输入时请求，搜索和清空均回到第一页。
+- 涉及文件：internal/bots/service.go、internal/httpapi/handler.go、src/lib/api.ts、src/pages/GroupMembersPage.tsx、docs/DEVELOPMENT-PLAN.md。
+- 本批已提交 main；最新 CI 尚未完成，Go/PostgreSQL 测试、vet 和前端构建结果待确认。
+- 下一步：继续群成员批量禁言/解除禁言/封禁/解封，逐成员权限校验、管理员保护、部分成功结果和审计。
