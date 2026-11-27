@@ -1181,3 +1181,6 @@
 
 - 新增 EPUSDT 订单状态查询客户端（`GET /pay/check-status/{trade_id}`）和用户本人充值订单刷新 API/按钮；可同步过期、链上确认中、待人工核查状态。
 - 安全边界：公开状态查询返回 status=2 时不会直接给钱包加款；只有签名校验通过的 GMPay 商户回调事务才会入账，避免把公开查询接口当作支付凭证。
+
+
+- CI 验证结果：提交 `e7ef231` 的 Go test、Go vet、Frontend typecheck/build 全部成功；Docker 多架构镜像发布仍在运行。提交 `53fcbd` 仅同步文档状态。
