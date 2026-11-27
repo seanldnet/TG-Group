@@ -433,9 +433,11 @@ func (h *Handler) listGroupMembers(w http.ResponseWriter,r *http.Request){
 		if err!=nil || value<0 || value>100000{writeError(w,http.StatusBadRequest,"offset must be between 0 and 100000");return}
 		offset=value
 	}
-	result,total,err:=h.bots.ListGroupMembersPage(r.Context(),user.TenantID,r.PathValue("groupID"),limit,offset)
+	search:=strings.TrimSpace(r.URL.Query().Get("search"))
+	if len([]rune(search))>100{writeError(w,http.StatusBadRequest,"search must be at most 100 characters");return}
+	result,total,err:=h.bots.ListGroupMembersPageWithSearch(r.Context(),user.TenantID,r.PathValue("groupID"),search,limit,offset)
 	if err!=nil{h.logger.Error("list Telegram group members","error",err);writeError(w,http.StatusInternalServerError,"internal server error");return}
-	writeJSON(w,http.StatusOK,map[string]any{"items":result,"total":total,"limit":limit,"offset":offset})
+	writeJSON(w,http.StatusOK,map[string]any{"items":result,"total":total,"limit":limit,"offset":offset,"search":search})
 }
 
 
