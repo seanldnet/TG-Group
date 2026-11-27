@@ -885,3 +885,12 @@
 - 涉及文件：internal/bots/service.go、internal/httpapi/handler.go、src/lib/api.ts、src/pages/GroupMembersPage.tsx、docs/DEVELOPMENT-PLAN.md。
 - 本批已提交 main；最新 CI 尚未完成，Go/PostgreSQL 测试、vet 和前端构建结果待确认。
 - 下一步：继续群成员批量禁言/解除禁言/封禁/解封，逐成员权限校验、管理员保护、部分成功结果和审计。
+
+
+## 2026-11-27（群成员批量管理第一阶段）
+
+- 新增 POST /api/v1/groups/{groupID}/members/actions/bulk，支持批量 ban/unban/mute/unmute；请求最多 50 个 Telegram 用户 ID，拒绝非正数和重复 ID。
+- 执行时逐个复用 ModerateGroupMember，不绕过 Bot 实时权限检查、目标管理员/群主保护、成员状态校验及现有审计日志；每个成员独立执行，返回逐项结果和成功/失败计数，部分失败不回滚成功项。
+- 网站成员列表增加选择框和批量禁言、解除禁言、封禁、解封按钮；操作前二次确认，禁言要求输入有效时长，并明确提示部分失败语义。管理员/群主行不可勾选。
+- 涉及文件：internal/httpapi/handler.go、src/lib/api.ts、src/pages/GroupMembersPage.tsx、docs/DEVELOPMENT-PLAN.md。
+- 本批代码已提交 main；CI、真实 Telegram 群组权限/状态组合验收待完成。当前批量执行为串行逐人调用，不保证原子性。
