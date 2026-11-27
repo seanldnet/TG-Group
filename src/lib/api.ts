@@ -15,6 +15,36 @@ export type AuthSession = {
   user: User
 }
 
+
+export type AgentLevel = {
+  id: string
+  code: string
+  name: string
+  price_usdt: number
+  sort_order: number
+  benefits: Record<string, unknown>
+}
+
+export type AgentAccount = {
+  is_agent: boolean
+  status?: string
+  current_level: AgentLevel | null
+  parent_user_id: string | null
+  wallet_balance_usdt: number
+  levels: AgentLevel[]
+}
+
+export type WalletLedgerEntry = {
+  id: number
+  entry_type: string
+  amount_usdt: number
+  balance_after_usdt: number
+  reference_type: string
+  reference_id: string
+  description: string
+  created_at: string
+}
+
 const TOKEN_KEY = "tg-group-session-token"
 const REFRESH_TOKEN_KEY = "tg-group-refresh-token"
 
@@ -123,6 +153,19 @@ export function updateProfile(input: { display_name: string }) {
     headers: authenticatedHeaders(),
     body: JSON.stringify(input),
   })
+}
+
+export function getAgentAccount() {
+  return request<AgentAccount>("/api/v1/account/agent", {
+    headers: authenticatedHeaders(),
+  })
+}
+
+export function listWalletLedger(limit = 20, offset = 0) {
+  return request<{ items: WalletLedgerEntry[]; total: number; limit: number; offset: number }>(
+    `/api/v1/account/wallet/ledger?limit=${limit}&offset=${offset}`,
+    { headers: authenticatedHeaders() },
+  )
 }
 
 export function currentUser() {
