@@ -194,7 +194,7 @@ func TestParseGroupMessageActionCallback(t *testing.T) {
 
 func TestParseGroupRuleCustomEditCallback(t *testing.T) {
  const id="00000000-0000-4000-8000-000000000001"
- for _,field:=range []string{"text","words","patterns","exceptions","domains","allowed_domains","invite_links","media_types","channels"} { if got,gotField,ok:=parseGroupRuleCustomEditCallback("group:ec:"+id+":"+field); !ok||got!=id||gotField!=field { t.Errorf("rejected field %s",field) } }
+ for _,field:=range []string{"text","words","patterns","exceptions","domains","allowed_domains","invite_links","allowed_bots","media_types","channels"} { if got,gotField,ok:=parseGroupRuleCustomEditCallback("group:ec:"+id+":"+field); !ok||got!=id||gotField!=field { t.Errorf("rejected field %s",field) } }
  for _,value:=range []string{"group:ec:bad:text","group:ec:"+id+":unknown","group:ec:"+id+":words:extra"} { if _,_,ok:=parseGroupRuleCustomEditCallback(value);ok { t.Errorf("accepted %q",value) } }
 }
 func TestSplitRuleTerms(t *testing.T) {
@@ -259,7 +259,7 @@ func TestGroupRuleCategoryKeepsFeatureIsolation(t *testing.T) {
 	tests:=[]struct{ruleType,want string}{
 		{"welcome","notices"},{"leave_notice","notices"},
 		{"anti_spam","spam"},
-		{"anti_ad","ads"},{"keyword_filter","ads"},{"sensitive_word","ads"},{"media_restriction","media"},
+		{"anti_ad","ads"},{"keyword_filter","ads"},{"sensitive_word","ads"},{"media_restriction","media"},{"anti_bot","protection"},
 		{"join_verification","verify"},
 		{"unknown","all"},
 	}
@@ -353,4 +353,11 @@ func TestMatchesBlockedLink(t *testing.T) {
 		{name:"ordinary text",message:"this is ordinary text",blocked:[]string{"spam.example"},want:false},
 	}
 	for _,test:=range tests { t.Run(test.name,func(t *testing.T){if got:=matchesBlockedLink(test.message,test.blocked,test.allowed,test.invites);got!=test.want{t.Fatalf("matchesBlockedLink()=%v want %v",got,test.want)}}) }
+}
+
+
+func TestIsAllowedBotUsername(t *testing.T) {
+	if !isAllowedBotUsername("@Trusted_Bot",[]string{"trusted_bot"}) { t.Fatal("expected case-insensitive username allowlist match") }
+	if isAllowedBotUsername("untrusted_bot",[]string{"trusted_bot"}) { t.Fatal("unexpected allowlist match") }
+	if isAllowedBotUsername("",[]string{"trusted_bot"}) { t.Fatal("empty username must not match") }
 }
