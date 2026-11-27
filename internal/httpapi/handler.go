@@ -67,6 +67,7 @@ func NewHandlerWithPayments(logger *slog.Logger, authService *auth.Service, botS
 	mux.HandleFunc("GET /api/v1/account/agent/orders",h.agentUpgradeOrders)
 	mux.HandleFunc("GET /api/v1/admin/agent-levels",h.adminAgentLevels)
 	mux.HandleFunc("GET /api/v1/admin/payment-channels",h.adminPaymentChannels)
+	mux.HandleFunc("GET /api/v1/admin/payment-recharges",h.adminPaymentRecharges)
 	mux.HandleFunc("GET /api/v1/admin/payment-channels/epusdt_gmpay/assets",h.adminGMPayAssets)
 	mux.HandleFunc("PUT /api/v1/admin/payment-channels/{channelCode}",h.updateAdminPaymentChannel)
 	mux.HandleFunc("POST /api/v1/account/wallet/recharge",h.createWalletRecharge)
@@ -1025,4 +1026,18 @@ func decodeGMPayCallbackParams(raw []byte)(map[string]string,error){
 		}
 	}
 	return params,nil
+}
+
+
+func (h *Handler) adminPaymentRecharges(w http.ResponseWriter,r *http.Request){
+	if _,ok:=h.paymentAdmin(w,r);!ok{return}
+	if h.recharge==nil{writeError(w,http.StatusServiceUnavailable,"GMPay service is not configured");return}
+	limit,offset:=25,0
+	if raw:=r.URL.Query().Get("limit");raw!=""{value,err:=strconv.Atoi(raw);if err!=nil||value<1||value>100{writeError(w,http.StatusBadRequest,"limit must be between 1 and 100");return};limit=value}
+	if raw:=r.URL.Query().Get("offset");raw!=""{value,err:=strconv.Atoi(raw);if err!=nil||value<0||value>1000000{writeError(w,http.StatusBadRequest,"offset must be between 0 and 1000000");return};offset=value}
+	status:=r.URL.Query().Get("status")
+	switch status{case "","pending","paid","expired","failed","review":default:writeError(w,http.StatusBadRequest,"invalid recharge order status");return}
+	items,total,err:=h.recharge.ListAdminRechargeOrders(r.Context(),status,limit,offset)
+	if err!=nil{h.logger.Error("list admin recharge orders","error",err);writeError(w,http.StatusInternalServerError,"读取充值订单失败");return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":items,"total":total,"limit":limit,"offset":offset})
 }
