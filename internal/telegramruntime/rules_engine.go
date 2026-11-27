@@ -1085,10 +1085,10 @@ func (p *Poller) processPendingGroupInput(ctx context.Context,bot managedBot,gro
    if current.RuleType!="anti_ad" { return true }; config["patterns"]=splitRuleTerms(value); config["action"]="delete"
   case "rule_exceptions":
    if current.RuleType!="anti_ad" { return true }
-   var existing struct { Patterns []string `json:"patterns"` }
+   var existing struct { Patterns []string `json:"patterns"`; BlockedDomains []string `json:"blocked_domains"`; AllowedDomains []string `json:"allowed_domains"`; BlockInviteLinks bool `json:"block_invite_links"` }
    if json.Unmarshal(current.Config,&existing)!=nil { return true }
    exceptions:=[]string{};if strings.ToLower(value)!="none" { exceptions=splitRuleTerms(value) }
-   config["patterns"]=existing.Patterns;config["exceptions"]=exceptions;config["action"]="delete"
+   config["patterns"]=existing.Patterns;config["blocked_domains"]=existing.BlockedDomains;config["allowed_domains"]=existing.AllowedDomains;config["block_invite_links"]=existing.BlockInviteLinks;config["exceptions"]=exceptions;config["action"]="delete"
   case "rule_domains":
    if current.RuleType!="anti_ad" { return true }
    var existing struct { Patterns []string `json:"patterns"`; Exceptions []string `json:"exceptions"`; AllowedDomains []string `json:"allowed_domains"`; BlockInviteLinks bool `json:"block_invite_links"` }
