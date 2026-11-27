@@ -1114,3 +1114,13 @@
 - 涉及：`000021_agent_upgrade_orders` 迁移、`internal/auth/agent_wallet.go`、`internal/httpapi/handler.go`、`internal/httpapi/handler_test.go`、`src/lib/api.ts`、`src/pages/AgentCenterPage.tsx`、`docs/API.md`。
 - 当前边界：用户钱包余额自助升级已有事务实现；平台管理员等级 CRUD、充值入账、USDT/EPUSDT/GMPay 官方支付接入、订单查询和佣金仍未完成。在线支付成功回调未来必须复用同一事务化升级逻辑或等效幂等处理，不引入人工审批。
 - 验证：本轮代码提交后 CI 尚待运行，以最新 main SHA 的 GitHub Actions 结果为准。
+
+
+## 2026-11-27（平台代理等级配置后台）
+
+- 新增管理员代理等级目录查询、创建和更新 API；严格校验管理员角色，等级标识创建后不可变，使用停用而非物理删除保护历史订单引用。
+- 等级配置支持名称、整数 USDT 价格、排序、JSON 权益和启用状态；创建/更新写入平台审计日志。
+- 新增平台代理等级配置页面并加入平台管理导航，可查看全部等级、创建等级、编辑等级权益与启停状态。
+- 代理中心仅展示启用等级，并按 sort_order 判断可升级目标。
+- 涉及：`internal/auth/agent_wallet.go`、`internal/httpapi/handler.go`、`internal/httpapi/handler_test.go`、`src/lib/api.ts`、`src/pages/AdminAgentLevelsPage.tsx`、`src/components/DashboardLayout.tsx`、`src/App.tsx`、`docs/API.md`。
+- 验证：本轮中间提交曾发现并修复 Go sort_order 类型不一致问题；当前最新提交仍需等待 CI Go tests/vet、前端构建和 Docker workflow 完成。
