@@ -17,6 +17,53 @@ export type AuthSession = {
 
 
 
+
+export type AccountOrder = {
+  id: string
+  order_no: string
+  plan_id: string
+  plan_name: string
+  amount_usdt: number
+  payment_method: "wallet"
+  status: "pending" | "paid" | "failed" | "cancelled"
+  paid_at: string | null
+  created_at: string
+}
+
+export type AccountLicense = {
+  id: string
+  plan_id: string
+  plan_name: string
+  status: "active" | "expired" | "suspended"
+  starts_at: string
+  expires_at: string
+  bot_limit: number
+  group_limit: number
+  features: Record<string, unknown>
+}
+
+export function purchasePlanWithWallet(planID: string, idempotencyKey: string) {
+  return request<AccountOrder>("/api/v1/account/orders", {
+    method: "POST",
+    headers: { ...authenticatedHeaders(), "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ plan_id: planID }),
+  })
+}
+
+export function listAccountOrders(limit = 20, offset = 0) {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  return request<{ items: AccountOrder[]; total: number; limit: number; offset: number }>(
+    `/api/v1/account/orders?${params.toString()}`,
+    { headers: authenticatedHeaders() },
+  )
+}
+
+export function listAccountLicenses() {
+  return request<{ items: AccountLicense[] }>("/api/v1/account/licenses", {
+    headers: authenticatedHeaders(),
+  })
+}
+
 export type Plan = {
   id: string
   code: string
