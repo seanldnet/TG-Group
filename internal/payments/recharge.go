@@ -69,8 +69,10 @@ func (s *RechargeService) CreateGMPayOrder(ctx context.Context,userID string,amo
 
 	provider,err:=s.client.CreateOrder(ctx,channel,merchantOrderID,amountUSDT,notifyURL,redirectURL)
 	if err!=nil{
-		_,_ = s.pool.Exec(ctx,`UPDATE wallet_recharge_orders SET status='failed',updated_at=now() WHERE id=$1 AND status='pending'`,order.ID)
-		return RechargeOrder{},fmt.Errorf("create provider recharge order: %w",err)
+		// A transport timeout is ambiguous: the gateway may have accepted the order
+		// even if its response was lost. Keep the local order pending for callback
+		// delivery and later reconciliation instead of falsely marking it failed.
+		return RechargeOrder{},fmt.Errorf("create provider recharge order (local order remains pending for reconciliation): %w",err)
 	}
 	if provider.Status!=1||provider.PaymentURL==""{
 		_,_ = s.pool.Exec(ctx,`UPDATE wallet_recharge_orders SET status='failed',provider_trade_id=$2,provider_status=$3,updated_at=now() WHERE id=$1 AND status='pending'`,order.ID,provider.TradeID,provider.Status)
