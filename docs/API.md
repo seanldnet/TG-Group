@@ -437,3 +437,15 @@ openssl rand -base64 32
 - `POST /api/v1/payments/epusdt/gmpay/notify`：EPUSDT GMPay JSON 异步回调。验签并匹配本地订单、PID、金额、资产、支付状态及交易引用后，在同一事务更新充值订单、钱包余额和资金流水；只有提交成功后返回纯文本 `ok`。若签名有效但实际到账为非整数 USDT，订单进入 `review`，记录交易信息但不入账，并返回 `ok` 等待财务核查。
 - 部署需要同时设置 `PAYMENT_CREDENTIALS_ENCRYPTION_KEY`（Base64 编码 32 字节密钥）和 `PAYMENT_PUBLIC_BASE_URL`（HTTPS 公网根地址）。未配置时充值 API 返回服务未配置。
 - 目前仅接通 GMPay 充值创建与回调路径。EPay 兼容签名原语已实现，但 EPay 创建订单和 GET 回调尚未接入。
+
+
+## 套餐目录
+
+- `GET /api/v1/plans`：登录用户读取当前开放销售的套餐目录；不接受客户端指定用户或租户 ID。
+- `GET /api/v1/admin/plans`：仅平台管理员读取全部套餐（包含停用项）。
+- `POST /api/v1/admin/plans`：仅平台管理员创建套餐。
+- `PATCH /api/v1/admin/plans/{planID}`：仅平台管理员更新套餐资料与销售状态；套餐标识创建后不可变。
+- 套餐字段：标识、名称、说明、整数 USDT 价格、有效期天数、Bot/群组额度、JSON 功能配置、排序和销售状态。
+- 价格必须为非负整数 USDT；有效期为 1–36500 天；Bot/群组额度为非负整数，0 表示不限。
+- 创建和更新写入平台审计日志。停用套餐不物理删除，保留历史订单可引用的数据基础。
+- **当前边界**：本阶段只交付套餐目录与管理员配置 API；尚未创建用户订单、支付关联、授权开通/续期或到期 worker，不能据此宣称套餐购买闭环已上线。
