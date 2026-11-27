@@ -102,14 +102,23 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 			lower:=strings.ToLower(content)
 			for _,pattern:=range cfg.Patterns{if pattern!=""&&strings.Contains(lower,strings.ToLower(pattern)){matched=rule;break}}
 		case "anti_spam":
-			var cfg struct{MaxMessages int `json:"max_messages"`;WindowSeconds int `json:"window_seconds"`;Action string `json:"action"`}
+			var cfg struct{MaxMessages int `json:"max_messages"`;WindowSeconds int `json:"window_seconds"`;DuplicateCount int `json:"duplicate_count"`;Action string `json:"action"`}
 			if json.Unmarshal(rule.Config,&cfg)!=nil || cfg.Action!="delete"{continue}
 			var count int
 			err:=p.pool.QueryRow(ctx,`SELECT count(*) FROM telegram_message_events
 				WHERE tenant_id=$1 AND group_id=$2 AND telegram_user_id=$3 AND received_at >= now()-($4 * interval '1 second')`,
 				bot.tenantID,groupID,senderID,cfg.WindowSeconds).Scan(&count)
 			if err!=nil{p.logger.Error("count messages for anti-spam rule","rule_id",rule.ID,"error",err);continue}
-			if count>=cfg.MaxMessages{matched=rule}
+			if count>=cfg.MaxMessages{matched=rule;break}
+			if cfg.DuplicateCount>=2 && strings.TrimSpace(content)!="" {
+				var duplicates int
+				err:=p.pool.QueryRow(ctx,`SELECT count(*) FROM telegram_message_events
+					WHERE tenant_id=$1 AND group_id=$2 AND telegram_user_id=$3
+					AND lower(message_text)=lower($4) AND received_at >= now()-($5 * interval '1 second')`,
+					bot.tenantID,groupID,senderID,content,cfg.WindowSeconds).Scan(&duplicates)
+				if err!=nil{p.logger.Error("count duplicate messages for anti-spam rule","rule_id",rule.ID,"error",err);continue}
+				if duplicates>=cfg.DuplicateCount{matched=rule}
+			}
 		}
 		if matched!=nil{break}
 	}
