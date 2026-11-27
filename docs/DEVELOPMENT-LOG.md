@@ -955,3 +955,13 @@
 - 规则编辑预设增加常见媒体类型配置；网站端仍可通过规则配置编辑完整 types 数组。
 - 反广告例外词现可在 Telegram 端单独配置；修改例外词时保留原有 patterns。
 - 补充 Telegram 媒体类型编辑回调及预设配置测试；CI 正在运行。
+
+
+## 2026-11-27（群管：结构化反广告域名与邀请链接识别）
+
+- 扩展 `anti_ad` 规则：支持 `blocked_domains` 域名黑名单、`allowed_domains` 域名白名单和 `block_invite_links` Telegram 邀请链接拦截开关；保留既有 patterns 与 exceptions。
+- 运行时从消息文本/媒体说明中识别 URL、www 链接和裸域名；域名按精确主机及子域匹配，允许域名优先，支持拦截 t.me / telegram.me 的 `/+...` 与 `/joinchat/...` 邀请链接。
+- 网站规则默认配置与帮助文案同步；Telegram 群管反广告编辑菜单增加域名黑名单输入，输入 none 可清空，修改时保留已有关键词、例外词和其他选项。
+- 增加域名配置校验、非法/重复域名测试、URL/裸域/子域/白名单/邀请链接运行时测试及 Telegram 编辑回调测试。
+- 涉及：`internal/bots/group_rules.go`、`internal/bots/group_rules_test.go`、`internal/telegramruntime/rules_engine.go`、`internal/telegramruntime/rules_engine_test.go`、`src/pages/GroupRulesPage.tsx`、`docs/API.md`。
+- 本批代码已提交 main，等待 Go tests/vet、前端 typecheck/build 和 Docker CI；真实群组验证仍需部署后确认。当前链接识别只检查 Bot 实际收到的消息文本/说明，不会读取 Telegram 不提供给 Bot 的隐藏内容。
