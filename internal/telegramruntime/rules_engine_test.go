@@ -250,7 +250,7 @@ func TestMatchesQARule(t *testing.T) {
 }
 
 func TestValidGroupCategory(t *testing.T) {
-	valid:=[]string{"qa","review","notices","basic","spam","ads","retract","admins","lists","verify","warnings","profile","schedule","polls","stats","settings"}
+	valid:=[]string{"qa","review","notices","basic","spam","ads","retract","admins","lists","verify","warnings","profile","schedule","polls","stats","settings","media"}
 	for _,category:=range valid { if !validGroupCategory(category) { t.Errorf("category %q should be valid",category) } }
 	for _,category:=range []string{"","unknown","members","group:settings","../admins"} { if validGroupCategory(category) { t.Errorf("category %q should be rejected",category) } }
 }
