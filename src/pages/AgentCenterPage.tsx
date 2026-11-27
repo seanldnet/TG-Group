@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { AlertCircle, RefreshCw, Wallet, Crown, ArrowDownUp } from "lucide-react"
-import { getAgentAccount, listAgentUpgradeOrders, listWalletLedger, upgradeAgentWithWallet, type AgentAccount, type AgentUpgradeOrder, type WalletLedgerEntry } from "@/lib/api"
+import { createWalletRecharge, getAgentAccount, listAgentUpgradeOrders, listWalletLedger, listWalletRecharges, upgradeAgentWithWallet, type AgentAccount, type AgentUpgradeOrder, type WalletLedgerEntry, type WalletRechargeOrder } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 function formatUSDT(value: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value)
@@ -24,6 +26,10 @@ function entryLabel(type: string) {
 export default function AgentCenterPage() {
   const [account, setAccount] = useState<AgentAccount | null>(null)
   const [ledger, setLedger] = useState<WalletLedgerEntry[]>([])
+  const [rechargeOrders, setRechargeOrders] = useState<WalletRechargeOrder[]>([])
+  const [rechargeAmount, setRechargeAmount] = useState("100")
+  const [recharging, setRecharging] = useState(false)
+  const [rechargeMessage, setRechargeMessage] = useState("")
   const [upgradeOrders, setUpgradeOrders] = useState<AgentUpgradeOrder[]>([])
   const [upgradeOrderTotal, setUpgradeOrderTotal] = useState(0)
   const [ledgerTotal, setLedgerTotal] = useState(0)
@@ -37,16 +43,18 @@ export default function AgentCenterPage() {
     setLoading(true)
     setError("")
     try {
-      const [accountResult, ledgerResult, orderResult] = await Promise.all([
+      const [accountResult, ledgerResult, orderResult, rechargeResult] = await Promise.all([
         getAgentAccount(),
         listWalletLedger(20, 0),
         listAgentUpgradeOrders(10, 0),
+        listWalletRecharges(10, 0),
       ])
       setAccount(accountResult)
       setLedger(ledgerResult.items)
       setLedgerTotal(ledgerResult.total)
       setUpgradeOrders(orderResult.items)
       setUpgradeOrderTotal(orderResult.total)
+      setRechargeOrders(rechargeResult.items)
     } catch (err) {
       setError(err instanceof Error ? err.message : "加载代理账户失败")
     } finally {
@@ -70,6 +78,29 @@ export default function AgentCenterPage() {
       setUpgradeMessage(err instanceof Error ? err.message : "代理升级失败")
     } finally {
       setUpgradingLevelID("")
+    }
+  }
+
+  async function handleRecharge() {
+    const amount = Number(rechargeAmount)
+    if (!/^\d+$/.test(rechargeAmount) || !Number.isSafeInteger(amount) || amount <= 0) {
+      setRechargeMessage("请输入正整数 USDT 充值金额。")
+      return
+    }
+    setRecharging(true)
+    setRechargeMessage("")
+    try {
+      const order = await createWalletRecharge(amount)
+      setRechargeOrders((current) => [order, ...current.filter((item) => item.id !== order.id)].slice(0, 10))
+      if (order.payment_url) {
+        window.location.assign(order.payment_url)
+        return
+      }
+      setRechargeMessage(`充值订单已创建：${order.order_no}`)
+    } catch (err) {
+      setRechargeMessage(err instanceof Error ? err.message : "创建充值订单失败")
+    } finally {
+      setRecharging(false)
     }
   }
 
@@ -169,8 +200,36 @@ export default function AgentCenterPage() {
           )}
           {upgradeMessage && <p className="mt-4 rounded-lg border p-3 text-sm" role="status">{upgradeMessage}</p>}
           <p className="mt-4 rounded-lg bg-muted/40 p-3 text-xs leading-5 text-muted-foreground">
-            当前已支持使用账户 USDT 余额完成升级，订单、扣款、资金流水和等级生效在同一数据库事务内提交；在线支付渠道仍在开发中。
+            当前已支持使用账户 USDT 余额完成升级，订单、扣款、资金流水和等级生效在同一数据库事务内提交；在线充值现已接入 GMPay 服务端流程；管理员完成渠道配置并部署 HTTPS 回调地址后可创建充值订单。
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">USDT 余额充值</CardTitle>
+          <CardDescription>通过已配置的 EPUSDT GMPay 收银台充值。实际到账必须为整数 USDT，非整数到账不会自动入账。</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="wallet-recharge-amount">充值金额（整数 USDT）</Label>
+              <Input id="wallet-recharge-amount" inputMode="numeric" value={rechargeAmount} onChange={(event) => setRechargeAmount(event.target.value)} placeholder="例如 100" />
+            </div>
+            <Button onClick={() => void handleRecharge()} disabled={recharging}>{recharging ? "正在创建订单…" : "创建充值订单"}</Button>
+          </div>
+          {rechargeMessage && <p className="rounded-lg border p-3 text-sm" role="status">{rechargeMessage}</p>}
+          {rechargeOrders.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">最近充值订单</p>
+              {rechargeOrders.map((order) => (
+                <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+                  <div><p className="text-sm font-medium">{order.order_no}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(order.created_at).toLocaleString()}</p></div>
+                  <div className="text-right"><p className="font-semibold tabular-nums">{formatUSDT(order.amount_usdt)} USDT</p><Badge variant={order.status === "paid" ? "default" : order.status === "pending" ? "secondary" : "destructive"}>{order.status === "paid" ? "已到账" : order.status === "pending" ? "待支付" : order.status === "review" ? "待核查" : order.status === "expired" ? "已过期" : "失败"}</Badge></div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
