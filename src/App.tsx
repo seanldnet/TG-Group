@@ -397,6 +397,7 @@ export default function App() {
       "/login": "登录｜TG-Group",
       "/register": "注册账号｜TG-Group",
       "/dashboard": "管理中心｜TG-Group",
+      "/dashboard/payments": "USDT 充值与支付｜TG-Group",
     }
     document.title = titles[pathname] || (pathname.startsWith("/dashboard/") ? "业务工作台｜TG-Group" : "页面不存在｜TG-Group")
   }, [pathname])
