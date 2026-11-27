@@ -520,3 +520,10 @@
 - [x] 新增 CountGroupMemberWarnings，按 tenant_id + group_id + Telegram user ID 精确统计全部历史警告，不受最近 100 条列表展示上限影响。
 - [x] 警告查询 API 返回 items 与 total；网站成员警告面板显示累计次数及最近记录数量。
 - [ ] 自动递进处罚策略、处罚执行失败记录/重试、警告操作审计仍待开发。
+
+
+### 群组保护：批量邀请防护（第一阶段）
+- [x] 记录 Telegram `message.new_chat_members` 中的邀请者 ID 与本次新增人数，按租户/群组/邀请者统计时间窗内邀请总量。
+- [x] 新增 `anti_invite_flood` 规则：人数阈值、时间窗、mute/ban、邀请者 ID 白名单；复用现有实时权限检查和管理员保护。
+- [x] 网站规则配置和 Telegram 群组保护菜单增加入口；处罚事件幂等并设置 60 秒成功处罚冷却。
+- [ ] 补充 PostgreSQL 集成测试及真实 Telegram 群组批量邀请验收。
