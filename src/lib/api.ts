@@ -19,6 +19,45 @@ export type AuthSession = {
 
 
 
+
+export type AdminFinanceSummary = {
+  wallet_count: number
+  total_wallet_balance_usdt: number
+  ledger_entry_count: number
+  credit_total_usdt: number
+  debit_total_usdt: number
+}
+
+export type AdminWalletLedgerEntry = {
+  id: number
+  user_id: string
+  user_email: string
+  display_name: string
+  entry_type: string
+  amount_usdt: number
+  balance_after_usdt: number
+  reference_type: string
+  reference_id: string
+  description: string
+  created_at: string
+}
+
+export function getAdminFinanceSummary() {
+  return request<AdminFinanceSummary>("/api/v1/admin/finance/summary", {
+    headers: authenticatedHeaders(),
+  })
+}
+
+export function listAdminWalletLedger(input: { entry_type?: string; q?: string; limit?: number; offset?: number } = {}) {
+  const params = new URLSearchParams({ limit: String(input.limit ?? 20), offset: String(input.offset ?? 0) })
+  if (input.entry_type) params.set("entry_type", input.entry_type)
+  if (input.q) params.set("q", input.q)
+  return request<{ items: AdminWalletLedgerEntry[]; total: number; limit: number; offset: number }>(
+    `/api/v1/admin/finance/ledger?${params.toString()}`,
+    { headers: authenticatedHeaders() },
+  )
+}
+
 export type AdminOrder = {
   id: string
   order_no: string
