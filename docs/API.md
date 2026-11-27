@@ -423,3 +423,17 @@ openssl rand -base64 32
 - `GET /api/v1/account/agent/orders?limit=20&offset=0`：需要 Bearer 登录，只返回 JWT 当前用户自己的代理升级订单，按创建时间和订单 ID 倒序分页。
 - `limit` 范围为 1–100，默认 20；`offset` 范围为 0–1000000，默认 0。
 - 订单历史与钱包流水分别查询；订单状态字段反映服务端最终记录。该接口不接受 user_id 参数，避免通过传参读取其他用户订单。
+
+
+### 平台支付渠道管理
+
+- `GET /api/v1/admin/payment-channels`：平台管理员查询渠道配置状态；仅返回网关地址、PID、币种、资产、网络和启用状态，不返回密钥。
+- `PUT /api/v1/admin/payment-channels/{channelCode}`：平台管理员保存 `epusdt_gmpay` 或 `epusdt_epay` 配置；请求包含 `name`、`base_url`、`merchant_pid`、`secret_key`、`currency`、`token`、`network`、`enabled`。密钥使用 AES-256-GCM 加密存储，变更写入审计日志。
+
+### 用户钱包充值
+
+- `POST /api/v1/account/wallet/recharge`：需要登录，JSON `{"amount_usdt":100}` 创建 GMPay 充值订单。金额必须为正整数；服务端从加密渠道配置读取 PID/Secret，生成本地订单后请求网关，成功后返回订单号和 HTTPS 收银台地址。
+- `GET /api/v1/account/wallet/recharges?limit=20&offset=0`：只返回当前登录用户自己的充值订单，支持分页。
+- `POST /api/v1/payments/epusdt/gmpay/notify`：EPUSDT GMPay JSON 异步回调。验签并匹配本地订单、PID、金额、资产、支付状态及交易引用后，在同一事务更新充值订单、钱包余额和资金流水；只有提交成功后返回纯文本 `ok`。
+- 部署需要同时设置 `PAYMENT_CREDENTIALS_ENCRYPTION_KEY`（Base64 编码 32 字节密钥）和 `PAYMENT_PUBLIC_BASE_URL`（HTTPS 公网根地址）。未配置时充值 API 返回服务未配置。
+- 目前仅接通 GMPay 充值创建与回调路径。EPay 兼容签名原语已实现，但 EPay 创建订单和 GET 回调尚未接入。
