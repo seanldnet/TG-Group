@@ -745,6 +745,7 @@ export type WalletRechargeOrder = {
   receive_address?: string
   payment_url?: string
   status: "pending" | "paid" | "expired" | "failed" | "review"
+  provider_status: number
   expires_at?: string
   created_at: string
 }
@@ -815,4 +816,11 @@ export function listAdminRechargeOrders(status = "", limit = 25, offset = 0) {
     `/api/v1/admin/payment-recharges?${params.toString()}`,
     { headers: authenticatedHeaders() },
   )
+}
+
+
+export function refreshWalletRecharge(orderID: string) {
+  return request<WalletRechargeOrder>(`/api/v1/account/wallet/recharges/${encodeURIComponent(orderID)}/refresh`, {
+    method: "POST", headers: authenticatedHeaders(),
+  })
 }
