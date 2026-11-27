@@ -342,6 +342,27 @@ export function clearGroupMemberWarnings(groupID: string, userID: number) {
   )
 }
 
+export type BulkMemberModerationResult = {
+  action: "ban" | "unban" | "mute" | "unmute"
+  total: number
+  succeeded: number
+  failed: number
+  items: Array<{ telegram_user_id: number; ok: boolean; error?: string }>
+}
+
+export function bulkModerateGroupMembers(
+  groupID: string,
+  userIDs: number[],
+  action: "ban" | "unban" | "mute" | "unmute",
+  durationMinutes = 0,
+) {
+  return request<BulkMemberModerationResult>(`/api/v1/groups/${encodeURIComponent(groupID)}/members/actions/bulk`, {
+    method: "POST",
+    headers: authenticatedHeaders(),
+    body: JSON.stringify({ user_ids: userIDs, action, duration_minutes: durationMinutes }),
+  })
+}
+
 export function moderateGroupMember(
   groupID: string,
   userID: number,
