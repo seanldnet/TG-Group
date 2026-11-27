@@ -416,3 +416,10 @@ openssl rand -base64 32
 - `POST /api/v1/admin/agent-levels`：创建等级，请求字段为 `code`、`name`、`price_usdt`、`sort_order`、`benefits`。等级标识仅允许小写字母、数字、下划线和连字符；金额必须是非负整数 USDT。
 - `PATCH /api/v1/admin/agent-levels/{levelID}`：更新名称、价格、排序、权益和启用状态；等级标识保持不可变，避免破坏历史订单引用。
 - 创建和更新均写入平台审计日志。等级采用停用而非物理删除，保留历史订单与代理档案引用。
+
+
+### 当前用户代理升级订单
+
+- `GET /api/v1/account/agent/orders?limit=20&offset=0`：需要 Bearer 登录，只返回 JWT 当前用户自己的代理升级订单，按创建时间和订单 ID 倒序分页。
+- `limit` 范围为 1–100，默认 20；`offset` 范围为 0–1000000，默认 0。
+- 订单历史与钱包流水分别查询；订单状态字段反映服务端最终记录。该接口不接受 user_id 参数，避免通过传参读取其他用户订单。
