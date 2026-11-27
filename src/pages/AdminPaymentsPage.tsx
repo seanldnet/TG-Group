@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react"
-import { AlertCircle, CreditCard, Save, ShieldCheck } from "lucide-react"
+import { AlertCircle, CreditCard, RefreshCw, Save, ShieldCheck } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,19 +17,20 @@ export default function AdminPaymentsPage() {
   const [rechargeOrders, setRechargeOrders] = useState<AdminRechargeOrder[]>([])
   const [rechargeTotal, setRechargeTotal] = useState(0)
   const [statusFilter, setStatusFilter] = useState("")
+  const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
 
-  async function load() {
+  async function load(targetPage = page) {
     setLoading(true)
     setError("")
     setAssetsError("")
     try {
       const [result, orders] = await Promise.all([
         listAdminPaymentChannels(),
-        listAdminRechargeOrders(statusFilter, 20, 0),
+        listAdminRechargeOrders(statusFilter, 20, targetPage * 20),
       ])
       const assets = await getGMPaySupportedAssets()
         .then((value) => ({ items: value.supported_assets, error: "" }))
@@ -38,6 +39,7 @@ export default function AdminPaymentsPage() {
       setAssetsError(assets.error)
       setRechargeOrders(orders.items)
       setRechargeTotal(orders.total)
+      setPage(targetPage)
       const channel = result.items.find((item) => item.code === "epusdt_gmpay")
       setStatus(channel ?? null)
       if (channel) setForm((current) => ({ ...current, name: channel.name, base_url: channel.base_url, merchant_pid: channel.merchant_pid, currency: channel.currency, token: channel.token, network: channel.network, enabled: channel.enabled, secret_key: "" }))
@@ -131,7 +133,8 @@ export default function AdminPaymentsPage() {
               <option value="expired">已过期</option>
               <option value="failed">失败</option>
             </select>
-            <Button size="sm" variant="outline" onClick={() => void load()} disabled={loading}>筛选</Button>
+            <Button size="sm" variant="outline" onClick={() => void load(0)} disabled={loading}>筛选</Button>
+            <Button size="sm" variant="ghost" onClick={() => void load()} disabled={loading}><RefreshCw className={"mr-2 size-4 " + (loading ? "animate-spin" : "")} />刷新</Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -153,7 +156,14 @@ export default function AdminPaymentsPage() {
                 </div>
               ))}
             </div>
-          ) : <p className="py-8 text-center text-sm text-muted-foreground">暂无充值订单。</p>}
+          ) : <p className="py-8 text-center text-sm text-muted-foreground">{loading ? "正在读取充值订单…" : "暂无充值订单。"}</p>}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+            <p className="text-xs text-muted-foreground">第 {rechargeTotal === 0 ? 0 : page + 1} / {Math.max(1, Math.ceil(rechargeTotal / 20))} 页 · 共 {rechargeTotal} 笔</p>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => void load(page - 1)} disabled={loading || page === 0}>上一页</Button>
+              <Button size="sm" variant="outline" onClick={() => void load(page + 1)} disabled={loading || (page + 1) * 20 >= rechargeTotal}>下一页</Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </main>
