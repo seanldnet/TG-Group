@@ -17,7 +17,9 @@ export default function PlanCatalogPage({ admin = false }: { admin?: boolean }) 
   const [saving,setSaving]=useState(false)
   const [error,setError]=useState("")
   const [notice,setNotice]=useState("")
-  const [editingID,setEditingID]=useState("")\n  const [walletBalance,setWalletBalance]=useState<number|null>(null)\n  const [purchasingID,setPurchasingID]=useState("")
+  const [editingID,setEditingID]=useState("")
+  const [walletBalance,setWalletBalance]=useState<number|null>(null)
+  const [purchasingID,setPurchasingID]=useState("")
   const [form,setForm]=useState(emptyForm)
 
   const load=useCallback(async()=>{
