@@ -55,6 +55,9 @@ func NewHandlerWithPlatformBot(logger *slog.Logger, authService *auth.Service, b
 	mux.HandleFunc("GET /api/v1/account/agent",h.agentAccount)
 	mux.HandleFunc("GET /api/v1/account/wallet/ledger",h.walletLedger)
 	mux.HandleFunc("POST /api/v1/account/agent/upgrade",h.upgradeAgent)
+	mux.HandleFunc("GET /api/v1/admin/agent-levels",h.adminAgentLevels)
+	mux.HandleFunc("POST /api/v1/admin/agent-levels",h.createAdminAgentLevel)
+	mux.HandleFunc("PATCH /api/v1/admin/agent-levels/{levelID}",h.updateAdminAgentLevel)
 	mux.HandleFunc("PATCH /api/v1/auth/profile",h.updateProfile)
 	mux.HandleFunc("GET /api/v1/auth/security-events",h.securityEvents)
 	mux.HandleFunc("GET /api/v1/auth/sessions",h.listAuthSessions)
@@ -362,6 +365,56 @@ func (h *Handler) upgradeAgent(w http.ResponseWriter,r *http.Request) {
 	case errors.Is(err,auth.ErrAgentLevelNotUpgradeable): writeError(w,http.StatusConflict,"目标代理等级不可升级或已停用")
 	case errors.Is(err,auth.ErrAgentProfileSuspended): writeError(w,http.StatusForbidden,"代理账户当前已暂停")
 	default: h.logger.Error("upgrade agent with wallet failed","error",err);writeError(w,http.StatusInternalServerError,"代理升级失败")
+	}
+}
+
+type adminAgentLevelRequest struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+	PriceUSDT int64 `json:"price_usdt"`
+	SortOrder int32 `json:"sort_order"`
+	Benefits map[string]any `json:"benefits"`
+	Enabled bool `json:"enabled"`
+}
+
+func (h *Handler) adminAgentLevelUser(w http.ResponseWriter,r *http.Request)(auth.User,bool){
+	if !h.requireAuthStore(w){return auth.User{},false}
+	user,err:=h.auth.Authenticate(r.Context(),bearerToken(r))
+	if err!=nil{writeError(w,http.StatusUnauthorized,"unauthorized");return auth.User{},false}
+	if user.Role!="admin"{writeError(w,http.StatusForbidden,"platform administrator permission required");return auth.User{},false}
+	return user,true
+}
+
+func (h *Handler) adminAgentLevels(w http.ResponseWriter,r *http.Request){
+	if _,ok:=h.adminAgentLevelUser(w,r);!ok{return}
+	items,err:=h.auth.ListAdminAgentLevels(r.Context())
+	if err!=nil{h.logger.Error("list admin agent levels","error",err);writeError(w,http.StatusInternalServerError,"读取代理等级失败");return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":items})
+}
+
+func (h *Handler) createAdminAgentLevel(w http.ResponseWriter,r *http.Request){
+	user,ok:=h.adminAgentLevelUser(w,r);if !ok{return}
+	var input adminAgentLevelRequest
+	if !decodeJSON(w,r,&input){return}
+	item,err:=h.auth.CreateAdminAgentLevel(r.Context(),user.ID,input.Code,input.Name,input.PriceUSDT,input.SortOrder,input.Benefits)
+	switch{
+	case err==nil:writeJSON(w,http.StatusCreated,item)
+	case errors.Is(err,auth.ErrInvalidAgentLevel):writeError(w,http.StatusBadRequest,"等级标识、名称、排序或 USDT 整数价格无效")
+	case errors.Is(err,auth.ErrAgentLevelConflict):writeError(w,http.StatusConflict,"代理等级标识已存在")
+	default:h.logger.Error("create admin agent level","error",err);writeError(w,http.StatusInternalServerError,"创建代理等级失败")
+	}
+}
+
+func (h *Handler) updateAdminAgentLevel(w http.ResponseWriter,r *http.Request){
+	user,ok:=h.adminAgentLevelUser(w,r);if !ok{return}
+	var input adminAgentLevelRequest
+	if !decodeJSON(w,r,&input){return}
+	item,err:=h.auth.UpdateAdminAgentLevel(r.Context(),user.ID,r.PathValue("levelID"),input.Name,input.PriceUSDT,input.SortOrder,input.Benefits,input.Enabled)
+	switch{
+	case err==nil:writeJSON(w,http.StatusOK,item)
+	case errors.Is(err,auth.ErrInvalidAgentLevel):writeError(w,http.StatusBadRequest,"等级名称、排序或 USDT 整数价格无效")
+	case errors.Is(err,auth.ErrAgentLevelNotUpgradeable):writeError(w,http.StatusNotFound,"代理等级不存在")
+	default:h.logger.Error("update admin agent level","error",err);writeError(w,http.StatusInternalServerError,"更新代理等级失败")
 	}
 }
 
