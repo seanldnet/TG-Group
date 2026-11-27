@@ -86,3 +86,30 @@ func (c GMPayClient) CreateOrder(ctx context.Context,channel ChannelConfig,order
 	if err!=nil||paymentURL.Scheme!="https"||paymentURL.Host==""||paymentURL.User!=nil { return GMPayOrderResult{},errors.New("EPUSDT returned an invalid payment URL") }
 	return GMPayOrderResult{TradeID:envelope.Data.TradeID,OrderID:envelope.Data.OrderID,ActualAmount:envelope.Data.ActualAmount.String(),Token:envelope.Data.Token,Status:envelope.Data.Status,ExpirationTime:envelope.Data.ExpirationTime,PaymentURL:envelope.Data.PaymentURL,ReceiveAddress:envelope.Data.ReceiveAddress},nil
 }
+
+
+type SupportedAsset struct {
+	Network string `json:"network"`
+	DisplayName string `json:"display_name"`
+	Tokens []string `json:"tokens"`
+}
+
+type PublicConfig struct {
+	SupportedAssets []SupportedAsset `json:"supported_assets"`
+}
+
+func (c GMPayClient) GetPublicConfig(ctx context.Context,baseURL string)(PublicConfig,error){
+	u,err:=url.Parse(strings.TrimRight(baseURL,"/")+"/payments/gmpay/v1/config")
+	if err!=nil||u.Scheme!="https"||u.Host==""||u.User!=nil{return PublicConfig{},ErrInvalidChannelConfig}
+	httpReq,err:=http.NewRequestWithContext(ctx,http.MethodGet,u.String(),nil)
+	if err!=nil{return PublicConfig{},fmt.Errorf("build GMPay config request: %w",err)}
+	client:=c.HTTP;if client==nil{client=&http.Client{Timeout:8*time.Second}}
+	response,err:=client.Do(httpReq);if err!=nil{return PublicConfig{},fmt.Errorf("read GMPay public config: %w",err)}
+	defer response.Body.Close()
+	payload,err:=io.ReadAll(io.LimitReader(response.Body,1<<20));if err!=nil{return PublicConfig{},fmt.Errorf("read GMPay config response: %w",err)}
+	var envelope struct{StatusCode int `json:"status_code"`;Message string `json:"message"`;Data PublicConfig `json:"data"`}
+	if err:=json.Unmarshal(payload,&envelope);err!=nil{return PublicConfig{},fmt.Errorf("decode GMPay config: %w",err)}
+	if response.StatusCode!=http.StatusOK||envelope.StatusCode!=200{return PublicConfig{},fmt.Errorf("%w: public config HTTP %d: %s",ErrProviderRejected,response.StatusCode,envelope.Message)}
+	if envelope.Data.SupportedAssets==nil{envelope.Data.SupportedAssets=make([]SupportedAsset,0)}
+	return envelope.Data,nil
+}
