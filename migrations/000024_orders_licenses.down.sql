@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS licenses;
+DROP TABLE IF EXISTS orders;
