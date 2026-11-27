@@ -141,3 +141,32 @@ body {
     @apply font-sans;
   }
 }
+
+/* Dashboard motion: restrained, data-led transitions with reduced-motion support. */
+@keyframes dashboard-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes dashboard-orbit {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-18px, 14px, 0) scale(1.08); }
+}
+@keyframes dashboard-live {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(16 185 129 / 30%); }
+  50% { box-shadow: 0 0 0 6px rgb(16 185 129 / 0%); }
+}
+@keyframes dashboard-bar-rise {
+  from { transform: scaleY(.25); opacity: .45; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+.dashboard-enter { animation: dashboard-enter .55s cubic-bezier(.2,.75,.25,1) both; }
+.dashboard-orb { animation: dashboard-orbit 11s ease-in-out infinite; }
+.dashboard-orb-delay { animation-delay: -5s; animation-duration: 14s; }
+.dashboard-live-dot { animation: dashboard-live 2.2s ease-out infinite; }
+.dashboard-bar { transform-origin: bottom; animation: dashboard-bar-rise .7s cubic-bezier(.2,.75,.25,1) both; }
+.dashboard-feed-item { animation: dashboard-enter .45s ease-out both; }
+.dashboard-metric:hover .dashboard-number { color: var(--primary); }
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-enter,.dashboard-orb,.dashboard-live-dot,.dashboard-bar,.dashboard-feed-item { animation: none !important; }
+  .dashboard-metric,.dashboard-bar,.dashboard-feed-item { transition: none !important; }
+}
