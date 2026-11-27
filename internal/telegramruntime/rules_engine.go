@@ -97,12 +97,14 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 			if json.Unmarshal(rule.Config,&cfg)!=nil || cfg.Action!="delete" || mediaType=="" { continue }
 			for _,media:=range cfg.Types { if media==mediaType { matched=rule; break } }
 		case "anti_ad":
-			var cfg struct{Patterns []string `json:"patterns"`;Exceptions []string `json:"exceptions"`;Action string `json:"action"`}
+			var cfg struct{Patterns []string `json:"patterns"`;Exceptions []string `json:"exceptions"`;BlockedDomains []string `json:"blocked_domains"`;AllowedDomains []string `json:"allowed_domains"`;BlockInviteLinks bool `json:"block_invite_links"`;Action string `json:"action"`}
 			if json.Unmarshal(rule.Config,&cfg)!=nil || cfg.Action!="delete"{continue}
 			lower:=strings.ToLower(content)
 			exempt:=false
 			for _,exception:=range cfg.Exceptions { if exception!="" && strings.Contains(lower,strings.ToLower(exception)) { exempt=true; break } }
 			if exempt { continue }
+			linkMatch:=matchesBlockedLink(content,cfg.BlockedDomains,cfg.AllowedDomains,cfg.BlockInviteLinks)
+			if linkMatch { matched=rule; break }
 			for _,pattern:=range cfg.Patterns{if pattern!=""&&strings.Contains(lower,strings.ToLower(pattern)){matched=rule;break}}
 		case "anti_spam":
 			var cfg struct{MaxMessages int `json:"max_messages"`;WindowSeconds int `json:"window_seconds"`;DuplicateCount int `json:"duplicate_count"`;Action string `json:"action"`}
@@ -134,6 +136,27 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 	p.executeDeleteRule(ctx,bot,groupID,item.UpdateID,message.MessageID,senderID.(int64),*matched,token)
 }
 
+
+func matchesBlockedLink(content string, blockedDomains, allowedDomains []string, blockInviteLinks bool) bool {
+	for _,field:=range strings.Fields(content) {
+		candidate:=strings.Trim(field,"<>()[]{}\"'\\u201c\\u201d,;!?")
+		candidate=strings.TrimRight(candidate,".")
+		if candidate=="" { continue }
+		lower:=strings.ToLower(candidate)
+		if !strings.Contains(lower,"://") && !strings.HasPrefix(lower,"www.") && !strings.Contains(lower,".") { continue }
+		parseValue:=candidate
+		if strings.HasPrefix(lower,"www.") { parseValue="https://"+candidate }
+		parsed,err:=url.Parse(parseValue)
+		if err!=nil || parsed.Hostname()=="" { continue }
+		host:=strings.ToLower(strings.TrimSuffix(parsed.Hostname(),"."))
+		allowed:=false
+		for _,domain:=range allowedDomains { d:=strings.ToLower(strings.TrimSpace(domain)); if host==d || strings.HasSuffix(host,"."+d) { allowed=true; break } }
+		if allowed { continue }
+		if blockInviteLinks && (host=="t.me" || host=="telegram.me") && (strings.HasPrefix(parsed.Path,"/+") || strings.Contains(parsed.Path,"joinchat")) { return true }
+		for _,domain:=range blockedDomains { d:=strings.ToLower(strings.TrimSpace(domain)); if host==d || strings.HasSuffix(host,"."+d) { return true } }
+	}
+	return false
+}
 
 func telegramMessageMediaType(message *telegramMessage) string {
 	if message == nil { return "" }
