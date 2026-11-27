@@ -615,7 +615,7 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 	case strings.HasPrefix(query.Data,"group:member:detail:"):
 		p.sendGroupMemberDetail(ctx,bot,groupID,query.Message.Chat.ID,query.Data,token)
 	case query.Data=="group:admins": p.sendGroupAdministrators(ctx,bot,groupID,query.Message.Chat.ID,token)
-\tcase query.Data=="group:status": p.sendGroupStatus(ctx,bot,groupID,query.Message.Chat.ID,token)
+	case query.Data=="group:status": p.sendGroupStatus(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:help" || query.Data=="group:home": p.sendGroupMenu(ctx,query.Message.Chat.ID,0,token)
 	case strings.HasPrefix(query.Data,"group:toggle:"):
 		ruleID:=strings.TrimPrefix(query.Data,"group:toggle:")
