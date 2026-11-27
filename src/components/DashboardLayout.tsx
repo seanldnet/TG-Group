@@ -75,7 +75,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   function renderItems(items: NavItem[]) {
     return items.map(({ href, label, icon: Icon }) => {
-      const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"))
+      const active = pathname === href || (href === "/dashboard/groups" && pathname.startsWith("/dashboard/groups/"))
       return <a key={href} href={href} onClick={() => setMenuOpen(false)}
         aria-current={active ? "page" : undefined}
         className={"group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors " + (active ? "bg-primary/[0.08] text-primary" : "text-muted-foreground hover:bg-muted/80 hover:text-foreground")}>
