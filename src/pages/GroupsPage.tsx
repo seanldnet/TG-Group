@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react"
-import { Hash, RefreshCw, UsersRound } from "lucide-react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { Hash, RefreshCw, Search, UsersRound } from "lucide-react"
 
 import { listGroups, type TelegramGroup } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Card,
   CardContent,
@@ -31,6 +32,8 @@ export default function GroupsPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState("")
+  const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState<"all" | TelegramGroup["status"]>("all")
 
   const refresh = useCallback(async (manual = false) => {
     setError("")
@@ -77,7 +80,7 @@ export default function GroupsPage() {
               </div>
               <div>
                 <CardTitle>群组列表</CardTitle>
-                <CardDescription>共 {items.length} 个群组</CardDescription>
+                <CardDescription>共 {items.length} 个群组，当前显示 {filteredItems.length} 个</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -103,12 +106,12 @@ export default function GroupsPage() {
                     <TableHead>群组 ID</TableHead>
                     <TableHead>类型</TableHead>
                     <TableHead>机器人</TableHead>
-                    <TableHead>最近活动</TableHead>
+                    <TableHead>最近活动</TableHead>\n                    <TableHead>状态</TableHead>
                     <TableHead>管理</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {items.map((group) => (
+                  {filteredItems.map((group) => (
                     <TableRow key={group.id}>
                       <TableCell>
                         <div className="font-medium">{group.title || "未命名群组"}</div>
@@ -117,7 +120,7 @@ export default function GroupsPage() {
                       <TableCell className="font-mono text-xs">{group.telegram_chat_id}</TableCell>
                       <TableCell><Badge variant="outline">{groupTypeLabel(group.chat_type)}</Badge>{group.is_forum && <Badge className="ml-1" variant="secondary">话题</Badge>}</TableCell>
                       <TableCell className="font-mono text-xs">{group.bot_id.slice(0, 8)}…</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{new Date(group.last_seen_at).toLocaleString()}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{new Date(group.last_seen_at).toLocaleString()}</TableCell>\n                      <TableCell><Badge variant={group.status === "active" ? "default" : "secondary"}>{group.status === "active" ? "正常" : group.status === "left" ? "Bot 已离开" : "Bot 已被移除"}</Badge></TableCell>
                       <TableCell><div className="flex items-center gap-3"><a className="text-sm text-primary hover:underline" href={`/dashboard/groups/${group.id}/members`}>成员</a><a className="text-sm text-primary hover:underline" href={`/dashboard/groups/${group.id}/events`}>消息日志</a><a className="text-sm text-primary hover:underline" href={`/dashboard/groups/${group.id}/rules`}>规则</a></div></TableCell>
                     </TableRow>
                   ))}
