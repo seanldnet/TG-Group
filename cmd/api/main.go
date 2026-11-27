@@ -18,6 +18,7 @@ import (
 	"github.com/seanldnet/tg-group/internal/telegramruntime"
 	"github.com/seanldnet/tg-group/internal/telegramauthbot"
 	"github.com/seanldnet/tg-group/internal/platformsettings"
+	"github.com/seanldnet/tg-group/internal/payments"
 )
 
 func main() {
@@ -43,6 +44,8 @@ func main() {
 	var botPoller *telegramruntime.Poller
 	var telegramIdentityManager *telegramauthbot.Manager
 	var platformBotSettings *platformsettings.Service
+	var paymentChannels *payments.ConfigStore
+	var rechargeService *payments.RechargeService
 	if db != nil {
 		authService = auth.NewService(db.Pool)
 		if err := authService.EnsureDemoAdmin(startupCtx); err != nil { logger.Error("bootstrap demo administrator", "error", err); os.Exit(1) }
@@ -68,13 +71,21 @@ func main() {
 		} else {
 			logger.Warn("BOT_TOKEN_ENCRYPTION_KEY is empty; Telegram Bot management is disabled")
 		}
+		if cfg.PaymentCredentialsEncryptionKey!="" {
+			paymentChannels,err=payments.NewConfigStore(db.Pool,cfg.PaymentCredentialsEncryptionKey)
+			if err!=nil{logger.Error("configure payment credential encryption","error",err);os.Exit(1)}
+			rechargeService=payments.NewRechargeService(db.Pool,paymentChannels,payments.GMPayClient{})
+			logger.Info("EPUSDT payment channel configuration and wallet recharge service enabled")
+		} else {
+			logger.Warn("PAYMENT_CREDENTIALS_ENCRYPTION_KEY is empty; wallet online recharge is disabled")
+		}
 		telegramIdentityManager.SetBotService(botService)
 		if cfg.TelegramAuthBotToken!="" {telegramIdentityManager.Configure(cfg.TelegramAuthBotToken,cfg.TelegramAuthBotUsername)}
 	}
 	captchaVerifier, err := httpapi.NewCaptchaVerifier(cfg.CAPBaseURL, cfg.CAPSiteKey, cfg.CAPSecret, cfg.CAPWidgetURL)
 	if err != nil { logger.Error("configure CAP.js verification", "error", err); os.Exit(1) }
 	if captchaVerifier != nil { logger.Info("CAP.js server-side verification enabled") }
-	handler := httpapi.NewHandlerWithPlatformBot(logger, authService, botService, captchaVerifier, cfg.TelegramAuthBotUsername, platformBotSettings, telegramIdentityManager)
+	handler := httpapi.NewHandlerWithPayments(logger, authService, botService, captchaVerifier, cfg.TelegramAuthBotUsername, platformBotSettings, telegramIdentityManager, paymentChannels, rechargeService, cfg.PaymentPublicBaseURL)
 	server := &http.Server{
 		Addr: cfg.HTTPAddr, Handler: handler,
 		ReadHeaderTimeout: 5*time.Second, IdleTimeout: 60*time.Second,
