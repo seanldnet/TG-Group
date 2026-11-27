@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { getGMPaySupportedAssets, listAdminPaymentChannels, saveAdminPaymentChannel, type PaymentChannelStatus, type SupportedPaymentAsset } from "@/lib/api"
+import { getGMPaySupportedAssets, listAdminPaymentChannels, listAdminRechargeOrders, saveAdminPaymentChannel, type AdminRechargeOrder, type PaymentChannelStatus, type SupportedPaymentAsset } from "@/lib/api"
 
 const initial = { name: "EPUSDT GMPay", base_url: "", merchant_pid: "", secret_key: "", currency: "usd", token: "usdt", network: "tron", enabled: false }
 
@@ -13,6 +13,8 @@ export default function AdminPaymentsPage() {
   const [form, setForm] = useState(initial)
   const [status, setStatus] = useState<PaymentChannelStatus | null>(null)
   const [supportedAssets, setSupportedAssets] = useState<SupportedPaymentAsset[]>([])
+  const [rechargeOrders, setRechargeOrders] = useState<AdminRechargeOrder[]>([])
+  const [rechargeTotal, setRechargeTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -22,11 +24,14 @@ export default function AdminPaymentsPage() {
     setLoading(true)
     setError("")
     try {
-      const [result, assets] = await Promise.all([
+      const [result, assets, orders] = await Promise.all([
         listAdminPaymentChannels(),
         getGMPaySupportedAssets().catch(() => ({ supported_assets: [] as SupportedPaymentAsset[] })),
+        listAdminRechargeOrders("", 20, 0),
       ])
       setSupportedAssets(assets.supported_assets)
+      setRechargeOrders(orders.items)
+      setRechargeTotal(orders.total)
       const channel = result.items.find((item) => item.code === "epusdt_gmpay")
       setStatus(channel ?? null)
       if (channel) setForm((current) => ({ ...current, name: channel.name, base_url: channel.base_url, merchant_pid: channel.merchant_pid, currency: channel.currency, token: channel.token, network: channel.network, enabled: channel.enabled, secret_key: "" }))
@@ -104,6 +109,33 @@ export default function AdminPaymentsPage() {
               <div className="flex justify-end"><Button type="submit" disabled={saving || !form.secret_key.trim()}><Save className="mr-2 size-4" />{saving ? "正在保存…" : "保存渠道配置"}</Button></div>
             </form>
           )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">最近充值订单</CardTitle>
+          <CardDescription>平台共 {rechargeTotal} 笔充值订单。金额异常的订单进入待核查状态，不会自动入账。</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {rechargeOrders.length ? (
+            <div className="space-y-3">
+              {rechargeOrders.map((order) => (
+                <div key={order.id} className="space-y-2 rounded-lg border p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0"><p className="font-medium">{order.order_no}</p><p className="mt-1 break-all text-xs text-muted-foreground">{order.email} · {order.channel_code} · {new Date(order.created_at).toLocaleString()}</p></div>
+                    <Badge variant={order.status === "paid" ? "default" : order.status === "review" ? "destructive" : order.status === "pending" ? "secondary" : "outline"}>{order.status === "paid" ? "已到账" : order.status === "review" ? "待核查" : order.status === "pending" ? "待支付" : order.status === "expired" ? "已过期" : "失败"}</Badge>
+                  </div>
+                  <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
+                    <span>订单金额：{order.amount_usdt} USDT</span>
+                    <span>实际到账：{order.actual_amount || "—"} {order.token || "USDT"}</span>
+                    <span>网关交易：{order.provider_trade_id || "—"}</span>
+                  </div>
+                  {order.block_transaction_id && <p className="break-all text-xs text-muted-foreground">链上交易：{order.block_transaction_id}</p>}
+                  {order.status === "review" && <p className="text-xs text-destructive">实际到账数量不是整数 USDT，未自动入账。请核对网关交易后再按财务流程处理。</p>}
+                </div>
+              ))}
+            </div>
+          ) : <p className="py-8 text-center text-sm text-muted-foreground">暂无充值订单。</p>}
         </CardContent>
       </Card>
     </main>
