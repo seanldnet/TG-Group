@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react"
 import {
   Activity, Bot, ChevronRight, ClipboardList, CreditCard, Crown, FileText,
   LayoutDashboard, Link2, ListChecks, LogOut, Menu, Network, Package,
-  PanelLeftClose, Receipt, Settings, ShieldCheck, Sparkles, UsersRound,
+  Receipt, Settings, ShieldCheck, Sparkles, UsersRound,
   Wallet, Webhook, X, UserRound, ChartNoAxesCombined, Handshake, type LucideIcon,
 } from "lucide-react"
 import { clearToken, currentUser, logout, type User } from "@/lib/api"
