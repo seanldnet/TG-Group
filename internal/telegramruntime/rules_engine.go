@@ -842,7 +842,7 @@ func (p *Poller) createGroupRulePreset(ctx context.Context,bot managedBot,groupI
 		"leave":{"leave_notice","成员离群通知","{\"text\":\"{user} 离开了群组。\"}"},
 		"anti_ad":{"anti_ad","基础广告拦截","{\"patterns\":[\"http://\",\"https://\",\"t.me/\"],\"action\":\"delete\"}"},
 		"keyword":{"keyword_filter","关键词过滤示例","{\"words\":[\"加我\",\"私聊我\"],\"action\":\"delete\"}"},
-		"anti_spam":{"anti_spam","基础刷屏限制","{\"max_messages\":6,\"window_seconds\":10,\"action\":\"delete\"}"},
+		"anti_spam":{"anti_spam","基础刷屏限制","{\"max_messages\":6,\"window_seconds\":10,\"duplicate_count\":3,\"action\":\"delete\"}"},
 		"verify":{"join_verification","数字入群验证","{\"challenge_type\":\"math\",\"timeout_seconds\":180,\"failure_action\":\"kick\",\"required_channels\":[]}"},
 		"verify_letters":{"join_verification","字母入群验证","{\"challenge_type\":\"letters\",\"timeout_seconds\":180,\"failure_action\":\"kick\",\"required_channels\":[]}"},
 		"verify_alphanumeric":{"join_verification","数字字母组合验证","{\"challenge_type\":\"alphanumeric\",\"timeout_seconds\":180,\"failure_action\":\"kick\",\"required_channels\":[]}"},
@@ -901,9 +901,9 @@ func groupRuleEditConfig(kind,preset string) []byte {
 		}
 	case "anti_spam":
 		switch preset {
-		case "s1": return []byte(`{"max_messages":10,"window_seconds":10,"action":"delete"}`)
-		case "s2": return []byte(`{"max_messages":6,"window_seconds":10,"action":"delete"}`)
-		case "s3": return []byte(`{"max_messages":4,"window_seconds":10,"action":"delete"}`)
+		case "s1": return []byte(`{"max_messages":10,"window_seconds":10,"duplicate_count":3,"action":"delete"}`)
+		case "s2": return []byte(`{"max_messages":6,"window_seconds":10,"duplicate_count":3,"action":"delete"}`)
+		case "s3": return []byte(`{"max_messages":4,"window_seconds":10,"duplicate_count":2,"action":"delete"}`)
 		}
 	case "join_verification":
 		switch preset {
