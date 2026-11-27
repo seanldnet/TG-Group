@@ -194,7 +194,7 @@ func TestParseGroupMessageActionCallback(t *testing.T) {
 
 func TestParseGroupRuleCustomEditCallback(t *testing.T) {
  const id="00000000-0000-4000-8000-000000000001"
- for _,field:=range []string{"text","words","patterns","exceptions","media_types","channels"} { if got,gotField,ok:=parseGroupRuleCustomEditCallback("group:ec:"+id+":"+field); !ok||got!=id||gotField!=field { t.Errorf("rejected field %s",field) } }
+ for _,field:=range []string{"text","words","patterns","exceptions","domains","media_types","channels"} { if got,gotField,ok:=parseGroupRuleCustomEditCallback("group:ec:"+id+":"+field); !ok||got!=id||gotField!=field { t.Errorf("rejected field %s",field) } }
  for _,value:=range []string{"group:ec:bad:text","group:ec:"+id+":unknown","group:ec:"+id+":words:extra"} { if _,_,ok:=parseGroupRuleCustomEditCallback(value);ok { t.Errorf("accepted %q",value) } }
 }
 func TestSplitRuleTerms(t *testing.T) {
