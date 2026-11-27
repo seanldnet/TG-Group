@@ -28,6 +28,12 @@ export default function AgentCenterPage() {
   const [ledger, setLedger] = useState<WalletLedgerEntry[]>([])
   const [rechargeOrders, setRechargeOrders] = useState<WalletRechargeOrder[]>([])
   const [rechargeLoadError, setRechargeLoadError] = useState("")
+  const [rechargeTotal, setRechargeTotal] = useState(0)
+  const [rechargePage, setRechargePage] = useState(0)
+  const [upgradePage, setUpgradePage] = useState(0)
+  const [ledgerPage, setLedgerPage] = useState(0)
+  const [historyLoading, setHistoryLoading] = useState("")
+  const [historyError, setHistoryError] = useState("")
   const [rechargeAmount, setRechargeAmount] = useState("100")
   const [recharging, setRecharging] = useState(false)
   const [refreshingRechargeID, setRefreshingRechargeID] = useState("")
@@ -51,20 +57,52 @@ export default function AgentCenterPage() {
         listWalletLedger(20, 0),
         listAgentUpgradeOrders(10, 0),
       ])
-      const rechargeResult = await listWalletRecharges(10, 0).then((result) => ({ result, error: "" })).catch((err) => ({ result: { items: [] as WalletRechargeOrder[] }, error: err instanceof Error ? err.message : "充值订单加载失败" }))
+      const rechargeResult = await listWalletRecharges(10, 0).then((result) => ({ result, error: "" })).catch((err) => ({ result: { items: [] as WalletRechargeOrder[], total: 0 }, error: err instanceof Error ? err.message : "充值订单加载失败" }))
       setAccount(accountResult)
       setLedger(ledgerResult.items)
       setLedgerTotal(ledgerResult.total)
       setUpgradeOrders(orderResult.items)
       setUpgradeOrderTotal(orderResult.total)
       setRechargeOrders(rechargeResult.result.items)
+      setRechargeTotal(rechargeResult.result.total)
       setRechargeLoadError(rechargeResult.error)
+      setRechargePage(0)
+      setUpgradePage(0)
+      setLedgerPage(0)
     } catch (err) {
       setError(err instanceof Error ? err.message : "加载代理账户失败")
     } finally {
       setLoading(false)
     }
   }, [])
+
+  async function loadHistory(kind: "recharge" | "upgrade" | "ledger", targetPage: number) {
+    setHistoryLoading(kind)
+    setHistoryError("")
+    try {
+      if (kind === "recharge") {
+        const result = await listWalletRecharges(10, targetPage * 10)
+        setRechargeOrders(result.items)
+        setRechargeTotal(result.total)
+        setRechargePage(targetPage)
+        setRechargeLoadError("")
+      } else if (kind === "upgrade") {
+        const result = await listAgentUpgradeOrders(10, targetPage * 10)
+        setUpgradeOrders(result.items)
+        setUpgradeOrderTotal(result.total)
+        setUpgradePage(targetPage)
+      } else {
+        const result = await listWalletLedger(20, targetPage * 20)
+        setLedger(result.items)
+        setLedgerTotal(result.total)
+        setLedgerPage(targetPage)
+      }
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : "读取账户历史记录失败")
+    } finally {
+      setHistoryLoading("")
+    }
+  }
 
   async function handleWalletUpgrade(levelID: string, levelName: string, price: number) {
     if (!account) return
@@ -151,6 +189,7 @@ export default function AgentCenterPage() {
         </Button>
       </div>
 
+      {historyError && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">读取历史记录失败：{historyError}</div>}
       {error && (
         <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive" role="alert">
           <AlertCircle className="mt-0.5 size-4 shrink-0" />
@@ -249,7 +288,7 @@ export default function AgentCenterPage() {
           {rechargeMessage && <p className="rounded-lg border p-3 text-sm" role="status">{rechargeMessage}</p>}
           {rechargeLoadError ? <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">充值订单加载失败：{rechargeLoadError}</p> : rechargeOrders.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-sm font-medium">最近充值订单</p>
+              <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-medium">充值订单 · 共 {rechargeTotal} 笔</p><div className="flex items-center gap-2"><Button size="sm" variant="outline" disabled={historyLoading!==""||rechargePage===0} onClick={()=>void loadHistory("recharge",rechargePage-1)}>上一页</Button><span className="text-xs text-muted-foreground">第 {rechargePage+1} / {Math.max(1,Math.ceil(rechargeTotal/10))} 页</span><Button size="sm" variant="outline" disabled={historyLoading!==""||(rechargePage+1)*10>=rechargeTotal} onClick={()=>void loadHistory("recharge",rechargePage+1)}>下一页</Button></div></div>
               {rechargeOrders.map((order) => (
                 <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
                   <div><p className="text-sm font-medium">{order.order_no}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(order.created_at).toLocaleString()}</p></div>
@@ -264,7 +303,7 @@ export default function AgentCenterPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">代理升级订单</CardTitle>
-          <CardDescription>最近 10 笔升级订单，共 {upgradeOrderTotal} 笔。订单状态以服务端记录为准。</CardDescription>
+          <CardDescription>共 {upgradeOrderTotal} 笔升级订单，按服务端分页读取。订单状态以服务端记录为准。</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? <p className="py-6 text-center text-sm text-muted-foreground">正在读取升级订单…</p> : upgradeOrders.length ? (
@@ -283,6 +322,7 @@ export default function AgentCenterPage() {
               ))}
             </div>
           ) : <p className="py-6 text-center text-sm text-muted-foreground">暂无代理升级订单。</p>}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-4"><p className="text-xs text-muted-foreground">第 {upgradeOrderTotal===0?0:upgradePage+1} / {Math.max(1,Math.ceil(upgradeOrderTotal/10))} 页</p><div className="flex gap-2"><Button size="sm" variant="outline" disabled={historyLoading!==""||upgradePage===0} onClick={()=>void loadHistory("upgrade",upgradePage-1)}>上一页</Button><Button size="sm" variant="outline" disabled={historyLoading!==""||(upgradePage+1)*10>=upgradeOrderTotal} onClick={()=>void loadHistory("upgrade",upgradePage+1)}>下一页</Button></div></div>
         </CardContent>
       </Card>
 
@@ -291,7 +331,7 @@ export default function AgentCenterPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <CardTitle className="text-base">钱包资金流水</CardTitle>
-              <CardDescription>当前账户最近 20 条资金记录，共 {ledgerTotal} 条。</CardDescription>
+              <CardDescription>当前账户资金流水共 {ledgerTotal} 条，按服务端分页读取。</CardDescription>
             </div>
             <ArrowDownUp className="size-4 text-muted-foreground" />
           </div>
@@ -325,6 +365,7 @@ export default function AgentCenterPage() {
           ) : (
             <p className="py-8 text-center text-sm text-muted-foreground">暂无资金流水记录。</p>
           )}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-4"><p className="text-xs text-muted-foreground">第 {ledgerTotal===0?0:ledgerPage+1} / {Math.max(1,Math.ceil(ledgerTotal/20))} 页</p><div className="flex gap-2"><Button size="sm" variant="outline" disabled={historyLoading!==""||ledgerPage===0} onClick={()=>void loadHistory("ledger",ledgerPage-1)}>上一页</Button><Button size="sm" variant="outline" disabled={historyLoading!==""||(ledgerPage+1)*20>=ledgerTotal} onClick={()=>void loadHistory("ledger",ledgerPage+1)}>下一页</Button></div></div>
         </CardContent>
       </Card>
     </main>
