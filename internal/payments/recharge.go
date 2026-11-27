@@ -245,3 +245,38 @@ func (s *RechargeService) getUserRechargeOrder(ctx context.Context,userID,orderI
 	if err!=nil{if errors.Is(err,pgx.ErrNoRows){return RechargeOrder{},ErrRechargeOrderNotFound};return RechargeOrder{},fmt.Errorf("read refreshed recharge order: %w",err)}
 	return item,nil
 }
+
+
+func (s *RechargeService) ReconcilePendingOrders(ctx context.Context,limit int)(int,error){
+	if limit<1||limit>100{return 0,errors.New("reconciliation limit must be between 1 and 100")}
+	rows,err:=s.pool.Query(ctx,`SELECT id::text,channel_code,provider_trade_id FROM wallet_recharge_orders
+		WHERE status='pending' AND provider_trade_id IS NOT NULL AND created_at<now()-interval '20 seconds'
+		ORDER BY created_at ASC LIMIT $1`,limit)
+	if err!=nil{return 0,fmt.Errorf("list pending recharge orders for reconciliation: %w",err)}
+	type pending struct{id,channel,tradeID string}
+	items:=make([]pending,0)
+	for rows.Next(){var item pending;if err:=rows.Scan(&item.id,&item.channel,&item.tradeID);err!=nil{rows.Close();return 0,fmt.Errorf("scan pending recharge order: %w",err)};items=append(items,item)}
+	if err:=rows.Err();err!=nil{rows.Close();return 0,fmt.Errorf("iterate pending recharge orders: %w",err)}
+	rows.Close()
+	checked:=0
+	var firstErr error
+	channelCache:=make(map[string]ChannelConfig)
+	for _,item:=range items{
+		channel,ok:=channelCache[item.channel]
+		if !ok{
+			channel,err=s.channels.Load(ctx,item.channel)
+			if err!=nil{if firstErr==nil{firstErr=fmt.Errorf("load channel %s: %w",item.channel,err)};continue}
+			channelCache[item.channel]=channel
+		}
+		status,queryErr:=s.client.CheckOrderStatus(ctx,channel.BaseURL,item.tradeID)
+		if queryErr!=nil{if firstErr==nil{firstErr=fmt.Errorf("query trade %s: %w",item.tradeID,queryErr)};continue}
+		newStatus:="pending"
+		if status==3{newStatus="expired"}else if status==6{newStatus="review"}
+		if _,err:=s.pool.Exec(ctx,`UPDATE wallet_recharge_orders SET provider_status=$2,status=$3,updated_at=now() WHERE id=$1 AND status='pending'`,item.id,status,newStatus);err!=nil{
+			if firstErr==nil{firstErr=fmt.Errorf("save trade %s status: %w",item.tradeID,err)}
+			continue
+		}
+		checked++
+	}
+	return checked,firstErr
+}
