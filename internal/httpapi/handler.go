@@ -65,7 +65,7 @@ func NewHandlerWithPayments(logger *slog.Logger, authService *auth.Service, botS
 	mux.HandleFunc("GET /api/v1/account/wallet/ledger",h.walletLedger)
 	mux.HandleFunc("POST /api/v1/account/agent/upgrade",h.upgradeAgent)
 	mux.HandleFunc("GET /api/v1/account/agent/orders",h.agentUpgradeOrders)
-	mux.HandleFunc("GET /api/v1/admin/agent-levels",h.adminAgentLevels)
+	mux.HandleFunc("GET /api/v1/plans",h.plans)\n\tmux.HandleFunc("GET /api/v1/admin/plans",h.adminPlans)\n\tmux.HandleFunc("POST /api/v1/admin/plans",h.createAdminPlan)\n\tmux.HandleFunc("PATCH /api/v1/admin/plans/{planID}",h.updateAdminPlan)\n\tmux.HandleFunc("GET /api/v1/admin/agent-levels",h.adminAgentLevels)
 	mux.HandleFunc("GET /api/v1/admin/payment-channels",h.adminPaymentChannels)
 	mux.HandleFunc("GET /api/v1/admin/payment-recharges",h.adminPaymentRecharges)
 	mux.HandleFunc("GET /api/v1/admin/payment-channels/epusdt_gmpay/assets",h.adminGMPayAssets)
@@ -403,6 +403,64 @@ func (h *Handler) upgradeAgent(w http.ResponseWriter,r *http.Request) {
 	case errors.Is(err,auth.ErrAgentLevelNotUpgradeable): writeError(w,http.StatusConflict,"目标代理等级不可升级或已停用")
 	case errors.Is(err,auth.ErrAgentProfileSuspended): writeError(w,http.StatusForbidden,"代理账户当前已暂停")
 	default: h.logger.Error("upgrade agent with wallet failed","error",err);writeError(w,http.StatusInternalServerError,"代理升级失败")
+	}
+}
+
+type adminPlanRequest struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+	Description string `json:"description"`
+	PriceUSDT int64 `json:"price_usdt"`
+	DurationDays int32 `json:"duration_days"`
+	BotLimit int32 `json:"bot_limit"`
+	GroupLimit int32 `json:"group_limit"`
+	Features map[string]any `json:"features"`
+	SortOrder int32 `json:"sort_order"`
+	Enabled bool `json:"enabled"`
+}
+
+func planFromRequest(input adminPlanRequest) auth.Plan {
+	return auth.Plan{Code:input.Code,Name:input.Name,Description:input.Description,PriceUSDT:input.PriceUSDT,DurationDays:input.DurationDays,BotLimit:input.BotLimit,GroupLimit:input.GroupLimit,Features:input.Features,SortOrder:input.SortOrder,Enabled:input.Enabled}
+}
+
+func (h *Handler) plans(w http.ResponseWriter,r *http.Request) {
+	if !h.requireAuthStore(w){return}
+	if _,err:=h.auth.Authenticate(r.Context(),bearerToken(r));err!=nil{writeError(w,http.StatusUnauthorized,"unauthorized");return}
+	items,err:=h.auth.ListPlans(r.Context())
+	if err!=nil{h.logger.Error("list package catalog","error",err);writeError(w,http.StatusInternalServerError,"读取套餐目录失败");return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":items})
+}
+
+func (h *Handler) adminPlans(w http.ResponseWriter,r *http.Request) {
+	if _,ok:=h.adminAgentLevelUser(w,r);!ok{return}
+	items,err:=h.auth.ListAdminPlans(r.Context())
+	if err!=nil{h.logger.Error("list admin plans","error",err);writeError(w,http.StatusInternalServerError,"读取平台套餐失败");return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":items})
+}
+
+func (h *Handler) createAdminPlan(w http.ResponseWriter,r *http.Request) {
+	user,ok:=h.adminAgentLevelUser(w,r);if !ok{return}
+	var input adminPlanRequest
+	if !decodeJSON(w,r,&input){return}
+	item,err:=h.auth.CreateAdminPlan(r.Context(),user.ID,planFromRequest(input))
+	switch {
+	case err==nil:writeJSON(w,http.StatusCreated,item)
+	case errors.Is(err,auth.ErrInvalidPlan):writeError(w,http.StatusBadRequest,"套餐标识、名称、USDT 整数价格、期限或额度无效")
+	case errors.Is(err,auth.ErrPlanConflict):writeError(w,http.StatusConflict,"套餐标识已存在")
+	default:h.logger.Error("create platform plan","error",err);writeError(w,http.StatusInternalServerError,"创建套餐失败")
+	}
+}
+
+func (h *Handler) updateAdminPlan(w http.ResponseWriter,r *http.Request) {
+	user,ok:=h.adminAgentLevelUser(w,r);if !ok{return}
+	var input adminPlanRequest
+	if !decodeJSON(w,r,&input){return}
+	item,err:=h.auth.UpdateAdminPlan(r.Context(),user.ID,r.PathValue("planID"),planFromRequest(input))
+	switch {
+	case err==nil:writeJSON(w,http.StatusOK,item)
+	case errors.Is(err,auth.ErrInvalidPlan):writeError(w,http.StatusBadRequest,"套餐名称、USDT 整数价格、期限或额度无效")
+	case errors.Is(err,auth.ErrPlanNotFound):writeError(w,http.StatusNotFound,"套餐不存在")
+	default:h.logger.Error("update platform plan","error",err);writeError(w,http.StatusInternalServerError,"更新套餐失败")
 	}
 }
 
