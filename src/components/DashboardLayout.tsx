@@ -50,7 +50,7 @@ const administration: NavItem[] = [
   { href: "/dashboard/admin/audit", label: "平台审计", icon: ClipboardList },
   { href: "/dashboard/platform", label: "平台设置", icon: Settings },
 ]
-const roleLabel = (role?: string) => role === "admin" ? "管理员" : "普通用户"
+const roleLabel = (role?: string) => role === "admin" ? "管理员" : role === "agent" ? "代理" : "普通用户"
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
