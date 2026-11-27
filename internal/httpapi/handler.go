@@ -69,6 +69,7 @@ func NewHandlerWithPlatformBot(logger *slog.Logger, authService *auth.Service, b
 	mux.HandleFunc("PUT /api/v1/groups/{groupID}/rules/{ruleID}",h.updateGroupRule)
 	mux.HandleFunc("DELETE /api/v1/groups/{groupID}/rules/{ruleID}",h.deleteGroupRule)
 	mux.HandleFunc("POST /api/v1/groups/{groupID}/members/{userID}/action",h.moderateGroupMember)
+	mux.HandleFunc("POST /api/v1/groups/{groupID}/members/actions/bulk",h.bulkModerateGroupMembers)
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/member-lists",h.listGroupMemberLists)
 	mux.HandleFunc("POST /api/v1/groups/{groupID}/member-lists",h.upsertGroupMemberList)
 	mux.HandleFunc("DELETE /api/v1/groups/{groupID}/member-lists/{userID}",h.deleteGroupMemberList)
@@ -571,6 +572,40 @@ func (h *Handler) groupBotPermissions(w http.ResponseWriter,r *http.Request){
  if err!=nil{h.writeBotError(w,err);return}
  writeJSON(w,http.StatusOK,result)
 }
+type bulkMemberActionRequest struct {
+	UserIDs []int64 `json:"user_ids"`
+	Action string `json:"action"`
+	DurationMinutes int `json:"duration_minutes"`
+}
+
+func (h *Handler) bulkModerateGroupMembers(w http.ResponseWriter,r *http.Request) {
+	if !h.botServicesReady(w) { return }
+	user,ok:=h.currentUser(w,r); if !ok { return }
+	var input bulkMemberActionRequest
+	if !decodeJSON(w,r,&input) { return }
+	if len(input.UserIDs)<1 || len(input.UserIDs)>50 { writeError(w,http.StatusBadRequest,"user_ids must contain between 1 and 50 members"); return }
+	seen:=make(map[int64]struct{},len(input.UserIDs))
+	for _,id:=range input.UserIDs {
+		if id<=0 { writeError(w,http.StatusBadRequest,"every Telegram user ID must be positive"); return }
+		if _,exists:=seen[id]; exists { writeError(w,http.StatusBadRequest,"user_ids must not contain duplicates"); return }
+		seen[id]=struct{}{}
+	}
+	if input.Action!="ban" && input.Action!="unban" && input.Action!="mute" && input.Action!="unmute" { writeError(w,http.StatusBadRequest,"unsupported member action"); return }
+	if input.Action=="mute" && (input.DurationMinutes<1 || input.DurationMinutes>525600) { writeError(w,http.StatusBadRequest,"duration_minutes must be between 1 and 525600"); return }
+	if input.Action!="mute" && input.DurationMinutes!=0 { writeError(w,http.StatusBadRequest,"duration_minutes is only valid for mute"); return }
+	type itemResult struct { TelegramUserID int64 `json:"telegram_user_id"`; OK bool `json:"ok"`; Error string `json:"error,omitempty"` }
+	results:=make([]itemResult,0,len(input.UserIDs))
+	succeeded:=0
+	for _,id:=range input.UserIDs {
+		result:=itemResult{TelegramUserID:id}
+		if err:=h.bots.ModerateGroupMember(r.Context(),user.TenantID,user.ID,r.PathValue("groupID"),id,input.Action,input.DurationMinutes); err!=nil {
+			result.Error=err.Error()
+		} else { result.OK=true; succeeded++ }
+		results=append(results,result)
+	}
+	writeJSON(w,http.StatusOK,map[string]any{"action":input.Action,"total":len(results),"succeeded":succeeded,"failed":len(results)-succeeded,"items":results})
+}
+
 func (h *Handler) moderateGroupMember(w http.ResponseWriter,r *http.Request){
  if !h.botServicesReady(w){return}
  user,ok:=h.currentUser(w,r);if !ok{return}
