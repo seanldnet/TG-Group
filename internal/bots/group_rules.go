@@ -51,6 +51,10 @@ type mediaRestrictionRuleConfig struct {
 	Types []string `json:"types"`
 	Action string `json:"action"`
 }
+type antiBotRuleConfig struct {
+	AllowedUsernames []string `json:"allowed_usernames,omitempty"`
+	Action string `json:"action"`
+}
 type adRuleConfig struct {
 	Patterns []string `json:"patterns"`
 	Exceptions []string `json:"exceptions,omitempty"`
@@ -77,6 +81,12 @@ type qaRuleConfig struct {
 	MatchMode string `json:"match_mode"`
 	Response string `json:"response"`
 	CaseSensitive bool `json:"case_sensitive"`
+}
+
+func validTelegramUsername(value string) bool {
+	if len(value)<5 || len(value)>32 { return false }
+	for _,r:=range value { if !(r>='a'&&r<='z') && !(r>='A'&&r<='Z') && !(r>='0'&&r<='9') && r!='_' { return false } }
+	return true
 }
 
 func validDomains(values []string) bool {
@@ -144,6 +154,15 @@ func ValidateGroupRule(input GroupRuleInput) error {
 			if !validTelegramMediaType(value) { return ErrInvalidGroupRule }
 			if _, exists := seen[value]; exists { return ErrInvalidGroupRule }
 			seen[value] = struct{}{}
+		}
+	case "anti_bot":
+		var cfg antiBotRuleConfig
+		if decode(&cfg) != nil || cfg.Action != "ban" || len(cfg.AllowedUsernames)>100 { return ErrInvalidGroupRule }
+		seen:=map[string]struct{}{}
+		for _,username:=range cfg.AllowedUsernames {
+			name:=strings.TrimPrefix(strings.TrimSpace(username),"@")
+			if !validTelegramUsername(name) { return ErrInvalidGroupRule }
+			key:=strings.ToLower(name);if _,ok:=seen[key];ok{return ErrInvalidGroupRule};seen[key]=struct{}{}
 		}
 	case "anti_ad":
 		var cfg adRuleConfig
