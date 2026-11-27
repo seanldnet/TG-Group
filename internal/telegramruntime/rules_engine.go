@@ -55,8 +55,8 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 	rows.Close()
 
 	if len(message.NewChatMembers)>0 {
-		if message.From!=nil && message.From.ID>0 {
-			for _,rule:=range rules { if rule.Type=="anti_invite_flood" { p.executeInviteFloodProtection(ctx,bot,groupID,item.UpdateID,message.MessageID,message.From.ID,rule) } }
+		if message.From != nil && message.From.ID > 0 {
+			for _, rule := range rules { if rule.Type == "anti_invite_flood" { p.executeInviteFloodProtection(ctx, bot, groupID, item.UpdateID, message.MessageID, message.From.ID, rule) } }
 		}
 		for _, member := range message.NewChatMembers {
 			blocked, bypassVerification := p.applyGroupMemberListPolicy(ctx, bot, groupID, member.ID, token)
@@ -213,14 +213,19 @@ func isAllowedBotUsername(username string, allowed []string) bool {
 	return false
 }
 
-
 func (p *Poller) executeInviteFloodProtection(ctx context.Context, bot managedBot, groupID string, updateID, messageID, inviterID int64, rule executableRule) {
-	if inviterID<=0 { return }
-	var cfg struct { MaxMembers int `json:"max_members"`; WindowSeconds int `json:"window_seconds"`; Action string `json:"action"`; DurationMinutes int `json:"duration_minutes"`; AllowedInviterIDs []int64 `json:"allowed_inviter_ids"` }
-	if json.Unmarshal(rule.Config,&cfg)!=nil { return }
-	for _,id:=range cfg.AllowedInviterIDs { if id==inviterID { return } }
+	if inviterID <= 0 { return }
+	var cfg struct {
+		MaxMembers int `json:"max_members"`
+		WindowSeconds int `json:"window_seconds"`
+		Action string `json:"action"`
+		DurationMinutes int `json:"duration_minutes"`
+		AllowedInviterIDs []int64 `json:"allowed_inviter_ids"`
+	}
+	if json.Unmarshal(rule.Config, &cfg) != nil { return }
+	for _, id := range cfg.AllowedInviterIDs { if id == inviterID { return } }
 	var invited int
-	err:=p.pool.QueryRow(ctx,`SELECT COALESCE(sum(message_text::integer),0) FROM telegram_message_events
+	err := p.pool.QueryRow(ctx, `SELECT COALESCE(sum(message_text::integer),0) FROM telegram_message_events
 		WHERE tenant_id=$1 AND group_id=$2 AND telegram_user_id=$3 AND message_type='new_members'
 		AND message_text ~ '^[0-9]+ctx context.Context,bot managedBot,groupID string,updateID,messageID int64,member telegramSender,rule executableRule) bool {
 	if !member.IsBot || member.ID<=0 { return false }
@@ -1439,29 +1444,28 @@ func (p *Poller) handleGroupMemberWarning(ctx context.Context,bot managedBot,gro
 		p.sendGroupMemberDetail(ctx,bot,groupID,query.Message.Chat.ID,fmt.Sprintf("group:member:detail:%d",userID),token)
 	}
 }
- AND received_at>=now()-($4 * interval '1 second')`,
-		bot.tenantID,groupID,inviterID,cfg.WindowSeconds).Scan(&invited)
-	if err!=nil { p.logger.Error("count invited members for anti-invite-flood rule","rule_id",rule.ID,"error",err); return }
-	if invited<cfg.MaxMembers { return }
-	eventID,claimed,err:=p.reserveRuleEvent(ctx,bot.tenantID,groupID,rule.ID,updateID,&messageID,inviterID,"invite_flood_"+cfg.Action)
-	if err!=nil { p.logger.Error("reserve anti-invite-flood event","rule_id",rule.ID,"error",err); return }
+ AND received_at >= now()-($4 * interval '1 second')`,
+		bot.tenantID, groupID, inviterID, cfg.WindowSeconds).Scan(&invited)
+	if err != nil { p.logger.Error("count invited members for anti-invite-flood rule", "rule_id", rule.ID, "error", err); return }
+	if invited < cfg.MaxMembers { return }
+	eventID, claimed, err := p.reserveRuleEvent(ctx, bot.tenantID, groupID, rule.ID, updateID, &messageID, inviterID, "invite_flood_"+cfg.Action)
+	if err != nil { p.logger.Error("reserve anti-invite-flood event", "rule_id", rule.ID, "error", err); return }
 	if !claimed { return }
 	var previous string
-	err=p.pool.QueryRow(ctx,`SELECT action FROM telegram_group_rule_events WHERE tenant_id=$1 AND group_id=$2 AND rule_id=$3
+	err = p.pool.QueryRow(ctx, `SELECT action FROM telegram_group_rule_events WHERE tenant_id=$1 AND group_id=$2 AND rule_id=$3
 		AND telegram_user_id=$4 AND status='succeeded' AND action IN ('invite_flood_mute','invite_flood_ban')
-		AND created_at>=now()-interval '60 seconds' AND id<>$5 ORDER BY created_at DESC LIMIT 1`,
-		bot.tenantID,groupID,rule.ID,inviterID,eventID).Scan(&previous)
-	if err!=nil && err!=pgx.ErrNoRows { p.finishRuleEvent(ctx,eventID,"failed","could not check invite-flood cooldown"); return }
-	if previous!="" { p.finishRuleEvent(ctx,eventID,"skipped","invite-flood punishment cooldown is active"); return }
-	if p.botService==nil { p.finishRuleEvent(ctx,eventID,"failed","Bot moderation service is unavailable"); return }
+		AND created_at >= now()-interval '60 seconds' AND id<>$5 ORDER BY created_at DESC LIMIT 1`,
+		bot.tenantID, groupID, rule.ID, inviterID, eventID).Scan(&previous)
+	if err != nil && err != pgx.ErrNoRows { p.finishRuleEvent(ctx, eventID, "failed", "could not check invite-flood cooldown"); return }
+	if previous != "" { p.finishRuleEvent(ctx, eventID, "skipped", "invite-flood punishment cooldown is active"); return }
+	if p.botService == nil { p.finishRuleEvent(ctx, eventID, "failed", "Bot moderation service is unavailable"); return }
 	var telegramBotID int64
-	if err:=p.pool.QueryRow(ctx,"SELECT telegram_bot_id FROM telegram_bots WHERE tenant_id=$1 AND id=$2 AND status='active'",bot.tenantID,bot.id).Scan(&telegramBotID);err!=nil { p.finishRuleEvent(ctx,eventID,"failed","could not load active Bot identity"); return }
-	if err:=p.botService.ModerateGroupMemberForTelegramAdmin(ctx,bot.tenantID,telegramBotID,groupID,inviterID,cfg.Action,cfg.DurationMinutes);err!=nil {
-		p.finishRuleEvent(ctx,eventID,"failed","automatic invite-flood "+cfg.Action+" failed: "+err.Error()); return
+	if err := p.pool.QueryRow(ctx, "SELECT telegram_bot_id FROM telegram_bots WHERE tenant_id=$1 AND id=$2 AND status='active'", bot.tenantID, bot.id).Scan(&telegramBotID); err != nil { p.finishRuleEvent(ctx, eventID, "failed", "could not load active Bot identity"); return }
+	if err := p.botService.ModerateGroupMemberForTelegramAdmin(ctx, bot.tenantID, telegramBotID, groupID, inviterID, cfg.Action, cfg.DurationMinutes); err != nil {
+		p.finishRuleEvent(ctx, eventID, "failed", "automatic invite-flood "+cfg.Action+" failed: "+err.Error()); return
 	}
-	p.finishRuleEvent(ctx,eventID,"succeeded",fmt.Sprintf("inviter added %d members within %d seconds; %s applied",invited,cfg.WindowSeconds,cfg.Action))
+	p.finishRuleEvent(ctx, eventID, "succeeded", fmt.Sprintf("inviter added %d members within %d seconds; %s applied", invited, cfg.WindowSeconds, cfg.Action))
 }
-
 func (p *Poller) executeBotProtection(ctx context.Context,bot managedBot,groupID string,updateID,messageID int64,member telegramSender,rule executableRule) bool {
 	if !member.IsBot || member.ID<=0 { return false }
 	var cfg struct { AllowedUsernames []string `json:"allowed_usernames"`; Action string `json:"action"` }
