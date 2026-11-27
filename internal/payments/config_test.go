@@ -22,6 +22,8 @@ func TestValidateChannelConfig(t *testing.T){
 		{name:"URL credentials forbidden",mutate:func(c *ChannelConfig){c.BaseURL="https://user:pass@pay.example"},wantErr:true},
 		{name:"unknown channel",mutate:func(c *ChannelConfig){c.Code="other"},wantErr:true},
 		{name:"empty secret",mutate:func(c *ChannelConfig){c.SecretKey=""},wantErr:true},
+		{name:"non USDT asset",mutate:func(c *ChannelConfig){c.Token="usdc"},wantErr:true},
+		{name:"non USD quote",mutate:func(c *ChannelConfig){c.Currency="cny"},wantErr:true},
 		{name:"epay pid must be numeric",mutate:func(c *ChannelConfig){c.Code="epusdt_epay";c.MerchantPID="merchant"},wantErr:true},
 	}
 	for _,tt:=range tests{t.Run(tt.name,func(t *testing.T){c:=valid;if tt.mutate!=nil{tt.mutate(&c)};err:=validateChannelConfig(c);if (err!=nil)!=tt.wantErr{t.Fatalf("validateChannelConfig() error=%v wantErr=%v",err,tt.wantErr)}})}
