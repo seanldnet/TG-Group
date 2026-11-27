@@ -44,6 +44,7 @@ type keywordRuleConfig struct {
 type spamRuleConfig struct {
 	MaxMessages int `json:"max_messages"`
 	WindowSeconds int `json:"window_seconds"`
+	DuplicateCount int `json:"duplicate_count,omitempty"`
 	Action string `json:"action"`
 }
 type mediaRestrictionRuleConfig struct {
@@ -115,7 +116,7 @@ func ValidateGroupRule(input GroupRuleInput) error {
 		if decode(&cfg) != nil || !validTerms(cfg.Words) || cfg.Action != "delete" { return ErrInvalidGroupRule }
 	case "anti_spam":
 		var cfg spamRuleConfig
-		if decode(&cfg) != nil || cfg.MaxMessages < 2 || cfg.MaxMessages > 100 || cfg.WindowSeconds < 2 || cfg.WindowSeconds > 3600 || cfg.Action != "delete" { return ErrInvalidGroupRule }
+		if decode(&cfg) != nil || cfg.MaxMessages < 2 || cfg.MaxMessages > 100 || cfg.WindowSeconds < 2 || cfg.WindowSeconds > 3600 || (cfg.DuplicateCount != 0 && (cfg.DuplicateCount < 2 || cfg.DuplicateCount > 100)) || cfg.Action != "delete" { return ErrInvalidGroupRule }
 	case "media_restriction":
 		var cfg mediaRestrictionRuleConfig
 		if decode(&cfg) != nil || !validTerms(cfg.Types) || cfg.Action != "delete" { return ErrInvalidGroupRule }
