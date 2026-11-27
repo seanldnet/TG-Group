@@ -128,7 +128,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
   }
 
   const retryEscalation = async (execution: TelegramWarningEscalationExecution) => {
-    if (warningUserID === null || !window.confirm("确认重新执行这条失败的自动处罚？服务端会再次检查 Bot 权限及目标成员身份。")) return
+    if (warningUserID === null || !window.confirm("确认重新执行这条处罚？")) return
     setWarningBusy(true)
     setError("")
     try {
@@ -176,7 +176,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
       duration = Number(raw)
       if (!Number.isInteger(duration) || duration < 1 || duration > 525600) { setError("禁言时长必须是 1 到 525600 之间的整数分钟"); return }
     }
-    if (!window.confirm(`确认对选中的 ${selectedUserIDs.length} 位成员执行${labels[action]}？每位成员会单独检查权限，部分失败不会回滚已成功的操作。`)) return
+    if (!window.confirm(`确认对选中的 ${selectedUserIDs.length} 位成员执行${labels[action]}？将逐个处理所选成员，已成功的操作不会撤销。`)) return
     setBulkBusy(true)
     setError("")
     setNotice("")
@@ -211,12 +211,12 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
   }
   return (
     <main className="w-full"><a href="/dashboard/groups" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4"/>返回群组列表</a>
-      <div className="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto w-full max-w-[1440px] space-y-5 p-4 sm:p-6 lg:p-8">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <Badge variant="secondary" className="mb-3">成员管理</Badge>
-            <h1 className="text-3xl font-semibold tracking-tight">群成员</h1>
-            <p className="mt-2 text-sm text-muted-foreground">群组 ID：<span className="font-mono">{groupID}</span></p>
+            
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">成员管理</h1>
+            <p className="mt-1 text-xs text-muted-foreground">群组 ID：<span className="font-mono">{groupID}</span></p>
           </div>
           <Button variant="outline" asChild><a href={`/dashboard/groups/${groupID}/member-lists`}>黑白名单</a></Button>
           <Button variant="outline" onClick={() => void refresh(true)} disabled={refreshing}>
@@ -227,7 +227,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
 
         {permissions && (
           <Card>
-            <CardHeader><CardTitle className="text-base">Bot 群组权限（实时检测）</CardTitle><CardDescription>Bot 当前身份：{permissions.bot_status}</CardDescription></CardHeader>
+            <CardHeader><CardTitle className="text-base">机器人权限</CardTitle><CardDescription>当前身份：{{administrator:"管理员",creator:"群主",member:"普通成员",left:"已离开",kicked:"已封禁"}[permissions.bot_status] || permissions.bot_status}</CardDescription></CardHeader>
             <CardContent className="flex flex-wrap gap-2">
               <Badge variant={permissions.can_restrict_members ? "default" : "destructive"}>成员限制：{permissions.can_restrict_members ? "具备" : "缺失"}</Badge>
               <Badge variant={permissions.can_delete_messages ? "secondary" : "outline"}>删除消息：{permissions.can_delete_messages ? "具备" : "缺失"}</Badge>
@@ -236,7 +236,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
             </CardContent>
           </Card>
         )}
-        {permissions && (!["administrator", "creator"].includes(permissions.bot_status) || !permissions.can_restrict_members) && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">Bot 需要群管理员身份及限制成员权限才能执行处罚。</p>}
+        {permissions && (!["administrator", "creator"].includes(permissions.bot_status) || !permissions.can_restrict_members) && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">请将机器人设为群管理员，并授予限制成员权限。</p>}
         {error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p>}
         {notice && <p role="status" className="rounded-lg border px-4 py-3 text-sm text-muted-foreground">{notice}</p>}
 
@@ -247,8 +247,8 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
                 <UsersRound className="size-5" />
               </div>
               <div>
-                <CardTitle>已记录成员</CardTitle>
-                <CardDescription>按最近活动排序，通过服务端分页读取已采集成员，每页 20 位。状态来自 Telegram 成员更新；Telegram Bot API 不提供任意群组全量成员枚举接口。</CardDescription>
+                <CardTitle>成员列表</CardTitle>
+                <CardDescription>共 {memberTotal} 位成员</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -259,7 +259,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
               setAppliedSearch(nextSearch)
               void refresh(false, 1, nextSearch)
             }}>
-              <Input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="搜索 Telegram ID、用户名、名字或姓氏" maxLength={100} />
+              <Input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="搜索用户 ID、用户名或姓名" maxLength={100} />
               <div className="flex gap-2">
                 <Button type="submit" disabled={loading}>搜索</Button>
                 <Button type="button" variant="outline" disabled={loading && !appliedSearch} onClick={() => {
@@ -282,7 +282,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
             ) : items.length === 0 ? (
               <div className="py-12 text-center">
                 <p className="font-medium">暂未收到成员资料</p>
-                <p className="mt-1 text-sm text-muted-foreground">请确认 Bot 已加入群组并具有接收成员状态更新所需的管理员权限。</p>
+                <p className="mt-1 text-sm text-muted-foreground">请先将机器人添加到群组并授予必要权限。</p>
               </div>
             ) : (
               <Table>
@@ -294,7 +294,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
                       return merged.slice(0, 50)
                     })} /></TableHead>
                     <TableHead>成员</TableHead>
-                    <TableHead>Telegram 用户 ID</TableHead>
+                    <TableHead>用户 ID</TableHead>
                     <TableHead>身份</TableHead>
                     <TableHead>权限</TableHead>
                     <TableHead>加入时间</TableHead>
@@ -346,8 +346,8 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
         {warningUserID !== null && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">成员警告记录</CardTitle>
-              <CardDescription>Telegram 用户 ID：{warningUserID}。累计 {warningTotal} 次警告，当前展示最近 {warnings.length} 条。达到已启用递进策略阈值时会自动执行处罚；失败记录可在此手动重试。</CardDescription>
+              <CardTitle className="text-base">警告记录</CardTitle>
+              <CardDescription>Telegram 用户 ID：{warningUserID}。累计 {warningTotal} 次警告，当前展示最近 {warnings.length} 条。达到规则设定次数后将自动处罚，失败记录可手动重试。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-2">
