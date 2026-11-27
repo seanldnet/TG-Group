@@ -865,3 +865,13 @@
 - 网站成员警告面板新增上一页/下一页及总页数显示，清零后回到第一页。
 - 查询仍通过 tenant_id、group_id、telegram_user_id 三重条件并联查群组租户归属，不改变现有权限边界。
 - 本批待最新 CI 验证；尚未实现处罚执行历史分页、成员搜索与批量管理。
+
+
+## 2026-11-27（群成员递进处罚执行历史服务端分页）
+
+- 递进处罚执行历史原先只返回固定最多 50 条，现新增分页查询和独立 total 统计；列表与统计均按 tenant_id、group_id、telegram_user_id 过滤，并联查群组租户归属。
+- 按 created_at DESC、id DESC 稳定排序，API 支持 limit/offset，限制 limit 1–100、offset 0–100000，返回 items、total、limit、offset。
+- 网站成员警告面板增加执行历史分页，每页 10 条；翻页只请求当前页，重试操作后保留当前执行历史页。
+- 涉及文件：internal/bots/warning_escalation_history.go、internal/httpapi/warning_escalation.go、src/lib/api.ts、src/pages/GroupMembersPage.tsx、docs/DEVELOPMENT-PLAN.md。
+- 本批代码已提交 main；最新 CI 尚未完成，暂不宣称 Go 测试、前端构建或 Docker 发布通过。
+- 下一步：确认 CI；随后继续成员搜索（Telegram ID、username、first_name、last_name），再做受权限保护的批量成员操作。
