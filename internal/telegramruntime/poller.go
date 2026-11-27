@@ -349,6 +349,8 @@ func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update,to
 	if message.From!=nil{senderID=message.From.ID;username=message.From.Username;displayName=senderDisplayName(message.From)}
 	content:=message.Text
 	if content==""{content=message.Caption}
+	eventMessageType:=messageType(*message)
+	if len(message.NewChatMembers)>0 { eventMessageType="new_members"; content=strconv.Itoa(len(message.NewChatMembers)) }
 	if runeCount:=[]rune(content);len(runeCount)>4096{content=string(runeCount[:4096])}
 	var sentAt any
 	if message.Date>0{sentAt=time.Unix(message.Date,0).UTC()}
@@ -358,7 +360,7 @@ func (p *Poller) persistUpdate(ctx context.Context,bot managedBot,item update,to
 		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 		ON CONFLICT(bot_id,telegram_update_id) DO NOTHING`,
 		bot.tenantID,bot.id,groupID,item.UpdateID,message.MessageID,senderID,username,displayName,
-		messageType(*message),content,sentAt)
+		eventMessageType,content,sentAt)
 	if err!=nil{return fmt.Errorf("persist Telegram message event: %w",err)}
 	if tag.RowsAffected()==1 {
 		if p.processPendingGroupInput(ctx,bot,groupID,message,token) { return nil }
