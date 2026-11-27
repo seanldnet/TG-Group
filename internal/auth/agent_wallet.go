@@ -2,6 +2,10 @@ package auth
 
 import (
 	"context"
+	"errors"
+	"time"
+
+	"github.com/jackc/pgx/v5"
 	"fmt"
 )
 
@@ -51,7 +55,7 @@ func (s *Service) GetAgentAccount(ctx context.Context, userID string) (AgentAcco
 		result.Status = status
 		result.CurrentLevel = &current
 		result.ParentUserID = parentID
-	} else if err.Error() != "no rows in result set" {
+	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return AgentAccount{}, fmt.Errorf("load agent profile: %w", err)
 	}
 	rows, err := s.pool.Query(ctx, `SELECT id::text,code,name,price_usdt,sort_order,benefits FROM agent_levels WHERE enabled=true ORDER BY sort_order ASC,price_usdt ASC,id ASC`)
@@ -78,11 +82,11 @@ func (s *Service) ListWalletLedger(ctx context.Context, userID string, limit, of
 	items:=make([]WalletLedgerEntry,0)
 	for rows.Next() {
 		var item WalletLedgerEntry
-		var createdAt interface{}
+		var createdAt time.Time
 		if err:=rows.Scan(&item.ID,&item.EntryType,&item.AmountUSDT,&item.BalanceAfterUSDT,&item.ReferenceType,&item.ReferenceID,&item.Description,&createdAt);err!=nil {
 			return nil,0,fmt.Errorf("scan wallet ledger: %w",err)
 		}
-		item.CreatedAt=fmt.Sprint(createdAt)
+		item.CreatedAt=createdAt.UTC().Format(time.RFC3339Nano)
 		items=append(items,item)
 	}
 	if err:=rows.Err();err!=nil{return nil,0,fmt.Errorf("iterate wallet ledger: %w",err)}
