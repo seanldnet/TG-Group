@@ -977,6 +977,13 @@ func (h *Handler) gmpayNotify(w http.ResponseWriter,r *http.Request){
 	hash:=sha256.Sum256(raw)
 	ctx,cancel:=context.WithTimeout(r.Context(),10*time.Second);defer cancel()
 	if err:=h.recharge.ApplyGMPayCallback(ctx,params,hash[:]);err!=nil{
+		if errors.Is(err,payments.ErrRechargeNeedsReview){
+			h.logger.Warn("GMPay payment received but fractional USDT amount requires manual reconciliation","order_id",params["order_id"],"trade_id",params["trade_id"])
+			w.Header().Set("Content-Type","text/plain; charset=utf-8")
+			w.WriteHeader(http.StatusOK)
+			_,_=w.Write([]byte("ok"))
+			return
+		}
 		if errors.Is(err,payments.ErrRechargeOrderNotFound){http.Error(w,"order not found",http.StatusNotFound);return}
 		if errors.Is(err,payments.ErrInvalidGMPayCallback)||errors.Is(err,payments.ErrRechargeOrderConflict){http.Error(w,"invalid payment callback",http.StatusBadRequest);return}
 		h.logger.Error("process GMPay callback","error",err);http.Error(w,"payment callback processing failed",http.StatusInternalServerError);return
