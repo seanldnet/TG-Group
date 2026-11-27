@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { AlertCircle, RefreshCw, Wallet, Crown, ArrowDownUp } from "lucide-react"
-import { getAgentAccount, listWalletLedger, upgradeAgentWithWallet, type AgentAccount, type WalletLedgerEntry } from "@/lib/api"
+import { getAgentAccount, listAgentUpgradeOrders, listWalletLedger, upgradeAgentWithWallet, type AgentAccount, type AgentUpgradeOrder, type WalletLedgerEntry } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,6 +24,8 @@ function entryLabel(type: string) {
 export default function AgentCenterPage() {
   const [account, setAccount] = useState<AgentAccount | null>(null)
   const [ledger, setLedger] = useState<WalletLedgerEntry[]>([])
+  const [upgradeOrders, setUpgradeOrders] = useState<AgentUpgradeOrder[]>([])
+  const [upgradeOrderTotal, setUpgradeOrderTotal] = useState(0)
   const [ledgerTotal, setLedgerTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -41,7 +43,7 @@ export default function AgentCenterPage() {
       ])
       setAccount(accountResult)
       setLedger(ledgerResult.items)
-      setLedgerTotal(ledgerResult.total)
+      setLedgerTotal(ledgerResult.total)\n      setUpgradeOrders(orderResult.items)\n      setUpgradeOrderTotal(orderResult.total)
     } catch (err) {
       setError(err instanceof Error ? err.message : "加载代理账户失败")
     } finally {
@@ -166,6 +168,31 @@ export default function AgentCenterPage() {
           <p className="mt-4 rounded-lg bg-muted/40 p-3 text-xs leading-5 text-muted-foreground">
             当前已支持使用账户 USDT 余额完成升级，订单、扣款、资金流水和等级生效在同一数据库事务内提交；在线支付渠道仍在开发中。
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">代理升级订单</CardTitle>
+          <CardDescription>最近 10 笔升级订单，共 {upgradeOrderTotal} 笔。订单状态以服务端记录为准。</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? <p className="py-6 text-center text-sm text-muted-foreground">正在读取升级订单…</p> : upgradeOrders.length ? (
+            <div className="space-y-3">
+              {upgradeOrders.map((order) => (
+                <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+                  <div className="min-w-0">
+                    <p className="font-medium">{order.order_no}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{new Date(order.created_at).toLocaleString()} · {order.payment_method === "wallet" ? "钱包余额支付" : order.payment_method.toUpperCase()}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold tabular-nums">{formatUSDT(order.amount_usdt)} USDT</p>
+                    <Badge variant={order.status === "paid" ? "default" : order.status === "pending" ? "secondary" : "destructive"}>{order.status === "paid" ? "已支付" : order.status === "pending" ? "待支付" : order.status === "failed" ? "支付失败" : "已取消"}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : <p className="py-6 text-center text-sm text-muted-foreground">暂无代理升级订单。</p>}
         </CardContent>
       </Card>
 
