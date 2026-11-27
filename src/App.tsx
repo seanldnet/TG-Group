@@ -36,6 +36,7 @@ import PersonalCenterPage from "@/pages/PersonalCenterPage"
 import BusinessWorkspacePage from "@/pages/BusinessWorkspacePage"
 import AgentCenterPage from "@/pages/AgentCenterPage"
 import AdminAgentLevelsPage from "@/pages/AdminAgentLevelsPage"
+import AdminPaymentsPage from "@/pages/AdminPaymentsPage"
 import NotFoundPage from "@/pages/NotFoundPage"
 
 import { Badge } from "@/components/ui/badge"
@@ -405,6 +406,7 @@ export default function App() {
   else if (pathname === "/dashboard/platform") page = <PlatformSettingsPage />
   else if (pathname === "/dashboard/admin/users") page = <AdminUsersPage />
   else if (pathname === "/dashboard/admin/agent-levels") page = <AdminAgentLevelsPage />
+  else if (pathname === "/dashboard/admin/payments") page = <AdminPaymentsPage />
   else if (pathname === "/dashboard/account/profile") page = <PersonalCenterPage />
   else if (pathname === "/dashboard/account/agent") page = <AgentCenterPage />
   else if (pathname === "/dashboard/account/links") page = <AccountLinksPage />
