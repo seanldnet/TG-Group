@@ -23,6 +23,7 @@ const ruleTypes = [
   { value: "sensitive_word", label: "敏感词过滤", config: { words: ["敏感词"], action: "delete" } },
   { value: "anti_spam", label: "反刷屏", config: { max_messages: 5, window_seconds: 10, action: "delete" } },
   { value: "anti_ad", label: "反广告", config: { patterns: ["t.me/"], action: "delete" } },
+  { value: "media_restriction", label: "消息与媒体限制", config: { types: ["photo", "video", "animation", "sticker", "voice", "audio", "document", "video_note", "poll", "contact", "location", "venue"], action: "delete" } },
   { value: "welcome", label: "入群欢迎", config: { text: "欢迎加入本群！" } },
   { value: "leave_notice", label: "离群通知", config: { text: "有成员离开了群组" } },
   { value: "qa", label: "自动问答", config: { triggers: ["群规"], match_mode: "contains", response: "请查看群公告中的群规。", case_sensitive: false } },
@@ -141,7 +142,7 @@ export default function GroupRulesPage({ groupID }: { groupID: string }) {
           <div>
             <Badge variant="secondary" className="mb-3">群组独立配置</Badge>
             <h1 className="text-3xl font-semibold tracking-tight">规则管理</h1>
-            <p className="mt-2 text-sm text-muted-foreground">为当前群组建立自动问答、消息过滤、成员通知、入群验证及警告策略。</p>
+            <p className="mt-2 text-sm text-muted-foreground">为当前群组建立自动问答、文本过滤、媒体限制、成员通知、入群验证及警告策略。</p>
           </div>
           <div className="flex flex-wrap gap-2"><Button asChild variant="outline"><a href={`/dashboard/groups/${groupID}/rule-events`}>执行记录</a></Button><Button variant="outline" onClick={() => void refresh()}><RefreshCw className="mr-2 size-4" />刷新规则</Button></div>
         </div>
@@ -204,7 +205,7 @@ export default function GroupRulesPage({ groupID }: { groupID: string }) {
               <div className="space-y-2">
                 <Label htmlFor="rule-config">规则配置（JSON）</Label>
                 <Textarea id="rule-config" value={configText} onChange={(event) => setConfigText(event.target.value)} rows={10} className="font-mono text-xs" />
-                <p className="text-xs text-muted-foreground">自动问答支持 exact（完全匹配）、contains（包含）和 prefix（前缀）三种触发方式，可配置多个触发词、回复内容及大小写敏感。过滤类规则 action 目前仅支持 delete；欢迎/离群通知使用 text 字段。警告递进 levels 按警告总数递增配置，mute 必须设置 1–10080 分钟，ban 不设置时长；递进策略目前仅保存配置，不会自动处罚。</p>
+                <p className="text-xs text-muted-foreground">自动问答支持 exact（完全匹配）、contains（包含）和 prefix（前缀）三种触发方式，可配置多个触发词、回复内容及大小写敏感。过滤类规则 action 目前仅支持 delete；媒体限制 types 支持 photo、video、animation、sticker、voice、audio、document、video_note、poll、contact、location、venue，命中后删除当前消息。欢迎/离群通知使用 text 字段。警告递进 levels 按警告总数递增配置，mute 必须设置 1–10080 分钟，ban 不设置时长；递进策略目前仅保存配置，不会自动处罚。</p>
               </div>
               <div className="flex gap-2">
                 <Button onClick={() => void submit()} disabled={saving || !name.trim()}><Save className="mr-2 size-4" />{saving ? "保存中..." : editing ? "保存修改" : <><Plus className="mr-2 size-4" />创建规则</>}</Button>
