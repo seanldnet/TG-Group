@@ -751,6 +751,7 @@ func groupRuleCategory(ruleType string) string {
 	case "welcome","leave_notice": return "notices"
 	case "anti_spam": return "spam"
 	case "anti_ad","keyword_filter","sensitive_word": return "ads"
+	case "media_restriction": return "media"
 	case "qa": return "qa"
 	case "join_verification": return "verify"
 	default: return "all"
@@ -768,6 +769,7 @@ func (p *Poller) sendGroupRulesForCategory(ctx context.Context,bot managedBot,gr
 		"notices":{"welcome":true,"leave_notice":true},
 		"spam":{"anti_spam":true},
 		"ads":{"anti_ad":true,"keyword_filter":true,"sensitive_word":true},
+		"media":{"media_restriction":true},
 		"verify":{"join_verification":true},
 		"qa":{"qa":true},
 	}
@@ -775,7 +777,7 @@ func (p *Poller) sendGroupRulesForCategory(ctx context.Context,bot managedBot,gr
 	if err!=nil { p.logger.Error("load rules for Telegram group menu","group_id",groupID,"error",err);return }
 	defer rows.Close()
 	title:="群组规则管理"
-	switch category { case "notices": title="提示设置";case "spam":title="刷屏检测";case "ads":title="广告检测";case "verify":title="入群验证设置";case "qa":title="问答系统" }
+	switch category { case "notices": title="提示设置";case "spam":title="刷屏检测";case "ads":title="广告检测";case "media":title="消息与媒体限制";case "verify":title="入群验证设置";case "qa":title="问答系统" }
 	lines:=[]string{title+"："}
 	keyboard:=[][]map[string]string{}
 	count:=0
@@ -800,6 +802,8 @@ func (p *Poller) sendGroupRulesForCategory(ctx context.Context,bot managedBot,gr
 		keyboard=append(keyboard,[]map[string]string{{"text":"添加刷屏限制","callback_data":"group:create:anti_spam"}})
 	case "ads":
 		keyboard=append(keyboard,[]map[string]string{{"text":"添加广告拦截","callback_data":"group:create:anti_ad"},{"text":"添加关键词过滤","callback_data":"group:create:keyword"}})
+	case "media":
+		keyboard=append(keyboard,[]map[string]string{{"text":"添加常见媒体限制","callback_data":"group:create:media"}})
 	case "qa":
 		keyboard=append(keyboard,[]map[string]string{{"text":"添加问答规则","callback_data":"group:create:qa"}})
 	case "verify":
