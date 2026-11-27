@@ -976,3 +976,14 @@
 - 增加规则配置校验、用户名白名单匹配、群规分类和 Telegram 编辑回调测试。
 - 涉及：`internal/bots/group_rules.go`、`internal/bots/group_rules_test.go`、`internal/telegramruntime/rules_engine.go`、`internal/telegramruntime/rules_engine_test.go`、`src/lib/api.ts`、`src/pages/GroupRulesPage.tsx`、`docs/API.md`。
 - 尚待最新 CI 与真实群组权限验收；只处理 Telegram Update 中明确标记为 is_bot 的新成员，不推断普通账号是否为机器人。
+
+
+## 2026-11-27（群管：反刷屏分级自动处罚）
+
+- 扩展 `anti_spam` 配置可选 `levels`：按窗口内消息/重复消息计数阈值递增，支持 mute（1–10080 分钟）与 ban，最多 5 档；未配置 levels 保持原有删除消息行为。
+- 触发后选择当前计数可达到的最高档位，复用现有成员处罚服务；每次处罚仍实时校验 Bot 的 `can_restrict_members` 权限，并保护群主/管理员，写入成员状态与审计日志。
+- 增加同一规则、同一成员的 30 秒处罚冷却：重复或更低等级的处罚不重复执行；若先前只执行了禁言而违规继续升级到封禁，则允许升级执行。每条触发消息仍保留独立群规事件记录。
+- 网站端规则说明和默认配置同步；Telegram 端增加“分级处罚：禁言升级”“分级处罚：禁言后封禁”预设，并支持通过 JSON 数组自定义档位、清空档位恢复仅删除模式。
+- 增加配置校验测试（阈值顺序、动作、时长）、档位选择测试及 Telegram 预设/自定义编辑回调测试。
+- 涉及：`internal/bots/group_rules.go`、`internal/bots/group_rules_test.go`、`internal/telegramruntime/rules_engine.go`、`internal/telegramruntime/rules_engine_test.go`、`src/pages/GroupRulesPage.tsx`、`docs/API.md`。
+- 本批已提交 main，等待 CI；真实 Telegram 群组权限与处罚冷却验收仍需部署后完成。
