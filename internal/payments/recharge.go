@@ -30,6 +30,7 @@ type RechargeOrder struct {
 	ReceiveAddress string `json:"receive_address,omitempty"`
 	PaymentURL string `json:"payment_url,omitempty"`
 	Status string `json:"status"`
+	ProviderStatus int `json:"provider_status"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -85,6 +86,7 @@ func (s *RechargeService) CreateGMPayOrder(ctx context.Context,userID string,amo
 		actual_token=NULLIF($4,''),receive_address=NULLIF($5,''),payment_url=$6,provider_status=$7,expires_at=$8,updated_at=now()
 		WHERE id=$1 AND status='pending'`,order.ID,provider.TradeID,provider.ActualAmount,provider.Token,provider.ReceiveAddress,provider.PaymentURL,provider.Status,expiresAt)
 	if err!=nil{return RechargeOrder{},fmt.Errorf("save provider recharge details: %w",err)}
+	order.ProviderStatus=provider.Status
 	order.ActualAmount=provider.ActualAmount
 	order.Token=provider.Token
 	order.ReceiveAddress=provider.ReceiveAddress
@@ -161,12 +163,12 @@ func (s *RechargeService) ApplyGMPayCallback(ctx context.Context,params map[stri
 func (s *RechargeService) ListUserRechargeOrders(ctx context.Context,userID string,limit,offset int)([]RechargeOrder,int64,error){
 	var total int64
 	if err:=s.pool.QueryRow(ctx,`SELECT count(*) FROM wallet_recharge_orders WHERE user_id=$1`,userID).Scan(&total);err!=nil{return nil,0,fmt.Errorf("count wallet recharge orders: %w",err)}
-	rows,err:=s.pool.Query(ctx,`SELECT id::text,order_no,merchant_order_id,amount_usdt,COALESCE(actual_amount::text,''),COALESCE(actual_token,''),COALESCE(actual_network,''),COALESCE(receive_address,''),COALESCE(payment_url,''),status,expires_at,created_at
+	rows,err:=s.pool.Query(ctx,`SELECT id::text,order_no,merchant_order_id,amount_usdt,COALESCE(actual_amount::text,''),COALESCE(actual_token,''),COALESCE(actual_network,''),COALESCE(receive_address,''),COALESCE(payment_url,''),status,COALESCE(provider_status,0),expires_at,created_at
 		FROM wallet_recharge_orders WHERE user_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3`,userID,limit,offset)
 	if err!=nil{return nil,0,fmt.Errorf("list wallet recharge orders: %w",err)}
 	defer rows.Close()
 	items:=make([]RechargeOrder,0)
-	for rows.Next(){var item RechargeOrder;if err:=rows.Scan(&item.ID,&item.OrderNo,&item.MerchantOrderID,&item.AmountUSDT,&item.ActualAmount,&item.Token,&item.Network,&item.ReceiveAddress,&item.PaymentURL,&item.Status,&item.ExpiresAt,&item.CreatedAt);err!=nil{return nil,0,fmt.Errorf("scan wallet recharge order: %w",err)};items=append(items,item)}
+	for rows.Next(){var item RechargeOrder;if err:=rows.Scan(&item.ID,&item.OrderNo,&item.MerchantOrderID,&item.AmountUSDT,&item.ActualAmount,&item.Token,&item.Network,&item.ReceiveAddress,&item.PaymentURL,&item.Status,&item.ProviderStatus,&item.ExpiresAt,&item.CreatedAt);err!=nil{return nil,0,fmt.Errorf("scan wallet recharge order: %w",err)};items=append(items,item)}
 	if err:=rows.Err();err!=nil{return nil,0,fmt.Errorf("iterate wallet recharge orders: %w",err)}
 	return items,total,nil
 }
@@ -210,4 +212,34 @@ func (s *RechargeService) ListAdminRechargeOrders(ctx context.Context,status str
 	for rows.Next(){var item AdminRechargeOrder;if err:=rows.Scan(&item.ID,&item.OrderNo,&item.UserID,&item.Email,&item.ChannelCode,&item.AmountUSDT,&item.ActualAmount,&item.Token,&item.Network,&item.ProviderTradeID,&item.TransactionID,&item.Status,&item.CreatedAt,&item.PaidAt);err!=nil{return nil,0,fmt.Errorf("scan admin recharge order: %w",err)};items=append(items,item)}
 	if err:=rows.Err();err!=nil{return nil,0,fmt.Errorf("iterate admin recharge orders: %w",err)}
 	return items,total,nil
+}
+
+func (s *RechargeService) RefreshUserRechargeOrder(ctx context.Context,userID,orderID string)(RechargeOrder,error){
+	var channelCode,tradeID,status string
+	err:=s.pool.QueryRow(ctx,`SELECT channel_code,COALESCE(provider_trade_id,''),status FROM wallet_recharge_orders WHERE id=$1 AND user_id=$2`,orderID,userID).Scan(&channelCode,&tradeID,&status)
+	if err!=nil{if errors.Is(err,pgx.ErrNoRows){return RechargeOrder{},ErrRechargeOrderNotFound};return RechargeOrder{},fmt.Errorf("load recharge order for status refresh: %w",err)}
+	if status=="paid"||status=="expired"||status=="failed"||status=="review"||tradeID==""{
+		return s.getUserRechargeOrder(ctx,userID,orderID)
+	}
+	channel,err:=s.channels.Load(ctx,channelCode)
+	if err!=nil{return RechargeOrder{},fmt.Errorf("load channel for status refresh: %w",err)}
+	providerStatus,err:=s.client.CheckOrderStatus(ctx,channel.BaseURL,tradeID)
+	if err!=nil{return RechargeOrder{},fmt.Errorf("refresh provider order status: %w",err)}
+	newStatus:=status
+	switch providerStatus{
+	case 3:newStatus="expired"
+	case 6:newStatus="review"
+	// Status 2 is not used to credit the wallet. The signed merchant callback
+	// remains the only automatic wallet-credit authority.
+	}
+	if _,err:=s.pool.Exec(ctx,`UPDATE wallet_recharge_orders SET provider_status=$2,status=$3,updated_at=now() WHERE id=$1 AND status='pending'`,orderID,providerStatus,newStatus);err!=nil{return RechargeOrder{},fmt.Errorf("save refreshed recharge status: %w",err)}
+	return s.getUserRechargeOrder(ctx,userID,orderID)
+}
+
+func (s *RechargeService) getUserRechargeOrder(ctx context.Context,userID,orderID string)(RechargeOrder,error){
+	var item RechargeOrder
+	err:=s.pool.QueryRow(ctx,`SELECT id::text,order_no,merchant_order_id,amount_usdt,COALESCE(actual_amount::text,''),COALESCE(actual_token,''),COALESCE(actual_network,''),COALESCE(receive_address,''),COALESCE(payment_url,''),status,COALESCE(provider_status,0),expires_at,created_at
+		FROM wallet_recharge_orders WHERE id=$1 AND user_id=$2`,orderID,userID).Scan(&item.ID,&item.OrderNo,&item.MerchantOrderID,&item.AmountUSDT,&item.ActualAmount,&item.Token,&item.Network,&item.ReceiveAddress,&item.PaymentURL,&item.Status,&item.ProviderStatus,&item.ExpiresAt,&item.CreatedAt)
+	if err!=nil{if errors.Is(err,pgx.ErrNoRows){return RechargeOrder{},ErrRechargeOrderNotFound};return RechargeOrder{},fmt.Errorf("read refreshed recharge order: %w",err)}
+	return item,nil
 }
