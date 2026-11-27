@@ -1011,3 +1011,14 @@
 - **下一步**：先完成全站页面骨架与 shadcn 组件审查，再按业务优先级逐个实现代理、套餐、订单、支付、授权和个人资料编辑，之后恢复群管深度功能开发。
 
 - **导航细节修正**：侧边栏当前项采用精确匹配，群组详情子页面保留群组入口高亮，避免代理管理父级和子级同时高亮。
+
+
+## 2026-11-27（个人中心可编辑与路由审查）
+
+- **个人资料编辑**：个人中心开放显示名称修改；后端仅允许从当前 Bearer 会话识别用户，不接受客户端传入用户 ID、邮箱、角色或租户。名称去除首尾空格后不能为空，最多 40 个 Unicode 字符。
+- **安全审计**：显示名称更新与 `auth.profile_update` 审计日志在同一 PostgreSQL 事务中提交；失败不会返回成功状态。
+- **API**：新增 `PATCH /api/v1/auth/profile`，同步更新前端 API 客户端与 API 文档。
+- **路由审查修复**：发现原先 `/dashboard/*` 开发中页面兜底规则会提前截获群组详情子路由，导致群消息、成员、规则等页面无法匹配；现调整匹配顺序，先解析群组子路由，再进入开发中页面兜底。
+- **组件规范**：个人中心编辑使用现有 shadcn/ui Input、Label、Button；未新增自制基础控件。
+- **涉及文件**：internal/auth/profile.go、internal/httpapi/handler.go、internal/httpapi/handler_test.go、src/lib/api.ts、src/pages/PersonalCenterPage.tsx、src/App.tsx、docs/API.md。
+- **验证状态**：已提交 main，等待本批最新 CI 验证；未宣称通过，需以 Actions 结果为准。
