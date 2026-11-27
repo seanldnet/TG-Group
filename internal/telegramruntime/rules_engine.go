@@ -348,6 +348,7 @@ func (p *Poller) sendGroupMenu(ctx context.Context,chatID,messageID int64,token 
 		{{"text":"问答系统","callback_data":"group:cat:qa"},{"text":"审核管理","callback_data":"group:cat:review"}},
 		{{"text":"提示设置","callback_data":"group:cat:notices"},{"text":"基础群管","callback_data":"group:cat:basic"}},
 		{{"text":"刷屏检测","callback_data":"group:cat:spam"},{"text":"广告检测","callback_data":"group:cat:ads"}},
+		{{"text":"消息与媒体限制","callback_data":"group:cat:media"}},
 		{{"text":"消息撤回","callback_data":"group:cat:retract"},{"text":"管理员管理","callback_data":"group:cat:admins"}},
 		{{"text":"黑白名单","callback_data":"group:cat:lists"},{"text":"入群验证","callback_data":"group:cat:verify"}},
 		{{"text":"警告系统","callback_data":"group:cat:warnings"},{"text":"名片管理","callback_data":"group:cat:profile"}},
