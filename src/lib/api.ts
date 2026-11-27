@@ -117,6 +117,14 @@ export function login(input: { email: string; password: string; captcha_token?: 
   })
 }
 
+export function updateProfile(input: { display_name: string }) {
+  return request<User>("/api/v1/auth/profile", {
+    method: "PATCH",
+    headers: authenticatedHeaders(),
+    body: JSON.stringify(input),
+  })
+}
+
 export function currentUser() {
   const token = getToken()
   return request<User>("/api/v1/auth/me", {
