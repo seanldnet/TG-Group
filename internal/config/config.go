@@ -18,6 +18,8 @@ type Config struct {
 	CAPWidgetURL string
 	TelegramAuthBotToken string
 	TelegramAuthBotUsername string
+	PaymentCredentialsEncryptionKey string
+	PaymentPublicBaseURL string
 }
 
 func Load() (Config, error) {
@@ -40,6 +42,8 @@ func Load() (Config, error) {
 	return Config{
 		TelegramAuthBotToken: telegramAuthBotToken, TelegramAuthBotUsername: telegramAuthBotUsername,
 		CAPBaseURL: capBaseURL, CAPSiteKey: capSiteKey, CAPSecret: capSecret, CAPWidgetURL: os.Getenv("CAP_WIDGET_URL"),
+		PaymentCredentialsEncryptionKey: os.Getenv("PAYMENT_CREDENTIALS_ENCRYPTION_KEY"),
+		PaymentPublicBaseURL: strings.TrimRight(strings.TrimSpace(os.Getenv("PAYMENT_PUBLIC_BASE_URL")),"/"),
 		HTTPAddr: fmt.Sprintf(":%d", portNumber),
 		Environment: environment,
 		DatabaseURL: os.Getenv("DATABASE_URL"),
