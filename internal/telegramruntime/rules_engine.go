@@ -97,9 +97,12 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 			if json.Unmarshal(rule.Config,&cfg)!=nil || cfg.Action!="delete" || mediaType=="" { continue }
 			for _,media:=range cfg.Types { if media==mediaType { matched=rule; break } }
 		case "anti_ad":
-			var cfg struct{Patterns []string `json:"patterns"`;Action string `json:"action"`}
+			var cfg struct{Patterns []string `json:"patterns"`;Exceptions []string `json:"exceptions"`;Action string `json:"action"`}
 			if json.Unmarshal(rule.Config,&cfg)!=nil || cfg.Action!="delete"{continue}
 			lower:=strings.ToLower(content)
+			exempt:=false
+			for _,exception:=range cfg.Exceptions { if exception!="" && strings.Contains(lower,strings.ToLower(exception)) { exempt=true; break } }
+			if exempt { continue }
 			for _,pattern:=range cfg.Patterns{if pattern!=""&&strings.Contains(lower,strings.ToLower(pattern)){matched=rule;break}}
 		case "anti_spam":
 			var cfg struct{MaxMessages int `json:"max_messages"`;WindowSeconds int `json:"window_seconds"`;DuplicateCount int `json:"duplicate_count"`;Action string `json:"action"`}
