@@ -54,6 +54,7 @@ func NewHandlerWithPlatformBot(logger *slog.Logger, authService *auth.Service, b
 	mux.HandleFunc("GET /api/v1/auth/me",h.me)
 	mux.HandleFunc("GET /api/v1/account/agent",h.agentAccount)
 	mux.HandleFunc("GET /api/v1/account/wallet/ledger",h.walletLedger)
+	mux.HandleFunc("POST /api/v1/account/agent/upgrade",h.upgradeAgent)
 	mux.HandleFunc("PATCH /api/v1/auth/profile",h.updateProfile)
 	mux.HandleFunc("GET /api/v1/auth/security-events",h.securityEvents)
 	mux.HandleFunc("GET /api/v1/auth/sessions",h.listAuthSessions)
@@ -340,6 +341,28 @@ func (h *Handler) walletLedger(w http.ResponseWriter,r *http.Request) {
 	items,total,err:=h.auth.ListWalletLedger(r.Context(),user.ID,limit,offset)
 	if err!=nil { h.logger.Error("list wallet ledger","error",err);writeError(w,http.StatusInternalServerError,"读取钱包流水失败");return }
 	writeJSON(w,http.StatusOK,map[string]any{"items":items,"total":total,"limit":limit,"offset":offset})
+}
+
+type agentUpgradeRequest struct {
+	TargetLevelID string `json:"target_level_id"`
+}
+
+func (h *Handler) upgradeAgent(w http.ResponseWriter,r *http.Request) {
+	if !h.requireAuthStore(w) { return }
+	user,err:=h.auth.Authenticate(r.Context(),bearerToken(r))
+	if err!=nil { writeError(w,http.StatusUnauthorized,"unauthorized");return }
+	var input agentUpgradeRequest
+	if !decodeJSON(w,r,&input) { return }
+	if strings.TrimSpace(input.TargetLevelID)=="" { writeError(w,http.StatusBadRequest,"target_level_id is required");return }
+	order,err:=h.auth.UpgradeAgentWithWallet(r.Context(),user.ID,input.TargetLevelID,r.Header.Get("Idempotency-Key"))
+	switch {
+	case err==nil: writeJSON(w,http.StatusOK,order)
+	case errors.Is(err,auth.ErrInvalidIdempotencyKey): writeError(w,http.StatusBadRequest,"请提供有效的 Idempotency-Key 请求头")
+	case errors.Is(err,auth.ErrInsufficientWalletBalance): writeError(w,http.StatusConflict,"USDT 余额不足，请先充值")
+	case errors.Is(err,auth.ErrAgentLevelNotUpgradeable): writeError(w,http.StatusConflict,"目标代理等级不可升级或已停用")
+	case errors.Is(err,auth.ErrAgentProfileSuspended): writeError(w,http.StatusForbidden,"代理账户当前已暂停")
+	default: h.logger.Error("upgrade agent with wallet failed","error",err);writeError(w,http.StatusInternalServerError,"代理升级失败")
+	}
 }
 
 func (h *Handler) requireAuthStore(w http.ResponseWriter) bool {
