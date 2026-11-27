@@ -24,6 +24,7 @@ const ruleTypes = [
   { value: "anti_spam", label: "反刷屏", config: { max_messages: 5, window_seconds: 10, duplicate_count: 3, levels: [], action: "delete" } },
   { value: "anti_ad", label: "反广告", config: { patterns: ["t.me/"], exceptions: [], blocked_domains: [], allowed_domains: [], block_invite_links: false, action: "delete" } },
   { value: "anti_bot", label: "群组保护（防机器人）", config: { allowed_usernames: [], action: "ban" } },
+  { value: "anti_invite_flood", label: "群组保护（批量邀请防护）", config: { max_members: 8, window_seconds: 60, action: "mute", duration_minutes: 30, allowed_inviter_ids: [] } },
   { value: "media_restriction", label: "消息与媒体限制", config: { types: ["photo", "video", "animation", "sticker", "voice", "audio", "document", "video_note", "poll", "contact", "location", "venue"], action: "delete" } },
   { value: "welcome", label: "入群欢迎", config: { text: "欢迎加入本群！" } },
   { value: "leave_notice", label: "离群通知", config: { text: "有成员离开了群组" } },
@@ -206,7 +207,7 @@ export default function GroupRulesPage({ groupID }: { groupID: string }) {
               <div className="space-y-2">
                 <Label htmlFor="rule-config">规则配置（JSON）</Label>
                 <Textarea id="rule-config" value={configText} onChange={(event) => setConfigText(event.target.value)} rows={10} className="font-mono text-xs" />
-                <p className="text-xs text-muted-foreground">自动问答支持 exact（完全匹配）、contains（包含）和 prefix（前缀）三种触发方式，可配置多个触发词、回复内容及大小写敏感。过滤类规则 action 目前仅支持 delete；反广告可配置 exceptions 例外关键词、blocked_domains 域名黑名单、allowed_domains 域名白名单及 block_invite_links 邀请链接拦截；域名匹配包含子域名，白名单优先。防机器人规则会封禁新加入的 Bot 账号，可通过 allowed_usernames 配置允许加入的 Bot 用户名。反刷屏可配置 duplicate_count（2–100）检测重复文本；可选 levels 按窗口内消息数量递进执行 mute/ban，mute 时长 1–10080 分钟，处罚成功后同一用户 30 秒内不会重复执行相同或更低等级处罚，更高等级封禁可升级执行。未配置 levels 时维持原有删除消息行为。媒体限制 types 支持 photo、video、animation、sticker、voice、audio、document、video_note、poll、contact、location、venue，命中后删除当前消息。欢迎/离群通知使用 text 字段。警告递进 levels 按警告总数递增配置，mute 必须设置 1–10080 分钟，ban 不设置时长；递进策略目前仅保存配置，不会自动处罚。</p>
+                <p className="text-xs text-muted-foreground">自动问答支持 exact（完全匹配）、contains（包含）和 prefix（前缀）三种触发方式，可配置多个触发词、回复内容及大小写敏感。过滤类规则 action 目前仅支持 delete；反广告可配置 exceptions 例外关键词、blocked_domains 域名黑名单、allowed_domains 域名白名单及 block_invite_links 邀请链接拦截；域名匹配包含子域名，白名单优先。防机器人规则会封禁新加入的 Bot 账号，可通过 allowed_usernames 配置允许加入的 Bot 用户名。批量邀请防护按同一邀请者在时间窗内新增成员总数触发，对邀请者执行 mute/ban；allowed_inviter_ids 可配置豁免的 Telegram 用户 ID。反刷屏可配置 duplicate_count（2–100）检测重复文本；可选 levels 按窗口内消息数量递进执行 mute/ban，mute 时长 1–10080 分钟，处罚成功后同一用户 30 秒内不会重复执行相同或更低等级处罚，更高等级封禁可升级执行。未配置 levels 时维持原有删除消息行为。媒体限制 types 支持 photo、video、animation、sticker、voice、audio、document、video_note、poll、contact、location、venue，命中后删除当前消息。欢迎/离群通知使用 text 字段。警告递进 levels 按警告总数递增配置，mute 必须设置 1–10080 分钟，ban 不设置时长；递进策略目前仅保存配置，不会自动处罚。</p>
               </div>
               <div className="flex gap-2">
                 <Button onClick={() => void submit()} disabled={saving || !name.trim()}><Save className="mr-2 size-4" />{saving ? "保存中..." : editing ? "保存修改" : <><Plus className="mr-2 size-4" />创建规则</>}</Button>
