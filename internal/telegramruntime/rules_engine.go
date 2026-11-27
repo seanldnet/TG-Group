@@ -17,6 +17,12 @@ import (
 	"github.com/seanldnet/tg-group/internal/bots"
 )
 
+type spamRulePenalty struct {
+	Threshold int `json:"threshold"`
+	Action string `json:"action"`
+	DurationMinutes int `json:"duration_minutes,omitempty"`
+}
+
 type executableRule struct {
 	ID string
 	Type string
@@ -81,6 +87,7 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 	mediaType := telegramMessageMediaType(message)
 	var matched *executableRule
 	var matchedQA *executableRule
+	var matchedSpamPenalty *spamRulePenalty
 	var qaResponse string
 	for i:=range rules {
 		rule:=&rules[i]
@@ -110,14 +117,15 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 			if linkMatch { matched=rule; break }
 			for _,pattern:=range cfg.Patterns{if pattern!=""&&strings.Contains(lower,strings.ToLower(pattern)){matched=rule;break}}
 		case "anti_spam":
-			var cfg struct{MaxMessages int `json:"max_messages"`;WindowSeconds int `json:"window_seconds"`;DuplicateCount int `json:"duplicate_count"`;Action string `json:"action"`}
+			var cfg struct{MaxMessages int `json:"max_messages"`;WindowSeconds int `json:"window_seconds"`;DuplicateCount int `json:"duplicate_count"`;Levels []spamRulePenalty `json:"levels"`;Action string `json:"action"`}
 			if json.Unmarshal(rule.Config,&cfg)!=nil || cfg.Action!="delete"{continue}
 			var count int
 			err:=p.pool.QueryRow(ctx,`SELECT count(*) FROM telegram_message_events
 				WHERE tenant_id=$1 AND group_id=$2 AND telegram_user_id=$3 AND received_at >= now()-($4 * interval '1 second')`,
 				bot.tenantID,groupID,senderID,cfg.WindowSeconds).Scan(&count)
 			if err!=nil{p.logger.Error("count messages for anti-spam rule","rule_id",rule.ID,"error",err);continue}
-			if count>=cfg.MaxMessages{matched=rule;break}
+			triggerCount:=count
+			triggered:=count>=cfg.MaxMessages
 			if cfg.DuplicateCount>=2 && strings.TrimSpace(content)!="" {
 				var duplicates int
 				err:=p.pool.QueryRow(ctx,`SELECT count(*) FROM telegram_message_events
@@ -125,7 +133,12 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 					AND lower(message_text)=lower($4) AND received_at >= now()-($5 * interval '1 second')`,
 					bot.tenantID,groupID,senderID,content,cfg.WindowSeconds).Scan(&duplicates)
 				if err!=nil{p.logger.Error("count duplicate messages for anti-spam rule","rule_id",rule.ID,"error",err);continue}
-				if duplicates>=cfg.DuplicateCount{matched=rule}
+				if duplicates>=cfg.DuplicateCount { triggered=true; if duplicates>triggerCount { triggerCount=duplicates } }
+			}
+			if triggered {
+				matched=rule
+				matchedSpamPenalty=selectSpamPenaltyLevel(cfg.Levels,triggerCount)
+				break
 			}
 		}
 		if matched!=nil{break}
@@ -136,9 +149,52 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 	}
 	if matched==nil{return}
 	if message.MessageID<=0{return}
+	if matchedSpamPenalty!=nil {
+		p.executeSpamPenalty(ctx,bot,groupID,item.UpdateID,message.MessageID,senderID.(int64),*matched,*matchedSpamPenalty,token)
+		return
+	}
 	p.executeDeleteRule(ctx,bot,groupID,item.UpdateID,message.MessageID,senderID.(int64),*matched,token)
 }
 
+
+func selectSpamPenaltyLevel(levels []spamRulePenalty,count int) *spamRulePenalty {
+	var selected *spamRulePenalty
+	for i:=range levels {
+		if count<levels[i].Threshold { break }
+		selected=&levels[i]
+	}
+	return selected
+}
+
+func (p *Poller) executeSpamPenalty(ctx context.Context,bot managedBot,groupID string,updateID,messageID,userID int64,rule executableRule,level spamRulePenalty,token string) {
+	if userID<=0 || (level.Action!="mute" && level.Action!="ban") { return }
+	action:="spam_"+level.Action
+	eventID,claimed,err:=p.reserveRuleEvent(ctx,bot.tenantID,groupID,rule.ID,updateID,&messageID,userID,action)
+	if err!=nil { p.logger.Error("reserve anti-spam punishment event","rule_id",rule.ID,"error",err); return }
+	if !claimed { return }
+	var previousAction string
+	err=p.pool.QueryRow(ctx,`SELECT action FROM telegram_group_rule_events
+		WHERE tenant_id=$1 AND group_id=$2 AND rule_id=$3 AND telegram_user_id=$4
+		AND status='succeeded' AND action IN ('spam_mute','spam_ban')
+		AND created_at>=now()-($5 * interval '1 second') AND id<>$6
+		ORDER BY CASE action WHEN 'spam_ban' THEN 0 ELSE 1 END,created_at DESC LIMIT 1`,
+		bot.tenantID,groupID,rule.ID,userID,30,eventID).Scan(&previousAction)
+	if err!=nil && err!=pgx.ErrNoRows { p.finishRuleEvent(ctx,eventID,"failed","could not check anti-spam punishment cooldown"); return }
+	if previousAction=="spam_ban" || (previousAction=="spam_mute" && level.Action=="mute") {
+		p.finishRuleEvent(ctx,eventID,"skipped","anti-spam punishment cooldown is active")
+		return
+	}
+	if p.botService==nil { p.finishRuleEvent(ctx,eventID,"failed","Bot moderation service is unavailable"); return }
+	var telegramBotID int64
+	if err:=p.pool.QueryRow(ctx,"SELECT telegram_bot_id FROM telegram_bots WHERE tenant_id=$1 AND id=$2 AND status='active'",bot.tenantID,bot.id).Scan(&telegramBotID);err!=nil {
+		p.finishRuleEvent(ctx,eventID,"failed","could not load active Bot identity"); return
+	}
+	duration:=level.DurationMinutes
+	if err:=p.botService.ModerateGroupMemberForTelegramAdmin(ctx,bot.tenantID,telegramBotID,groupID,userID,level.Action,duration);err!=nil {
+		p.finishRuleEvent(ctx,eventID,"failed","automatic anti-spam "+level.Action+" failed: "+err.Error()); return
+	}
+	p.finishRuleEvent(ctx,eventID,"succeeded",fmt.Sprintf("anti-spam %s applied at %d messages",level.Action,level.Threshold))
+}
 
 func isAllowedBotUsername(username string, allowed []string) bool {
 	username=strings.TrimPrefix(strings.ToLower(strings.TrimSpace(username)),"@")
