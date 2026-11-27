@@ -16,6 +16,49 @@ export type AuthSession = {
 }
 
 
+
+export type Plan = {
+  id: string
+  code: string
+  name: string
+  description: string
+  price_usdt: number
+  duration_days: number
+  bot_limit: number
+  group_limit: number
+  features: Record<string, unknown>
+  sort_order: number
+  enabled: boolean
+}
+
+export function listPlans() {
+  return request<{ items: Plan[] }>("/api/v1/plans", {
+    headers: authenticatedHeaders(),
+  })
+}
+
+export function listAdminPlans() {
+  return request<{ items: Plan[] }>("/api/v1/admin/plans", {
+    headers: authenticatedHeaders(),
+  })
+}
+
+export function createAdminPlan(input: Omit<Plan, "id">) {
+  return request<Plan>("/api/v1/admin/plans", {
+    method: "POST",
+    headers: authenticatedHeaders(),
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateAdminPlan(planID: string, input: Omit<Plan, "id" | "code">) {
+  return request<Plan>(`/api/v1/admin/plans/${encodeURIComponent(planID)}`, {
+    method: "PATCH",
+    headers: authenticatedHeaders(),
+    body: JSON.stringify(input),
+  })
+}
+
 export type AgentLevel = {
   id: string
   code: string
