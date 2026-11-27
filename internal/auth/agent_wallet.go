@@ -18,6 +18,7 @@ type AgentLevel struct {
 	PriceUSDT int64 `json:"price_usdt"`
 	SortOrder int32 `json:"sort_order"`
 	Benefits map[string]any `json:"benefits"`
+	Enabled bool `json:"enabled"`
 }
 
 type AgentAccount struct {
@@ -49,9 +50,9 @@ func (s *Service) GetAgentAccount(ctx context.Context, userID string) (AgentAcco
 	var current AgentLevel
 	var status string
 	var parentID *string
-	err := s.pool.QueryRow(ctx, `SELECT l.id::text,l.code,l.name,l.price_usdt,l.sort_order,l.benefits,p.status,p.parent_user_id::text
+	err := s.pool.QueryRow(ctx, `SELECT l.id::text,l.code,l.name,l.price_usdt,l.sort_order,l.benefits,l.enabled,p.status,p.parent_user_id::text
 		FROM agent_profiles p JOIN agent_levels l ON l.id=p.level_id WHERE p.user_id=$1`, userID).
-		Scan(&current.ID,&current.Code,&current.Name,&current.PriceUSDT,&current.SortOrder,&current.Benefits,&status,&parentID)
+		Scan(&current.ID,&current.Code,&current.Name,&current.PriceUSDT,&current.SortOrder,&current.Benefits,&current.Enabled,&status,&parentID)
 	if err == nil {
 		result.IsAgent = true
 		result.Status = status
@@ -60,12 +61,12 @@ func (s *Service) GetAgentAccount(ctx context.Context, userID string) (AgentAcco
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return AgentAccount{}, fmt.Errorf("load agent profile: %w", err)
 	}
-	rows, err := s.pool.Query(ctx, `SELECT id::text,code,name,price_usdt,sort_order,benefits FROM agent_levels WHERE enabled=true ORDER BY sort_order ASC,price_usdt ASC,id ASC`)
+	rows, err := s.pool.Query(ctx, `SELECT id::text,code,name,price_usdt,sort_order,benefits,enabled FROM agent_levels WHERE enabled=true ORDER BY sort_order ASC,price_usdt ASC,id ASC`)
 	if err != nil { return AgentAccount{}, fmt.Errorf("list agent levels: %w", err) }
 	defer rows.Close()
 	for rows.Next() {
 		var level AgentLevel
-		if err := rows.Scan(&level.ID,&level.Code,&level.Name,&level.PriceUSDT,&level.SortOrder,&level.Benefits); err != nil { return AgentAccount{}, fmt.Errorf("scan agent level: %w", err) }
+		if err := rows.Scan(&level.ID,&level.Code,&level.Name,&level.PriceUSDT,&level.SortOrder,&level.Benefits,&level.Enabled); err != nil { return AgentAccount{}, fmt.Errorf("scan agent level: %w", err) }
 		result.Levels = append(result.Levels, level)
 	}
 	if err := rows.Err(); err != nil { return AgentAccount{}, fmt.Errorf("iterate agent levels: %w", err) }
@@ -206,11 +207,11 @@ func validateAgentLevel(code,name string,price int64,sortOrder int32) error {
 }
 
 func (s *Service) ListAdminAgentLevels(ctx context.Context) ([]AgentLevel,error) {
-	rows,err:=s.pool.Query(ctx,`SELECT id::text,code,name,price_usdt,sort_order,benefits FROM agent_levels ORDER BY sort_order,price_usdt,id`)
+	rows,err:=s.pool.Query(ctx,`SELECT id::text,code,name,price_usdt,sort_order,benefits,enabled FROM agent_levels ORDER BY sort_order,price_usdt,id`)
 	if err!=nil{return nil,fmt.Errorf("list admin agent levels: %w",err)}
 	defer rows.Close()
 	items:=make([]AgentLevel,0)
-	for rows.Next(){var item AgentLevel;if err:=rows.Scan(&item.ID,&item.Code,&item.Name,&item.PriceUSDT,&item.SortOrder,&item.Benefits);err!=nil{return nil,fmt.Errorf("scan admin agent level: %w",err)};items=append(items,item)}
+	for rows.Next(){var item AgentLevel;if err:=rows.Scan(&item.ID,&item.Code,&item.Name,&item.PriceUSDT,&item.SortOrder,&item.Benefits,&item.Enabled);err!=nil{return nil,fmt.Errorf("scan admin agent level: %w",err)};items=append(items,item)}
 	if err:=rows.Err();err!=nil{return nil,fmt.Errorf("iterate admin agent levels: %w",err)}
 	return items,nil
 }
@@ -224,8 +225,8 @@ func (s *Service) CreateAdminAgentLevel(ctx context.Context,actorID,code,name st
 	defer tx.Rollback(ctx)
 	var item AgentLevel
 	err=tx.QueryRow(ctx,`INSERT INTO agent_levels(code,name,price_usdt,sort_order,benefits) VALUES($1,$2,$3,$4,$5::jsonb)
-		RETURNING id::text,code,name,price_usdt,sort_order,benefits`,code,name,price,sortOrder,string(raw)).
-		Scan(&item.ID,&item.Code,&item.Name,&item.PriceUSDT,&item.SortOrder,&item.Benefits)
+		RETURNING id::text,code,name,price_usdt,sort_order,benefits,enabled`,code,name,price,sortOrder,string(raw)).
+		Scan(&item.ID,&item.Code,&item.Name,&item.PriceUSDT,&item.SortOrder,&item.Benefits,&item.Enabled)
 	if err!=nil{return AgentLevel{},fmt.Errorf("create agent level: %w",err)}
 	var tenantID string
 	if err:=tx.QueryRow(ctx,`SELECT tenant_id::text FROM users WHERE id=$1`,actorID).Scan(&tenantID);err!=nil{return AgentLevel{},fmt.Errorf("load agent level actor tenant: %w",err)}
@@ -244,8 +245,8 @@ func (s *Service) UpdateAdminAgentLevel(ctx context.Context,actorID,levelID,name
 	defer tx.Rollback(ctx)
 	var item AgentLevel
 	err=tx.QueryRow(ctx,`UPDATE agent_levels SET name=$2,price_usdt=$3,sort_order=$4,benefits=$5::jsonb,enabled=$6,updated_at=now()
-		WHERE id=$1 RETURNING id::text,code,name,price_usdt,sort_order,benefits`,levelID,name,price,sortOrder,string(raw),enabled).
-		Scan(&item.ID,&item.Code,&item.Name,&item.PriceUSDT,&item.SortOrder,&item.Benefits)
+		WHERE id=$1 RETURNING id::text,code,name,price_usdt,sort_order,benefits,enabled`,levelID,name,price,sortOrder,string(raw),enabled).
+		Scan(&item.ID,&item.Code,&item.Name,&item.PriceUSDT,&item.SortOrder,&item.Benefits,&item.Enabled)
 	if errors.Is(err,pgx.ErrNoRows){return AgentLevel{},ErrAgentLevelNotUpgradeable}
 	if err!=nil{return AgentLevel{},fmt.Errorf("update agent level: %w",err)}
 	var tenantID string
