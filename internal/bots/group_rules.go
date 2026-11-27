@@ -54,6 +54,9 @@ type mediaRestrictionRuleConfig struct {
 type adRuleConfig struct {
 	Patterns []string `json:"patterns"`
 	Exceptions []string `json:"exceptions,omitempty"`
+	BlockedDomains []string `json:"blocked_domains,omitempty"`
+	AllowedDomains []string `json:"allowed_domains,omitempty"`
+	BlockInviteLinks bool `json:"block_invite_links,omitempty"`
 	Action string `json:"action"`
 }
 type noticeRuleConfig struct {
@@ -74,6 +77,21 @@ type qaRuleConfig struct {
 	MatchMode string `json:"match_mode"`
 	Response string `json:"response"`
 	CaseSensitive bool `json:"case_sensitive"`
+}
+
+func validDomains(values []string) bool {
+	if len(values)>100 { return false }
+	seen:=map[string]struct{}{}
+	for _,value:=range values {
+		domain:=strings.ToLower(strings.TrimSpace(value))
+		if domain=="" || len(domain)>253 || strings.ContainsAny(domain," /:@\\\\") || !strings.Contains(domain,".") { return false }
+		for _,part:=range strings.Split(domain,".") {
+			if part=="" || len(part)>63 || strings.HasPrefix(part,"-") || strings.HasSuffix(part,"-") { return false }
+			for _,r:=range part { if !(r>='a'&&r<='z') && !(r>='0'&&r<='9') && r!='-' { return false } }
+		}
+		if _,ok:=seen[domain];ok{return false};seen[domain]=struct{}{}
+	}
+	return true
 }
 
 func ValidateGroupRule(input GroupRuleInput) error {
@@ -129,7 +147,7 @@ func ValidateGroupRule(input GroupRuleInput) error {
 		}
 	case "anti_ad":
 		var cfg adRuleConfig
-		if decode(&cfg) != nil || !validTerms(cfg.Patterns) || (len(cfg.Exceptions) > 0 && !validTerms(cfg.Exceptions)) || cfg.Action != "delete" { return ErrInvalidGroupRule }
+		if decode(&cfg) != nil || !validTerms(cfg.Patterns) || (len(cfg.Exceptions) > 0 && !validTerms(cfg.Exceptions)) || (len(cfg.BlockedDomains)>0 && !validDomains(cfg.BlockedDomains)) || (len(cfg.AllowedDomains)>0 && !validDomains(cfg.AllowedDomains)) || cfg.Action != "delete" { return ErrInvalidGroupRule }
 	case "welcome", "leave_notice":
 		var cfg noticeRuleConfig
 		if decode(&cfg) != nil || strings.TrimSpace(cfg.Text) == "" || len([]rune(cfg.Text)) > 4096 { return ErrInvalidGroupRule }
