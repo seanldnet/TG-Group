@@ -23,9 +23,18 @@ export default function PersonalCenterPage() {
   const [notice, setNotice] = useState("")
   useEffect(() => {
     let active = true
-    Promise.all([currentUser(), getTelegramIdentity()])
-      .then(([account, identity]) => { if (active) { setUser(account); setProfileName(account.display_name || ""); setTelegram(identity) } })
-      .catch((e: unknown) => { if (active) setError(e instanceof Error ? e.message : "账户信息加载失败") })
+    Promise.allSettled([currentUser(), getTelegramIdentity()])
+      .then(([accountResult, telegramResult]) => {
+        if (!active) return
+        if (accountResult.status === "fulfilled") {
+          setUser(accountResult.value)
+          setProfileName(accountResult.value.display_name || "")
+        } else {
+          setError(accountResult.reason instanceof Error ? accountResult.reason.message : "账户信息加载失败")
+        }
+        if (telegramResult.status === "fulfilled") setTelegram(telegramResult.value)
+        else if (accountResult.status === "fulfilled") setError("Telegram 关联状态暂时无法读取")
+      })
     return () => { active = false }
   }, [])
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
