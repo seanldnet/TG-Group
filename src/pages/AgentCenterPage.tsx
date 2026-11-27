@@ -37,13 +37,16 @@ export default function AgentCenterPage() {
     setLoading(true)
     setError("")
     try {
-      const [accountResult, ledgerResult] = await Promise.all([
+      const [accountResult, ledgerResult, orderResult] = await Promise.all([
         getAgentAccount(),
         listWalletLedger(20, 0),
+        listAgentUpgradeOrders(10, 0),
       ])
       setAccount(accountResult)
       setLedger(ledgerResult.items)
-      setLedgerTotal(ledgerResult.total)\n      setUpgradeOrders(orderResult.items)\n      setUpgradeOrderTotal(orderResult.total)
+      setLedgerTotal(ledgerResult.total)
+      setUpgradeOrders(orderResult.items)
+      setUpgradeOrderTotal(orderResult.total)
     } catch (err) {
       setError(err instanceof Error ? err.message : "加载代理账户失败")
     } finally {
