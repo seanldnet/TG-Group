@@ -43,12 +43,12 @@ export default function AgentCenterPage() {
     setLoading(true)
     setError("")
     try {
-      const [accountResult, ledgerResult, orderResult, rechargeResult] = await Promise.all([
+      const [accountResult, ledgerResult, orderResult] = await Promise.all([
         getAgentAccount(),
         listWalletLedger(20, 0),
         listAgentUpgradeOrders(10, 0),
-        listWalletRecharges(10, 0),
       ])
+      const rechargeResult = await listWalletRecharges(10, 0).catch(() => ({ items: [] as WalletRechargeOrder[] }))
       setAccount(accountResult)
       setLedger(ledgerResult.items)
       setLedgerTotal(ledgerResult.total)
