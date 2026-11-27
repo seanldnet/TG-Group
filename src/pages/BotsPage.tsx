@@ -162,7 +162,7 @@ export default function BotsPage() {
           <div className="flex gap-2"><Button variant="outline" onClick={() => void refresh()} disabled={loading}><RefreshCw className={`mr-2 size-4 ${loading ? "animate-spin" : ""}`}/>刷新</Button><Button onClick={openAddDialog}>
             <Plus className="mr-2 size-4" />
             添加 Bot
-          </Button>
+          </Button></div>
         </div>
 
         {error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p>}
