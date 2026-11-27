@@ -1184,3 +1184,7 @@
 
 
 - CI 验证结果：提交 `e7ef231` 的 Go test、Go vet、Frontend typecheck/build 全部成功；Docker 多架构镜像发布仍在运行。提交 `53fcbd` 仅同步文档状态。
+
+
+- 新增 API 进程后台充值对账 worker：每 30 秒最多查询 50 笔已有 trade_id 的 pending 订单，更新网关状态、过期和 review 状态；状态 2 不直接入账，继续等待签名回调。轮询失败会更新重试排序，避免早期故障订单长期占满批次。
+- Worker 随 API 生命周期启动/优雅停止；没有配置网关或没有待处理订单时不产生入账动作。
