@@ -50,6 +50,9 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 		for _, member := range message.NewChatMembers {
 			blocked, bypassVerification := p.applyGroupMemberListPolicy(ctx, bot, groupID, member.ID, token)
 			if blocked { continue }
+			botBlocked:=false
+			for _,rule:=range rules { if rule.Type=="anti_bot" && p.executeBotProtection(ctx,bot,groupID,item.UpdateID,message.MessageID,member,rule) { botBlocked=true; break } }
+			if botBlocked { continue }
 			for _, rule := range rules {
 				switch rule.Type {
 				case "welcome":
@@ -136,6 +139,30 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 	p.executeDeleteRule(ctx,bot,groupID,item.UpdateID,message.MessageID,senderID.(int64),*matched,token)
 }
 
+
+func isAllowedBotUsername(username string, allowed []string) bool {
+	username=strings.TrimPrefix(strings.ToLower(strings.TrimSpace(username)),"@")
+	for _,value:=range allowed { if username==strings.TrimPrefix(strings.ToLower(strings.TrimSpace(value)),"@") { return true } }
+	return false
+}
+
+func (p *Poller) executeBotProtection(ctx context.Context,bot managedBot,groupID string,updateID,messageID int64,member telegramSender,rule executableRule) bool {
+	if !member.IsBot || member.ID<=0 { return false }
+	var cfg struct { AllowedUsernames []string `json:"allowed_usernames"`; Action string `json:"action"` }
+	if json.Unmarshal(rule.Config,&cfg)!=nil || cfg.Action!="ban" || isAllowedBotUsername(member.Username,cfg.AllowedUsernames) { return false }
+	eventID,claimed,err:=p.reserveRuleEvent(ctx,bot.tenantID,groupID,rule.ID,updateID,&messageID,member.ID,"ban_bot_member")
+	if err!=nil { p.logger.Error("reserve anti-bot rule event","rule_id",rule.ID,"error",err); return true }
+	if !claimed { return true }
+	var telegramBotID int64
+	if err:=p.pool.QueryRow(ctx,"SELECT telegram_bot_id FROM telegram_bots WHERE tenant_id=$1 AND id=$2 AND status='active'",bot.tenantID,bot.id).Scan(&telegramBotID);err!=nil {
+		p.finishRuleEvent(ctx,eventID,"failed","could not load active Bot identity"); return true
+	}
+	if err:=p.botService.ModerateGroupMemberForTelegramAdmin(ctx,bot.tenantID,telegramBotID,groupID,member.ID,"ban",0);err!=nil {
+		p.finishRuleEvent(ctx,eventID,"failed","automatic Bot ban failed: "+err.Error()); return true
+	}
+	p.finishRuleEvent(ctx,eventID,"succeeded","unapproved Bot account banned on join")
+	return true
+}
 
 func matchesBlockedLink(content string, blockedDomains, allowedDomains []string, blockInviteLinks bool) bool {
 	for _,field:=range strings.Fields(content) {
