@@ -123,3 +123,31 @@ func TestWarningEscalationConcurrentClaimsAreDistinctPostgres(t *testing.T) {
 		t.Fatalf("concurrent workers claimed the same execution %d", items[0].ID)
 	}
 }
+
+
+func TestWarningEscalationExhaustedExpiredLeaseBecomesTerminalPostgres(t *testing.T) {
+	f := newWarningRetryFixture(t)
+	ctx := context.Background()
+	id := insertWarningRetryFixture(t, f, f.tenantID, f.groupID, 64001, "processing", warningEscalationMaxAttempts, time.Now().UTC().Add(-warningEscalationLease-time.Minute))
+
+	f.service.processDueWarningEscalations(ctx, nil)
+
+	var status, detail string
+	var nextRetry, processingStartedAt *time.Time
+	if err := f.db.Pool.QueryRow(ctx, `SELECT status,detail,next_retry_at,processing_started_at
+		FROM telegram_group_warning_escalations WHERE id=$1`, id).Scan(&status,&detail,&nextRetry,&processingStartedAt); err != nil {
+		t.Fatalf("read exhausted execution: %v", err)
+	}
+	if status != "failed" {
+		t.Fatalf("status = %q, want failed", status)
+	}
+	if detail != "automatic retry limit reached while processing lease expired" {
+		t.Fatalf("detail = %q, want terminal lease-expiry explanation", detail)
+	}
+	if nextRetry != nil || processingStartedAt != nil {
+		t.Fatalf("terminal execution retained retry state: next=%v processing=%v", nextRetry, processingStartedAt)
+	}
+	if _, err := f.service.claimWarningEscalation(ctx); err == nil {
+		t.Fatal("terminal execution was claimed again")
+	}
+}
