@@ -200,13 +200,13 @@ func (s *Service) ListAdminLicenses(ctx context.Context,status,query string,limi
 	pattern:="%"+query+"%"
 	var total int64
 	if err:=s.pool.QueryRow(ctx,`SELECT count(*) FROM licenses l JOIN users u ON u.id=l.user_id
-		WHERE ($1='' OR (CASE WHEN l.status='active' AND l.expires_at<=now() THEN 'expired' ELSE l.status END)=$1)
+		WHERE ($1='' OR (CASE WHEN l.expires_at<=now() THEN 'expired' ELSE l.status END)=$1)
 		AND ($2='' OR u.email ILIKE $3 OR u.display_name ILIKE $3 OR l.plan_name ILIKE $3)`,status,query,pattern).Scan(&total);err!=nil{return nil,0,fmt.Errorf("count platform licenses: %w",err)}
 	rows,err:=s.pool.Query(ctx,`SELECT l.id::text,l.user_id::text,u.email,u.display_name,l.plan_name,
-		CASE WHEN l.status='active' AND l.expires_at<=now() THEN 'expired' ELSE l.status END,
+		CASE WHEN l.expires_at<=now() THEN 'expired' ELSE l.status END,
 		l.starts_at,l.expires_at,l.bot_limit,l.group_limit
 		FROM licenses l JOIN users u ON u.id=l.user_id
-		WHERE ($1='' OR (CASE WHEN l.status='active' AND l.expires_at<=now() THEN 'expired' ELSE l.status END)=$1)
+		WHERE ($1='' OR (CASE WHEN l.expires_at<=now() THEN 'expired' ELSE l.status END)=$1)
 		AND ($2='' OR u.email ILIKE $3 OR u.display_name ILIKE $3 OR l.plan_name ILIKE $3)
 		ORDER BY l.expires_at DESC,l.id DESC LIMIT $4 OFFSET $5`,status,query,pattern,limit,offset)
 	if err!=nil{return nil,0,fmt.Errorf("list platform licenses: %w",err)}
