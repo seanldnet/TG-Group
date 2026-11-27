@@ -66,6 +66,11 @@ type telegramMessage struct {
 	Animation json.RawMessage `json:"animation"`
 	Voice json.RawMessage `json:"voice"`
 	Audio json.RawMessage `json:"audio"`
+	VideoNote json.RawMessage `json:"video_note"`
+	Poll json.RawMessage `json:"poll"`
+	Contact json.RawMessage `json:"contact"`
+	Location json.RawMessage `json:"location"`
+	Venue json.RawMessage `json:"venue"`
 	NewChatMembers []telegramSender `json:"new_chat_members"`
 	LeftChatMember *telegramSender `json:"left_chat_member"`
 }
