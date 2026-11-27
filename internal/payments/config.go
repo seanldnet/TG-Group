@@ -67,7 +67,7 @@ func validateChannelConfig(c ChannelConfig) error {
 	if err!=nil || u.Scheme!="https" || u.Host=="" || u.User!=nil || u.RawQuery!="" || u.Fragment!="" { return ErrInvalidChannelConfig }
 	if c.Code!="epusdt_gmpay" && c.Code!="epusdt_epay" { return ErrInvalidChannelConfig }
 	if c.Name=="" || len(c.Name)>80 || c.MerchantPID=="" || len(c.MerchantPID)>64 || len(c.SecretKey)<16 || len(c.SecretKey)>256 { return ErrInvalidChannelConfig }
-	if c.Currency=="" || len(c.Currency)>8 || c.Token=="" || len(c.Token)>24 || c.Network=="" || len(c.Network)>32 { return ErrInvalidChannelConfig }
+	if c.Currency!="usd" || c.Token!="usdt" || c.Network=="" || len(c.Network)>32 { return ErrInvalidChannelConfig }
 	if c.Code=="epusdt_epay" { if _,err:=strconv.Atoi(c.MerchantPID);err!=nil{return ErrInvalidChannelConfig} }
 	return nil
 }
