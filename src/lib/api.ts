@@ -18,6 +18,62 @@ export type AuthSession = {
 
 
 
+
+export type AdminOrder = {
+  id: string
+  order_no: string
+  user_id: string
+  user_email: string
+  display_name: string
+  plan_name: string
+  amount_usdt: number
+  payment_method: string
+  status: string
+  paid_at: string | null
+  created_at: string
+}
+
+export type AdminLicense = {
+  id: string
+  user_id: string
+  user_email: string
+  display_name: string
+  plan_name: string
+  status: "active" | "expired" | "suspended"
+  starts_at: string
+  expires_at: string
+  bot_limit: number
+  group_limit: number
+}
+
+export function listAdminOrders(input: { status?: string; q?: string; limit?: number; offset?: number } = {}) {
+  const params = new URLSearchParams({ limit: String(input.limit ?? 20), offset: String(input.offset ?? 0) })
+  if (input.status) params.set("status", input.status)
+  if (input.q) params.set("q", input.q)
+  return request<{ items: AdminOrder[]; total: number; limit: number; offset: number }>(
+    `/api/v1/admin/orders?${params.toString()}`,
+    { headers: authenticatedHeaders() },
+  )
+}
+
+export function listAdminLicenses(input: { status?: string; q?: string; limit?: number; offset?: number } = {}) {
+  const params = new URLSearchParams({ limit: String(input.limit ?? 20), offset: String(input.offset ?? 0) })
+  if (input.status) params.set("status", input.status)
+  if (input.q) params.set("q", input.q)
+  return request<{ items: AdminLicense[]; total: number; limit: number; offset: number }>(
+    `/api/v1/admin/licenses?${params.toString()}`,
+    { headers: authenticatedHeaders() },
+  )
+}
+
+export function updateAdminLicenseStatus(licenseID: string, status: "active" | "suspended") {
+  return request<AdminLicense>(`/api/v1/admin/licenses/${encodeURIComponent(licenseID)}/status`, {
+    method: "PATCH",
+    headers: authenticatedHeaders(),
+    body: JSON.stringify({ status }),
+  })
+}
+
 export type AccountOrder = {
   id: string
   order_no: string
