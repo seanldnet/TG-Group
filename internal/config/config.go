@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -35,6 +36,13 @@ func Load() (Config, error) {
 	if (capBaseURL != "") != (capSiteKey != "") || (capSiteKey != "") != (capSecret != "") {
 		return Config{}, fmt.Errorf("CAP_BASE_URL, CAP_SITE_KEY and CAP_SECRET must be configured together")
 	}
+	paymentEncryptionKey:=strings.TrimSpace(os.Getenv("PAYMENT_CREDENTIALS_ENCRYPTION_KEY"))
+	paymentPublicBaseURL:=strings.TrimRight(strings.TrimSpace(os.Getenv("PAYMENT_PUBLIC_BASE_URL")),"/")
+	if (paymentEncryptionKey!="")!=(paymentPublicBaseURL!=""){return Config{},fmt.Errorf("PAYMENT_CREDENTIALS_ENCRYPTION_KEY and PAYMENT_PUBLIC_BASE_URL must be configured together")}
+	if paymentPublicBaseURL!=""{
+		u,parseErr:=url.Parse(paymentPublicBaseURL)
+		if parseErr!=nil||u.Scheme!="https"||u.Host==""||u.User!=nil||u.RawQuery!=""||u.Fragment!=""{return Config{},fmt.Errorf("PAYMENT_PUBLIC_BASE_URL must be an HTTPS origin")}
+	}
 	telegramAuthBotToken := os.Getenv("TELEGRAM_AUTH_BOT_TOKEN")
 	telegramAuthBotUsername := strings.TrimPrefix(strings.TrimSpace(os.Getenv("TELEGRAM_AUTH_BOT_USERNAME")), "@")
 	if (telegramAuthBotToken == "") != (telegramAuthBotUsername == "") { return Config{}, fmt.Errorf("TELEGRAM_AUTH_BOT_TOKEN and TELEGRAM_AUTH_BOT_USERNAME must be configured together") }
@@ -42,8 +50,8 @@ func Load() (Config, error) {
 	return Config{
 		TelegramAuthBotToken: telegramAuthBotToken, TelegramAuthBotUsername: telegramAuthBotUsername,
 		CAPBaseURL: capBaseURL, CAPSiteKey: capSiteKey, CAPSecret: capSecret, CAPWidgetURL: os.Getenv("CAP_WIDGET_URL"),
-		PaymentCredentialsEncryptionKey: os.Getenv("PAYMENT_CREDENTIALS_ENCRYPTION_KEY"),
-		PaymentPublicBaseURL: strings.TrimRight(strings.TrimSpace(os.Getenv("PAYMENT_PUBLIC_BASE_URL")),"/"),
+		PaymentCredentialsEncryptionKey: paymentEncryptionKey,
+		PaymentPublicBaseURL: paymentPublicBaseURL,
 		HTTPAddr: fmt.Sprintf(":%d", portNumber),
 		Environment: environment,
 		DatabaseURL: os.Getenv("DATABASE_URL"),
