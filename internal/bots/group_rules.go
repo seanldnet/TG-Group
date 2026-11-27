@@ -53,6 +53,7 @@ type mediaRestrictionRuleConfig struct {
 }
 type adRuleConfig struct {
 	Patterns []string `json:"patterns"`
+	Exceptions []string `json:"exceptions,omitempty"`
 	Action string `json:"action"`
 }
 type noticeRuleConfig struct {
@@ -128,7 +129,7 @@ func ValidateGroupRule(input GroupRuleInput) error {
 		}
 	case "anti_ad":
 		var cfg adRuleConfig
-		if decode(&cfg) != nil || !validTerms(cfg.Patterns) || cfg.Action != "delete" { return ErrInvalidGroupRule }
+		if decode(&cfg) != nil || !validTerms(cfg.Patterns) || (len(cfg.Exceptions) > 0 && !validTerms(cfg.Exceptions)) || cfg.Action != "delete" { return ErrInvalidGroupRule }
 	case "welcome", "leave_notice":
 		var cfg noticeRuleConfig
 		if decode(&cfg) != nil || strings.TrimSpace(cfg.Text) == "" || len([]rune(cfg.Text)) > 4096 { return ErrInvalidGroupRule }
