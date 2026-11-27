@@ -16,6 +16,7 @@ import (
 var (
 	ErrRechargeOrderNotFound = errors.New("recharge order not found")
 	ErrRechargeOrderConflict = errors.New("recharge order state conflict")
+	ErrRechargeNeedsReview = errors.New("signed payment received with a non-integer USDT amount; manual review required")
 )
 
 type RechargeOrder struct {
@@ -107,8 +108,8 @@ func (s *RechargeService) ApplyGMPayCallback(ctx context.Context,params map[stri
 	channel,err:=s.channels.Load(ctx,channelCode)
 	if err!=nil{return fmt.Errorf("load GMPay callback credentials: %w",err)}
 	expectedPID,secret=channel.MerchantPID,channel.SecretKey
-	verified,err:=VerifyGMPayCallback(params,secret,expectedPID,orderID,expectedAmount)
-	if err!=nil{return err}
+	verified,verifyErr:=VerifyGMPayCallback(params,secret,expectedPID,orderID,expectedAmount)
+	if verifyErr!=nil&&!errors.Is(verifyErr,ErrNonIntegerUSDT){return verifyErr}
 	if providerTradeID==""||verified.TradeID!=providerTradeID{return ErrInvalidGMPayCallback}
 
 	tx,err:=s.pool.BeginTx(ctx,pgx.TxOptions{})
@@ -119,7 +120,7 @@ func (s *RechargeService) ApplyGMPayCallback(ctx context.Context,params map[stri
 	var lockedTradeID string
 	if err:=tx.QueryRow(ctx,`SELECT status,user_id::text,COALESCE(provider_trade_id,'') FROM wallet_recharge_orders WHERE id=$1 FOR UPDATE`,rechargeID).
 		Scan(&lockedStatus,&lockedUserID,&lockedTradeID);err!=nil{return fmt.Errorf("lock recharge order: %w",err)}
-	if lockedStatus=="paid"{
+	if lockedStatus=="paid"||lockedStatus=="review"{
 		if lockedTradeID!=verified.TradeID{return ErrRechargeOrderConflict}
 		if err:=tx.Commit(ctx);err!=nil{return fmt.Errorf("commit duplicate GMPay callback: %w",err)}
 		return nil
@@ -128,6 +129,14 @@ func (s *RechargeService) ApplyGMPayCallback(ctx context.Context,params map[stri
 	if _,err:=tx.Exec(ctx,`INSERT INTO payment_callback_events(channel_code,provider_trade_id,merchant_order_id,payload_hash)
 		VALUES($1,$2,$3,$4) ON CONFLICT(channel_code,provider_trade_id,payload_hash) DO NOTHING`,channelCode,verified.TradeID,verified.OrderID,payloadHash);err!=nil{
 		return fmt.Errorf("record payment callback event: %w",err)
+	}
+	if errors.Is(verifyErr,ErrNonIntegerUSDT){
+		if _,err:=tx.Exec(ctx,`UPDATE wallet_recharge_orders SET status='review',provider_status=2,actual_amount=$2::numeric,
+			actual_token='USDT',block_transaction_id=$3,updated_at=now() WHERE id=$1`,rechargeID,params["actual_amount"],verified.TransactionID);err!=nil{
+			return fmt.Errorf("mark fractional GMPay settlement for review: %w",err)
+		}
+		if err:=tx.Commit(ctx);err!=nil{return fmt.Errorf("commit GMPay settlement review: %w",err)}
+		return ErrRechargeNeedsReview
 	}
 	var balance int64
 	if err:=tx.QueryRow(ctx,`INSERT INTO wallet_accounts(user_id,balance_usdt) VALUES($1,$2)
