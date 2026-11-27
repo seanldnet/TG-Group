@@ -143,3 +143,17 @@ func (s *RechargeService) ApplyGMPayCallback(ctx context.Context,params map[stri
 	if err=tx.Commit(ctx);err!=nil{return fmt.Errorf("commit GMPay wallet settlement: %w",err)}
 	return nil
 }
+
+
+func (s *RechargeService) ListUserRechargeOrders(ctx context.Context,userID string,limit,offset int)([]RechargeOrder,int64,error){
+	var total int64
+	if err:=s.pool.QueryRow(ctx,`SELECT count(*) FROM wallet_recharge_orders WHERE user_id=$1`,userID).Scan(&total);err!=nil{return nil,0,fmt.Errorf("count wallet recharge orders: %w",err)}
+	rows,err:=s.pool.Query(ctx,`SELECT id::text,order_no,merchant_order_id,amount_usdt,COALESCE(actual_amount::text,''),COALESCE(actual_token,''),COALESCE(actual_network,''),COALESCE(receive_address,''),COALESCE(payment_url,''),status,expires_at,created_at
+		FROM wallet_recharge_orders WHERE user_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3`,userID,limit,offset)
+	if err!=nil{return nil,0,fmt.Errorf("list wallet recharge orders: %w",err)}
+	defer rows.Close()
+	items:=make([]RechargeOrder,0)
+	for rows.Next(){var item RechargeOrder;if err:=rows.Scan(&item.ID,&item.OrderNo,&item.MerchantOrderID,&item.AmountUSDT,&item.ActualAmount,&item.Token,&item.Network,&item.ReceiveAddress,&item.PaymentURL,&item.Status,&item.ExpiresAt,&item.CreatedAt);err!=nil{return nil,0,fmt.Errorf("scan wallet recharge order: %w",err)};items=append(items,item)}
+	if err:=rows.Err();err!=nil{return nil,0,fmt.Errorf("iterate wallet recharge orders: %w",err)}
+	return items,total,nil
+}
