@@ -578,21 +578,26 @@ type bulkMemberActionRequest struct {
 	DurationMinutes int `json:"duration_minutes"`
 }
 
+func validateBulkMemberAction(input bulkMemberActionRequest) error {
+	if len(input.UserIDs)<1 || len(input.UserIDs)>50 { return errors.New("user_ids must contain between 1 and 50 members") }
+	seen:=make(map[int64]struct{},len(input.UserIDs))
+	for _,id:=range input.UserIDs {
+		if id<=0 { return errors.New("every Telegram user ID must be positive") }
+		if _,exists:=seen[id]; exists { return errors.New("user_ids must not contain duplicates") }
+		seen[id]=struct{}{}
+	}
+	if input.Action!="ban" && input.Action!="unban" && input.Action!="mute" && input.Action!="unmute" { return errors.New("unsupported member action") }
+	if input.Action=="mute" && (input.DurationMinutes<1 || input.DurationMinutes>525600) { return errors.New("duration_minutes must be between 1 and 525600") }
+	if input.Action!="mute" && input.DurationMinutes!=0 { return errors.New("duration_minutes is only valid for mute") }
+	return nil
+}
+
 func (h *Handler) bulkModerateGroupMembers(w http.ResponseWriter,r *http.Request) {
 	if !h.botServicesReady(w) { return }
 	user,ok:=h.currentUser(w,r); if !ok { return }
 	var input bulkMemberActionRequest
 	if !decodeJSON(w,r,&input) { return }
-	if len(input.UserIDs)<1 || len(input.UserIDs)>50 { writeError(w,http.StatusBadRequest,"user_ids must contain between 1 and 50 members"); return }
-	seen:=make(map[int64]struct{},len(input.UserIDs))
-	for _,id:=range input.UserIDs {
-		if id<=0 { writeError(w,http.StatusBadRequest,"every Telegram user ID must be positive"); return }
-		if _,exists:=seen[id]; exists { writeError(w,http.StatusBadRequest,"user_ids must not contain duplicates"); return }
-		seen[id]=struct{}{}
-	}
-	if input.Action!="ban" && input.Action!="unban" && input.Action!="mute" && input.Action!="unmute" { writeError(w,http.StatusBadRequest,"unsupported member action"); return }
-	if input.Action=="mute" && (input.DurationMinutes<1 || input.DurationMinutes>525600) { writeError(w,http.StatusBadRequest,"duration_minutes must be between 1 and 525600"); return }
-	if input.Action!="mute" && input.DurationMinutes!=0 { writeError(w,http.StatusBadRequest,"duration_minutes is only valid for mute"); return }
+	if err:=validateBulkMemberAction(input); err!=nil { writeError(w,http.StatusBadRequest,err.Error()); return }
 	type itemResult struct { TelegramUserID int64 `json:"telegram_user_id"`; OK bool `json:"ok"`; Error string `json:"error,omitempty"` }
 	results:=make([]itemResult,0,len(input.UserIDs))
 	succeeded:=0
