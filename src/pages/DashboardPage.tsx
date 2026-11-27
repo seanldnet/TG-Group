@@ -107,7 +107,7 @@ export default function DashboardPage(){
    <MetricCard title="已接入机器人" value={loading?"—":bots.length} detail={loading?"正在读取数据":activeBots+" 个运行中 · "+(bots.length-activeBots)+" 个已停用"} icon={Bot} index={0}/>
    <MetricCard title="已发现群组" value={loading?"—":groups.length} detail={loading?"正在读取数据":activeGroups+" 个活跃群组"} icon={UsersRound} index={1}/>
    <MetricCard title="近期消息事件" value={loading?"—":events.length} detail="最近采集的群消息记录" icon={MessagesSquare} index={2}/>
-   <MetricCard title="账号安全" value={user?.role==="admin"?"管理员":"正常"} detail={user?.role==="admin"?"拥有平台管理权限":"当前账号身份已验证"} icon={ShieldCheck} index={3}/>
+   <MetricCard title="账号安全" value={user?.role==="admin"?"管理员":user?.role==="agent"?"代理":"正常"} detail={user?.role==="admin"?"拥有平台管理权限":user?.role==="agent"?"代理账户已验证":"当前账号身份已验证"} icon={ShieldCheck} index={3}/>
   </section>
   <section className="grid gap-4 xl:grid-cols-[1.45fr_0.85fr]">
    <Card className="dashboard-enter overflow-hidden border-border/70 shadow-sm">
@@ -142,7 +142,7 @@ export default function DashboardPage(){
    <Card className="dashboard-enter border-border/70 shadow-sm">
     <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Clock3 className="size-4 text-primary"/>群组运行概况</CardTitle><CardDescription>最近活动</CardDescription></CardHeader>
     <CardContent className="space-y-2">
-     {recentGroups.length===0?<div className="py-8 text-center text-sm text-muted-foreground">{loading?"正在加载群组":"尚未接入群组"}</div>:recentGroups.map((group,index)=><a key={group.id} href={"/dashboard/groups/"+group.id+"/events"} className="dashboard-feed-item flex items-center gap-3 rounded-xl border border-transparent p-3 transition-all hover:border-border hover:bg-muted/50" style={{animationDelay:(index*55)+"ms"}}><span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted"><UsersRound className="size-4 text-muted-foreground"/></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{group.title||"未命名群组"}</span><span className="mt-0.5 block text-xs text-muted-foreground">{relativeTime(group.last_seen_at)}</span></span><Badge variant={group.status==="active"?"secondary":"outline"}>{group.status==="active"?"活跃":"已离开"}</Badge></a>)}
+     {recentGroups.length===0?<div className="py-8 text-center text-sm text-muted-foreground">{loading?"正在加载群组":"尚未接入群组"}</div>:recentGroups.map((group,index)=><a key={group.id} href={"/dashboard/groups/"+group.id+"/events"} className="dashboard-feed-item flex items-center gap-3 rounded-xl border border-transparent p-3 transition-all hover:border-border hover:bg-muted/50" style={{animationDelay:(index*55)+"ms"}}><span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted"><UsersRound className="size-4 text-muted-foreground"/></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{group.title||"未命名群组"}</span><span className="mt-0.5 block text-xs text-muted-foreground">{relativeTime(group.last_seen_at)}</span></span><Badge variant={group.status==="active"?"secondary":"outline"}>{group.status==="active"?"活跃":group.status==="left"?"Bot 已离开":"Bot 已被移除"}</Badge></a>)}
      <Button asChild variant="outline" className="mt-2 w-full"><a href="/dashboard/groups">管理全部群组<ArrowUpRight className="ml-2 size-4"/></a></Button>
     </CardContent>
    </Card>
