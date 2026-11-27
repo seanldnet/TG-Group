@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -54,4 +55,20 @@ func makeIDs(n int) []int64 {
 	ids:=make([]int64,n)
 	for i:=range ids { ids[i]=int64(i+1) }
 	return ids
+}
+
+func TestExecuteBulkMemberActionBoundsUnicodeErrorDetails(t *testing.T) {
+	longError := strings.Repeat("群", 700)
+	results, succeeded := executeBulkMemberAction([]int64{99}, func(int64) error {
+		return errors.New(longError)
+	})
+	if succeeded != 0 || len(results) != 1 {
+		t.Fatalf("unexpected result summary: succeeded=%d results=%d", succeeded, len(results))
+	}
+	if got := len([]rune(results[0].Error)); got != 500 {
+		t.Fatalf("error detail rune length = %d, want 500", got)
+	}
+	if !strings.HasPrefix(results[0].Error, strings.Repeat("群", 500)) {
+		t.Fatal("error detail was not truncated on a Unicode character boundary")
+	}
 }
