@@ -74,7 +74,7 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 	}
 
 	if p.handleJoinVerificationText(ctx,bot,groupID,message,token) { return }
-	if content=="" || senderID==nil || message.From.IsBot { return }
+	if senderID==nil || message.From.IsBot { return }\n\tmediaType := telegramMessageMediaType(message)
 	var matched *executableRule
 	var matchedQA *executableRule
 	var qaResponse string
@@ -91,6 +91,10 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 			if json.Unmarshal(rule.Config,&cfg)!=nil || cfg.Action!="delete" {continue}
 			lower:=strings.ToLower(content)
 			for _,word:=range cfg.Words {if word!="" && strings.Contains(lower,strings.ToLower(word)){matched=rule;break}}
+		case "media_restriction":
+			var cfg struct{Types []string `json:"types"`;Action string `json:"action"`}
+			if json.Unmarshal(rule.Config,&cfg)!=nil || cfg.Action!="delete" || mediaType=="" { continue }
+			for _,media:=range cfg.Types { if media==mediaType { matched=rule; break } }
 		case "anti_ad":
 			var cfg struct{Patterns []string `json:"patterns"`;Action string `json:"action"`}
 			if json.Unmarshal(rule.Config,&cfg)!=nil || cfg.Action!="delete"{continue}
