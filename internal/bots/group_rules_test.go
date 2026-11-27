@@ -19,6 +19,8 @@ func TestValidateGroupRule(t *testing.T) {
 		{"spam duplicate threshold too low", GroupRuleInput{RuleType:"anti_spam",Name:"重复消息",Config:json.RawMessage(`{"max_messages":5,"window_seconds":10,"duplicate_count":1,"action":"delete"}`)},false},
 		{"spam duplicate threshold too high", GroupRuleInput{RuleType:"anti_spam",Name:"重复消息",Config:json.RawMessage(`{"max_messages":5,"window_seconds":10,"duplicate_count":101,"action":"delete"}`)},false},
 		{"ad", GroupRuleInput{RuleType:"anti_ad",Name:"广告",Config:json.RawMessage(`{"patterns":["t.me/"],"action":"delete"}`)},true},
+		{"ad exceptions", GroupRuleInput{RuleType:"anti_ad",Name:"广告白名单",Config:json.RawMessage(`{"patterns":["t.me/"],"exceptions":["official.example"],"action":"delete"}`)},true},
+		{"ad invalid exceptions", GroupRuleInput{RuleType:"anti_ad",Name:"广告白名单",Config:json.RawMessage(`{"patterns":["t.me/"],"exceptions":[""],"action":"delete"}`)},false},
 		{"media restriction", GroupRuleInput{RuleType:"media_restriction",Name:"媒体限制",Config:json.RawMessage(`{"types":["photo","video","document"],"action":"delete"}`)},true},
 		{"media restriction invalid type", GroupRuleInput{RuleType:"media_restriction",Name:"媒体限制",Config:json.RawMessage(`{"types":["executable"],"action":"delete"}`)},false},
 		{"media restriction duplicate type", GroupRuleInput{RuleType:"media_restriction",Name:"媒体限制",Config:json.RawMessage(`{"types":["photo","photo"],"action":"delete"}`)},false},
