@@ -147,7 +147,7 @@ func (s *Service) UpgradeAgentWithWallet(ctx context.Context, userID, targetLeve
 	if !enabled { return AgentUpgradeOrder{},ErrAgentLevelNotUpgradeable }
 
 	var fromLevelID *string
-	currentOrder:=-1
+	currentOrder:=int32(-1)
 	var profileStatus string
 	err=tx.QueryRow(ctx,`SELECT p.level_id::text,l.sort_order,p.status FROM agent_profiles p JOIN agent_levels l ON l.id=p.level_id WHERE p.user_id=$1 FOR UPDATE OF p`,userID).
 		Scan(&fromLevelID,&currentOrder,&profileStatus)
