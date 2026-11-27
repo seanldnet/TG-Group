@@ -381,3 +381,17 @@ func TestSelectSpamPenaltyLevel(t *testing.T) {
 		if got==nil || got.Action!=test.wantAction || got.Threshold!=test.wantThreshold { t.Errorf("count %d selected %+v, want action=%s threshold=%d",test.count,got,test.wantAction,test.wantThreshold) }
 	}
 }
+
+
+func TestShouldApplySpamPenalty(t *testing.T) {
+	tests:=[]struct{previous,current string;want bool}{
+		{previous:"",current:"mute",want:true},
+		{previous:"spam_mute",current:"mute",want:false},
+		{previous:"spam_mute",current:"ban",want:true},
+		{previous:"spam_ban",current:"mute",want:false},
+		{previous:"spam_ban",current:"ban",want:false},
+	}
+	for _,test:=range tests {
+		if got:=shouldApplySpamPenalty(test.previous,test.current);got!=test.want { t.Errorf("shouldApplySpamPenalty(%q,%q)=%v want %v",test.previous,test.current,got,test.want) }
+	}
+}
