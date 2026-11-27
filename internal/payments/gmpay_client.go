@@ -113,3 +113,22 @@ func (c GMPayClient) GetPublicConfig(ctx context.Context,baseURL string)(PublicC
 	if envelope.Data.SupportedAssets==nil{envelope.Data.SupportedAssets=make([]SupportedAsset,0)}
 	return envelope.Data,nil
 }
+
+
+func (c GMPayClient) CheckOrderStatus(ctx context.Context,baseURL,tradeID string)(int,error){
+	if strings.TrimSpace(tradeID)==""{return 0,ErrInvalidChannelConfig}
+	u,err:=url.Parse(strings.TrimRight(baseURL,"/")+"/pay/check-status/"+url.PathEscape(tradeID))
+	if err!=nil||u.Scheme!="https"||u.Host==""||u.User!=nil{return 0,ErrInvalidChannelConfig}
+	req,err:=http.NewRequestWithContext(ctx,http.MethodGet,u.String(),nil)
+	if err!=nil{return 0,fmt.Errorf("build GMPay status request: %w",err)}
+	client:=c.HTTP;if client==nil{client=&http.Client{Timeout:8*time.Second}}
+	response,err:=client.Do(req);if err!=nil{return 0,fmt.Errorf("query GMPay order status: %w",err)}
+	defer response.Body.Close()
+	payload,err:=io.ReadAll(io.LimitReader(response.Body,1<<20));if err!=nil{return 0,fmt.Errorf("read GMPay status response: %w",err)}
+	var envelope struct{StatusCode int `json:"status_code"`;Message string `json:"message"`;Data struct{TradeID string `json:"trade_id"`;Status int `json:"status"`} `json:"data"`}
+	if err:=json.Unmarshal(payload,&envelope);err!=nil{return 0,fmt.Errorf("decode GMPay status response: %w",err)}
+	if response.StatusCode!=http.StatusOK||envelope.StatusCode!=200||envelope.Data.TradeID!=tradeID||envelope.Data.Status<1||envelope.Data.Status>6{
+		return 0,fmt.Errorf("%w: status query HTTP %d: %s",ErrProviderRejected,response.StatusCode,envelope.Message)
+	}
+	return envelope.Data.Status,nil
+}
