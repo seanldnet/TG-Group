@@ -87,12 +87,12 @@ export default function DashboardPage(){
  },[events,lastUpdated])
  const recentGroups=useMemo(()=>[...groups].sort((a,b)=>new Date(b.last_seen_at||0).getTime()-new Date(a.last_seen_at||0).getTime()).slice(0,5),[groups])
  return <main className="mx-auto w-full max-w-[1440px] space-y-6 p-4 sm:p-6 lg:p-8">
-  <section className="dashboard-hero dashboard-enter relative isolate overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.10] via-card to-card p-5 sm:p-7">
+  <section className="dashboard-hero dashboard-enter relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-sm sm:p-7">
    <div className="dashboard-orb pointer-events-none absolute -right-16 -top-24 -z-10 size-72 rounded-full bg-primary/10 blur-3xl"/>
    <div className="dashboard-orb dashboard-orb-delay pointer-events-none absolute bottom-[-7rem] right-[28%] -z-10 size-56 rounded-full bg-sky-400/10 blur-3xl"/>
    <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
     <div className="min-w-0">
-     <div className="mb-3 flex flex-wrap items-center gap-2"><Badge variant="secondary" className="gap-1.5"><span className="dashboard-live-dot size-1.5 rounded-full bg-emerald-500"/>实时管理中心</Badge><span className="text-xs text-muted-foreground">每 30 秒自动同步</span></div>
+     <div className="mb-3 flex flex-wrap items-center gap-2"><Badge variant="secondary" className="gap-1.5"><span className="dashboard-live-dot size-1.5 rounded-full bg-emerald-500"/>运行中</Badge></div>
      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">欢迎回来，{user?.display_name||user?.email||"用户"}</h1>
      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">集中查看 Bot 接入、群组状态与最新群内动态。所有统计均来自当前账号实际接入的数据。</p>
     </div>
@@ -112,35 +112,35 @@ export default function DashboardPage(){
   <section className="grid gap-4 xl:grid-cols-[1.45fr_0.85fr]">
    <Card className="dashboard-enter overflow-hidden border-border/70 shadow-sm">
     <CardHeader className="flex flex-row items-start justify-between gap-3">
-     <div><CardTitle className="flex items-center gap-2 text-base"><Activity className="size-4 text-primary"/>群消息活跃趋势</CardTitle><CardDescription className="mt-1">最近 12 小时已采集消息分布 · 最多读取 6 个活跃群组</CardDescription></div>
+     <div><CardTitle className="flex items-center gap-2 text-base"><Activity className="size-4 text-primary"/>群消息活跃趋势</CardTitle><CardDescription className="mt-1">最近 12 小时已采集消息分布 · </CardDescription></div>
      <Badge variant="outline" className="shrink-0 gap-1.5"><Radio className="size-3 text-emerald-500"/>动态</Badge>
     </CardHeader>
     <CardContent>
      <div className="flex h-36 items-end gap-2 border-b border-border/70 pb-2 sm:gap-3">
       {chart.map((bar,index)=><div key={index} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2"><div className="flex h-full w-full items-end"><div title={bar.count+" 条消息"} className="dashboard-bar w-full rounded-t-md bg-primary/75 transition-[height] duration-700 ease-out hover:bg-primary" style={{height:bar.height+"%",animationDelay:(index*35)+"ms"}}/></div><span className="text-[10px] text-muted-foreground">{bar.label}</span></div>)}
      </div>
-     <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground"><span>较早</span><span>最近一小时</span></div>
+     <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground"><span>12 小时前</span><span>现在</span></div>
     </CardContent>
    </Card>
    <Card className="dashboard-enter border-border/70 shadow-sm">
-    <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Wifi className="size-4 text-primary"/>系统连接状态</CardTitle><CardDescription>当前账号可访问的数据服务</CardDescription></CardHeader>
+    <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Wifi className="size-4 text-primary"/>系统连接状态</CardTitle><CardDescription></CardDescription></CardHeader>
     <CardContent className="space-y-4">
      <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-sm"><span className="dashboard-live-dot size-2 rounded-full bg-emerald-500"/>网页 API</div><Badge variant="secondary">已连接</Badge></div>
      <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-sm"><Bot className="size-4 text-muted-foreground"/>Bot 接入</div><span className="text-sm font-medium tabular-nums">{activeBots}/{bots.length} 运行中</span></div>
      <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-sm"><UsersRound className="size-4 text-muted-foreground"/>群组同步</div><span className="text-sm font-medium tabular-nums">{activeGroups}/{groups.length} 活跃</span></div>
-     <div className="rounded-lg bg-muted/50 p-3 text-xs leading-5 text-muted-foreground">数据自动刷新间隔为 30 秒。切换到其他标签页时会暂停轮询，返回后继续同步。</div>
+     <div className="rounded-lg bg-muted/50 p-3 text-xs leading-5 text-muted-foreground">数据每 30 秒自动更新。</div>
     </CardContent>
    </Card>
   </section>
   <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
    <Card className="dashboard-enter border-border/70 shadow-sm">
-    <CardHeader className="flex flex-row items-center justify-between gap-3"><div><CardTitle className="flex items-center gap-2 text-base"><MessagesSquare className="size-4 text-primary"/>最新群组动态</CardTitle><CardDescription className="mt-1">跨群组聚合的最新消息事件</CardDescription></div><Button asChild variant="ghost" size="sm"><a href="/dashboard/groups">查看群组<ArrowUpRight className="ml-1 size-4"/></a></Button></CardHeader>
+    <CardHeader className="flex flex-row items-center justify-between gap-3"><div><CardTitle className="flex items-center gap-2 text-base"><MessagesSquare className="size-4 text-primary"/>最新群组动态</CardTitle><CardDescription className="mt-1">最近收到的群组消息</CardDescription></div><Button asChild variant="ghost" size="sm"><a href="/dashboard/groups">查看群组<ArrowUpRight className="ml-1 size-4"/></a></Button></CardHeader>
     <CardContent>
      {events.length===0?<div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-10 text-center"><MessagesSquare className="mb-3 size-8 text-muted-foreground/50"/><p className="text-sm font-medium">{loading?"正在加载群组动态":"暂时没有采集到消息"}</p><p className="mt-1 text-xs text-muted-foreground">Bot 加入群组并收到新消息后，动态会显示在这里。</p></div>:<div className="space-y-1">{events.slice(0,7).map((event,index)=><div key={event.id} className="dashboard-feed-item flex gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-muted/50" style={{animationDelay:(index*45)+"ms"}}><div className="relative flex w-8 shrink-0 justify-center"><span className="flex size-8 items-center justify-center rounded-full bg-primary/8 text-primary"><MessagesSquare className="size-4"/></span>{index!==Math.min(events.length,7)-1&&<span className="absolute top-9 h-5 w-px bg-border"/>}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"><p className="truncate text-sm font-medium">{event.sender_display_name||event.sender_username||("用户 "+event.telegram_user_id)}</p><span className="shrink-0 text-[11px] text-muted-foreground">{relativeTime(event.received_at)}</span></div><p className="mt-0.5 truncate text-xs text-muted-foreground">{event.groupTitle} · {eventSummary(event)}</p></div></div>)}</div>}
     </CardContent>
    </Card>
    <Card className="dashboard-enter border-border/70 shadow-sm">
-    <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Clock3 className="size-4 text-primary"/>群组运行概况</CardTitle><CardDescription>最近有活动的群组</CardDescription></CardHeader>
+    <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Clock3 className="size-4 text-primary"/>群组运行概况</CardTitle><CardDescription>最近活动</CardDescription></CardHeader>
     <CardContent className="space-y-2">
      {recentGroups.length===0?<div className="py-8 text-center text-sm text-muted-foreground">{loading?"正在加载群组":"尚未接入群组"}</div>:recentGroups.map((group,index)=><a key={group.id} href={"/dashboard/groups/"+group.id+"/events"} className="dashboard-feed-item flex items-center gap-3 rounded-xl border border-transparent p-3 transition-all hover:border-border hover:bg-muted/50" style={{animationDelay:(index*55)+"ms"}}><span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted"><UsersRound className="size-4 text-muted-foreground"/></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{group.title||"未命名群组"}</span><span className="mt-0.5 block text-xs text-muted-foreground">{relativeTime(group.last_seen_at)}</span></span><Badge variant={group.status==="active"?"secondary":"outline"}>{group.status==="active"?"活跃":"已离开"}</Badge></a>)}
      <Button asChild variant="outline" className="mt-2 w-full"><a href="/dashboard/groups">管理全部群组<ArrowUpRight className="ml-2 size-4"/></a></Button>
