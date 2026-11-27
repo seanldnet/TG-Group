@@ -61,4 +61,19 @@ func TestPurchasePlanWithWalletPostgres(t *testing.T) {
 	if !nextExpiry.After(firstExpiry.Add(29*24*time.Hour)){t.Fatalf("renewed expiry %v did not extend previous expiry %v by 30 days",nextExpiry,firstExpiry)}
 	if err:=db.Pool.QueryRow(ctx,`SELECT balance_usdt FROM wallet_accounts WHERE user_id=$1`,session.User.ID).Scan(&balance);err!=nil{t.Fatal(err)}
 	if balance!=800{t.Fatalf("wallet balance after renewal = %d, want 800",balance)}
+
+	adminOrders,adminOrderTotal,err:=service.ListAdminOrders(ctx,"paid",email,20,0)
+	if err!=nil{t.Fatalf("list admin orders: %v",err)}
+	if adminOrderTotal!=2||len(adminOrders)!=2{t.Fatalf("admin orders total/items = %d/%d, want 2/2",adminOrderTotal,len(adminOrders))}
+	adminLicenses,adminLicenseTotal,err:=service.ListAdminLicenses(ctx,"active",email,20,0)
+	if err!=nil{t.Fatalf("list admin licenses: %v",err)}
+	if adminLicenseTotal!=1||len(adminLicenses)!=1{t.Fatalf("admin licenses total/items = %d/%d, want 1/1",adminLicenseTotal,len(adminLicenses))}
+	licenseID:=adminLicenses[0].ID
+	suspended,err:=service.SetAdminLicenseStatus(ctx,session.User.ID,licenseID,"suspended")
+	if err!=nil{t.Fatalf("suspend license: %v",err)}
+	if suspended.Status!="suspended"{t.Fatalf("license status = %s, want suspended",suspended.Status)}
+	if _,err:=service.PurchasePlanWithWallet(ctx,session.User.ID,planID,"purchase-key-suspended");!errors.Is(err,ErrLicenseSuspended){t.Fatalf("purchase while license suspended error = %v",err)}
+	restored,err:=service.SetAdminLicenseStatus(ctx,session.User.ID,licenseID,"active")
+	if err!=nil{t.Fatalf("restore license: %v",err)}
+	if restored.Status!="active"{t.Fatalf("restored license status = %s, want active",restored.Status)}
 }
