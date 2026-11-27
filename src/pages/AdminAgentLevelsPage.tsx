@@ -138,7 +138,7 @@ export default function AdminAgentLevelsPage() {
 
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between gap-3"><div><CardTitle className="text-base">{editingID ? "编辑代理等级" : "新增代理等级"}</CardTitle><CardDescription>价格使用整数 USDT，不接受小数。</CardDescription></div>{editingID ? <Button variant="ghost" size="sm" onClick={resetForm}>取消编辑</Button> : <Plus className="size-4 text-muted-foreground"/>}</div>
+            <div className="flex items-center justify-between gap-3"><div><CardTitle className="text-base">{editingID ? "编辑代理等级" : "新增代理等级"}</CardTitle><CardDescription>价格使用整数 USDT，不接受小数。</CardDescription></div>{editingID ? <Button variant="ghost" size="sm" onClick={() => resetForm()}>取消编辑</Button> : <Plus className="size-4 text-muted-foreground"/>}</div>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={(event) => void submit(event)}>
