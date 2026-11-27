@@ -30,7 +30,6 @@ import GroupMemberListsPage from "@/pages/GroupMemberListsPage"
 import GroupRulesPage from "@/pages/GroupRulesPage"
 import GroupRuleEventsPage from "@/pages/GroupRuleEventsPage"
 import PersonalCenterPage from "@/pages/PersonalCenterPage"
-import UnderDevelopmentPage from "@/pages/UnderDevelopmentPage"
 import BusinessWorkspacePage from "@/pages/BusinessWorkspacePage"
 
 import { Badge } from "@/components/ui/badge"
