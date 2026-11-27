@@ -72,6 +72,7 @@ func NewHandlerWithPayments(logger *slog.Logger, authService *auth.Service, botS
 	mux.HandleFunc("PUT /api/v1/admin/payment-channels/{channelCode}",h.updateAdminPaymentChannel)
 	mux.HandleFunc("POST /api/v1/account/wallet/recharge",h.createWalletRecharge)
 	mux.HandleFunc("GET /api/v1/account/wallet/recharges",h.listWalletRecharges)
+	mux.HandleFunc("POST /api/v1/account/wallet/recharges/{orderID}/refresh",h.refreshWalletRecharge)
 	mux.HandleFunc("POST /api/v1/payments/epusdt/gmpay/notify",h.gmpayNotify)
 	mux.HandleFunc("POST /api/v1/admin/agent-levels",h.createAdminAgentLevel)
 	mux.HandleFunc("PATCH /api/v1/admin/agent-levels/{levelID}",h.updateAdminAgentLevel)
@@ -1040,4 +1041,18 @@ func (h *Handler) adminPaymentRecharges(w http.ResponseWriter,r *http.Request){
 	items,total,err:=h.recharge.ListAdminRechargeOrders(r.Context(),status,limit,offset)
 	if err!=nil{h.logger.Error("list admin recharge orders","error",err);writeError(w,http.StatusInternalServerError,"读取充值订单失败");return}
 	writeJSON(w,http.StatusOK,map[string]any{"items":items,"total":total,"limit":limit,"offset":offset})
+}
+
+
+func (h *Handler) refreshWalletRecharge(w http.ResponseWriter,r *http.Request){
+	if !h.requireAuthStore(w){return}
+	user,err:=h.auth.Authenticate(r.Context(),bearerToken(r));if err!=nil{writeError(w,http.StatusUnauthorized,"unauthorized");return}
+	if h.recharge==nil{writeError(w,http.StatusServiceUnavailable,"钱包在线充值暂未配置");return}
+	ctx,cancel:=context.WithTimeout(r.Context(),12*time.Second);defer cancel()
+	order,err:=h.recharge.RefreshUserRechargeOrder(ctx,user.ID,r.PathValue("orderID"))
+	if err!=nil{
+		if errors.Is(err,payments.ErrRechargeOrderNotFound){writeError(w,http.StatusNotFound,"充值订单不存在");return}
+		h.logger.Error("refresh wallet recharge order","error",err);writeError(w,http.StatusBadGateway,"查询支付状态失败，请稍后重试");return
+	}
+	writeJSON(w,http.StatusOK,order)
 }
