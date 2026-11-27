@@ -777,3 +777,16 @@ export function listWalletRecharges(limit = 20, offset = 0) {
     { headers: authenticatedHeaders() },
   )
 }
+
+
+export type SupportedPaymentAsset = {
+  network: string
+  display_name: string
+  tokens: string[]
+}
+
+export function getGMPaySupportedAssets() {
+  return request<{ supported_assets: SupportedPaymentAsset[] }>("/api/v1/admin/payment-channels/epusdt_gmpay/assets", {
+    headers: authenticatedHeaders(),
+  })
+}
