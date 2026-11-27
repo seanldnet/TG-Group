@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { AlertCircle, RefreshCw, Wallet, Crown, ArrowDownUp } from "lucide-react"
-import { getAgentAccount, listWalletLedger, type AgentAccount, type WalletLedgerEntry } from "@/lib/api"
+import { getAgentAccount, listWalletLedger, upgradeAgentWithWallet, type AgentAccount, type WalletLedgerEntry } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,6 +27,8 @@ export default function AgentCenterPage() {
   const [ledgerTotal, setLedgerTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [upgradingLevelID, setUpgradingLevelID] = useState("")
+  const [upgradeMessage, setUpgradeMessage] = useState("")
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -45,6 +47,22 @@ export default function AgentCenterPage() {
       setLoading(false)
     }
   }, [])
+
+  async function handleWalletUpgrade(levelID: string, levelName: string, price: number) {
+    if (!account) return
+    if (!window.confirm(`确认使用钱包余额 ${formatUSDT(price)} USDT 升级至“${levelName}”吗？支付成功后等级将立即生效。`)) return
+    setUpgradingLevelID(levelID)
+    setUpgradeMessage("")
+    try {
+      const order = await upgradeAgentWithWallet(levelID, crypto.randomUUID())
+      setUpgradeMessage(`升级成功，订单号：${order.order_no}。代理等级已自动生效。`)
+      await load()
+    } catch (err) {
+      setUpgradeMessage(err instanceof Error ? err.message : "代理升级失败")
+    } finally {
+      setUpgradingLevelID("")
+    }
+  }
 
   useEffect(() => { void load() }, [load])
 
@@ -124,14 +142,25 @@ export default function AgentCenterPage() {
                       ))}
                     </ul>
                   )}
+                  {account.current_level?.id !== level.id && level.sort_order > (account.current_level?.sort_order ?? -1) && (
+                    <Button
+                      className="mt-4 w-full"
+                      size="sm"
+                      disabled={!!upgradingLevelID || account.wallet_balance_usdt < level.price_usdt}
+                      onClick={() => void handleWalletUpgrade(level.id, level.name, level.price_usdt)}
+                    >
+                      {upgradingLevelID === level.id ? "正在升级…" : `余额升级 · ${formatUSDT(level.price_usdt)} USDT`}
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
           ) : (
             <p className="py-8 text-center text-sm text-muted-foreground">平台暂未开放代理等级。</p>
           )}
+          {upgradeMessage && <p className="mt-4 rounded-lg border p-3 text-sm" role="status">{upgradeMessage}</p>}
           <p className="mt-4 rounded-lg bg-muted/40 p-3 text-xs leading-5 text-muted-foreground">
-            等级目录和账户查询已接入真实接口。自助升级订单、余额扣款与支付确认闭环仍在开发中，当前不会展示虚假的购买或升级按钮。
+            当前已支持使用账户 USDT 余额完成升级，订单、扣款、资金流水和等级生效在同一数据库事务内提交；在线支付渠道仍在开发中。
           </p>
         </CardContent>
       </Card>
