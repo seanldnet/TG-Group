@@ -1150,3 +1150,16 @@
 
 
 - 在 GMPay HMAC-SHA256 基础上补齐 EPUSDT EPay 兼容 MD5 签名/常量时间验签函数，并以官方 EPay 文档公开示例向量测试。该兼容算法仅用于明确启用 EPay 兼容模式，不替代新集成优先的 GMPay HMAC-SHA256。
+
+
+## 2026-11-27（GMPay 钱包充值第一阶段）
+
+- 新增数据库迁移 `000022_wallet_recharge_orders` 及根目录镜像：支付渠道加密配置、钱包充值订单、回调事件去重表和索引。
+- 新增支付渠道配置存储：AES-256-GCM 加密商户 Secret，按渠道代码绑定 AEAD Additional Authenticated Data；管理变更与审计日志在同一事务内提交。
+- 新增 GMPay 下单客户端：官方 HMAC-SHA256 请求签名、订单号关联、HTTPS 收银台 URL 校验、限时 HTTP 请求和响应大小限制。
+- 新增精确 USDT 整数金额解析和 GMPay 回调验证；回调在一个 PostgreSQL 事务中锁定充值订单、钱包入账、写入不可变资金流水并更新订单，重复回调不会二次入账。
+- 新增用户充值订单分页查询、创建充值订单 API、GMPay 异步回调 API、管理员支付渠道配置 API。
+- 新增管理后台 EPUSDT GMPay 配置页和代理中心 USDT 充值表单/充值订单列表。
+- 部署配置：`PAYMENT_CREDENTIALS_ENCRYPTION_KEY`（Base64 32 字节密钥）与 `PAYMENT_PUBLIC_BASE_URL`（HTTPS 公网根地址）需同时设置；没有配置时在线充值保持关闭。
+- 当前限制：尚未接入公共可用资产动态读取、主动查单/超时补偿、EPay 下单及 GET 回调、EPUSDT 状态 5/6 复核界面、真实沙箱和生产回调联调；支付能力不得宣称生产已上线。
+- 最新验证提交 `089808c` 的 CI 与 Docker 构建仍在运行，结果待记录。
