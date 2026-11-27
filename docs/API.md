@@ -428,7 +428,7 @@ openssl rand -base64 32
 ### 平台支付渠道管理
 
 - `GET /api/v1/admin/payment-channels`：平台管理员查询渠道配置状态；仅返回网关地址、PID、币种、资产、网络和启用状态，不返回密钥。
-- `PUT /api/v1/admin/payment-channels/{channelCode}`：平台管理员保存 `epusdt_gmpay` 或 `epusdt_epay` 配置；请求包含 `name`、`base_url`、`merchant_pid`、`secret_key`、`currency`、`token`、`network`、`enabled`。密钥使用 AES-256-GCM 加密存储，变更写入审计日志。
+- `GET /api/v1/admin/payment-channels/epusdt_gmpay/assets`：平台管理员通过已保存的网关地址读取 EPUSDT 公共配置中的 `supported_assets`，用于核对网络与 USDT 支持情况。\n- `PUT /api/v1/admin/payment-channels/{channelCode}`：平台管理员保存 `epusdt_gmpay` 或 `epusdt_epay` 配置；请求包含 `name`、`base_url`、`merchant_pid`、`secret_key`、`currency`、`token`、`network`、`enabled`。密钥使用 AES-256-GCM 加密存储，变更写入审计日志。
 
 ### 用户钱包充值
 
