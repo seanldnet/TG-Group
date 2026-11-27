@@ -54,6 +54,7 @@ func (s *RechargeService) CreateGMPayOrder(ctx context.Context,userID string,amo
 	if amountUSDT<=0{return RechargeOrder{},ErrInvalidChannelConfig}
 	channel,err:=s.channels.Load(ctx,"epusdt_gmpay")
 	if err!=nil{return RechargeOrder{},fmt.Errorf("load GMPay channel: %w",err)}
+	if !channel.Enabled{return RechargeOrder{},ErrInvalidChannelConfig}
 	merchantOrderID,err:=newMerchantOrderID()
 	if err!=nil{return RechargeOrder{},fmt.Errorf("generate recharge merchant order ID: %w",err)}
 	tx,err:=s.pool.BeginTx(ctx,pgx.TxOptions{})
