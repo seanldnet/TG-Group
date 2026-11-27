@@ -1137,3 +1137,13 @@
 
 
 - CI 回归补充：新增输入边界测试发现纯空格等级名称此前未被拒绝，已在服务层校验中修复；以 `2d4d8f6` 最新提交重新触发 Go/前端 CI 与 Docker 构建，等待结果。
+
+
+## 2026-11-27（EPUSDT / GMPay 协议核对与签名原语）
+
+- 核对 EPUSDT 官方 Merchant API 与 API Reference：GMPay 创建订单路由、HMAC-SHA256 规范化签名、商户回调字段、订单状态、EPay MD5 兼容方式和回调确认语义。
+- 新增 `internal/payments` GMPay 签名与常量时间验签函数；测试使用官方文档公开示例向量，并覆盖空字段/签名字段排除和参数篡改。
+- 新增 `docs/PAYMENTS-INTEGRATION.md`，记录协议、订单状态机、回调事务要求和项目金额约束。
+- 重要金额边界：EPUSDT 的 `actual_amount` 为小数加密资产数量，而项目业务要求 USDT 整数；充值实现必须拒绝非整数到账金额，不能浮点四舍五入/截断，或先由产品明确调整最小精度单位。
+- 尚未接入支付网关配置、充值订单、主动查单、回调路由和钱包入账；需取得实际 Base URL、PID/Secret、网络/Token 配置与公网 HTTPS 回调地址后联调。
+- 参考官方文档：https://www.epusdt.com/api/payment 、https://www.epusdt.com/api/reference。
