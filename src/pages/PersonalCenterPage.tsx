@@ -3,7 +3,9 @@ import { ArrowUpRight, CalendarDays, CircleUserRound, Link2, ShieldCheck } from 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { currentUser, getTelegramIdentity, type User, type TelegramIdentityStatus } from "@/lib/api"
+import { currentUser, getTelegramIdentity, updateProfile, type User, type TelegramIdentityStatus } from "@/lib/api"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 function Field({ label, value }: { label: string; value: string }) {
   return <div className="space-y-1.5 rounded-lg border bg-card px-4 py-3">
@@ -16,13 +18,32 @@ export default function PersonalCenterPage() {
   const [user, setUser] = useState<User | null>(null)
   const [telegram, setTelegram] = useState<TelegramIdentityStatus | null>(null)
   const [error, setError] = useState("")
+  const [profileName, setProfileName] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [notice, setNotice] = useState("")
   useEffect(() => {
     let active = true
     Promise.all([currentUser(), getTelegramIdentity()])
-      .then(([account, identity]) => { if (active) { setUser(account); setTelegram(identity) } })
+      .then(([account, identity]) => { if (active) { setUser(account); setProfileName(account.display_name || ""); setTelegram(identity) } })
       .catch((e: unknown) => { if (active) setError(e instanceof Error ? e.message : "账户信息加载失败") })
     return () => { active = false }
   }, [])
+  async function saveProfile(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError("")
+    setNotice("")
+    setSaving(true)
+    try {
+      const updated = await updateProfile({ display_name: profileName.trim() })
+      setUser(updated)
+      setProfileName(updated.display_name)
+      setNotice("个人资料已保存")
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "保存个人资料失败")
+    } finally {
+      setSaving(false)
+    }
+  }
   const displayName = user?.display_name || "用户"
   const telegramName = telegram?.linked
     ? [telegram.telegram.first_name, telegram.telegram.last_name].filter(Boolean).join(" ") || telegram.telegram.username || "已关联账号"
@@ -50,6 +71,10 @@ export default function PersonalCenterPage() {
           <Field label="账户角色" value={user?.role === "admin" ? "管理员" : user ? "普通用户" : "加载中..."}/>
           <Field label="注册时间" value={user?.created_at ? new Date(user.created_at).toLocaleString() : "加载中..."}/>
           <Field label="所属租户" value={user?.tenant_id || "加载中..."}/>
+          <form className="space-y-3 rounded-lg border p-4 sm:col-span-2" onSubmit={saveProfile}>
+            <div className="space-y-1"><Label htmlFor="profile-display-name">显示名称</Label><Input id="profile-display-name" value={profileName} onChange={event => setProfileName(event.target.value)} maxLength={40} placeholder="输入显示名称" disabled={!user || saving}/><p className="text-xs text-muted-foreground">最多 40 个字符，修改后会同步更新账户显示名称。</p></div>
+            <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-muted-foreground">{profileName.length}/40</span><Button type="submit" disabled={!user || saving || !profileName.trim() || profileName.trim() === user.display_name}>{saving ? "正在保存..." : "保存资料"}</Button></div>
+          </form>
         </CardContent>
       </Card>
       <div className="space-y-5">
@@ -73,6 +98,7 @@ export default function PersonalCenterPage() {
         </Card>
       </div>
     </div>
-    <p className="flex items-center gap-2 text-xs text-muted-foreground"><CalendarDays className="size-3.5"/>资料来自当前登录账户；个人资料编辑功能将在后续接入保存接口后开放。</p>
+    {notice && <p role="status" className="text-sm text-emerald-600">{notice}</p>}
+    <p className="flex items-center gap-2 text-xs text-muted-foreground"><CalendarDays className="size-3.5"/>资料修改会记录到账户安全日志。</p>
   </main>
 }
