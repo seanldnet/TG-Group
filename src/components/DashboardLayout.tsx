@@ -15,6 +15,7 @@ const workspace: NavItem[] = [
   { href: "/dashboard", label: "总览", icon: LayoutDashboard },
   { href: "/dashboard/bots", label: "机器人管理", icon: Bot },
   { href: "/dashboard/groups", label: "群组管理", icon: UsersRound },
+  { href: "/dashboard/bot-sponsors", label: "机器人赞助商", icon: Handshake },
 ]
 const account: NavItem[] = [
   { href: "/dashboard/account/profile", label: "个人中心", icon: UserRound },
@@ -33,7 +34,6 @@ const business: NavItem[] = [
   { href: "/dashboard/payments", label: "支付管理", icon: CreditCard },
   { href: "/dashboard/licenses", label: "授权管理", icon: ShieldCheck },
   { href: "/dashboard/finance", label: "财务概览", icon: FileText },
-  { href: "/dashboard/sponsors", label: "赞助商管理", icon: Handshake },
   { href: "/dashboard/ai", label: "AI 智能审核", icon: Sparkles },
   { href: "/dashboard/tasks", label: "定时任务", icon: ListChecks },
   { href: "/dashboard/analytics", label: "数据统计", icon: ChartNoAxesCombined },
@@ -46,7 +46,6 @@ const administration: NavItem[] = [
   { href: "/dashboard/admin/orders", label: "平台订单", icon: Receipt },
   { href: "/dashboard/admin/payments", label: "支付渠道", icon: CreditCard },
   { href: "/dashboard/admin/licenses", label: "全站授权", icon: ShieldCheck },
-  { href: "/dashboard/admin/sponsors", label: "平台赞助商", icon: Handshake },
   { href: "/dashboard/admin/ai", label: "AI 服务配置", icon: Sparkles },
   { href: "/dashboard/admin/audit", label: "平台审计", icon: ClipboardList },
   { href: "/dashboard/platform", label: "平台设置", icon: Settings },
