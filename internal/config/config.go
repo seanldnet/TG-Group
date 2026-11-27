@@ -38,7 +38,7 @@ func Load() (Config, error) {
 	}
 	paymentEncryptionKey:=strings.TrimSpace(os.Getenv("PAYMENT_CREDENTIALS_ENCRYPTION_KEY"))
 	paymentPublicBaseURL:=strings.TrimRight(strings.TrimSpace(os.Getenv("PAYMENT_PUBLIC_BASE_URL")),"/")
-	if (paymentEncryptionKey!="")!=(paymentPublicBaseURL!=""){return Config{},fmt.Errorf("PAYMENT_CREDENTIALS_ENCRYPTION_KEY and PAYMENT_PUBLIC_BASE_URL must be configured together")}
+	if paymentPublicBaseURL!=""&&paymentEncryptionKey==""{return Config{},fmt.Errorf("PAYMENT_CREDENTIALS_ENCRYPTION_KEY is required when PAYMENT_PUBLIC_BASE_URL is set")}
 	if paymentPublicBaseURL!=""{
 		u,parseErr:=url.Parse(paymentPublicBaseURL)
 		if parseErr!=nil||u.Scheme!="https"||u.Host==""||u.User!=nil||u.RawQuery!=""||u.Fragment!=""{return Config{},fmt.Errorf("PAYMENT_PUBLIC_BASE_URL must be an HTTPS origin")}
