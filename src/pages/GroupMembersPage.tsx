@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowLeft, RefreshCw, UsersRound } from "lucide-react"
 import { addGroupMemberWarning, clearGroupMemberWarnings, getGroupBotPermissions, listGroupMemberWarnings, listGroupMembers, moderateGroupMember, listWarningEscalations, retryWarningEscalation, type TelegramWarningEscalationExecution, type TelegramGroupBotPermissions, type TelegramGroupMember, type TelegramGroupMemberWarning } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Card,
   CardContent,
@@ -36,6 +37,8 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
   const [items, setItems] = useState<TelegramGroupMember[]>([])
   const [page, setPage] = useState(1)
   const [memberTotal, setMemberTotal] = useState(0)
+  const [searchInput, setSearchInput] = useState("")
+  const [appliedSearch, setAppliedSearch] = useState("")
   const pageSize = 20
   const pageCount = Math.max(1, Math.ceil(memberTotal / pageSize))
   const [loading, setLoading] = useState(true)
@@ -56,11 +59,11 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
   const escalationPageSize = 10
   const escalationPageCount = Math.max(1, Math.ceil(escalationTotal / escalationPageSize))
 
-  const refresh = useCallback(async (manual = false, targetPage = 1) => {
+  const refresh = useCallback(async (manual = false, targetPage = 1, targetSearch = appliedSearch) => {
     setError("")
     if (manual) setRefreshing(true)
     try {
-      const [response, permissionResult] = await Promise.all([listGroupMembers(groupID, pageSize, (targetPage - 1) * pageSize), getGroupBotPermissions(groupID)])
+      const [response, permissionResult] = await Promise.all([listGroupMembers(groupID, pageSize, (targetPage - 1) * pageSize, targetSearch), getGroupBotPermissions(groupID)])
       setItems(response.items)
       setMemberTotal(response.total)
       setPage(targetPage)
@@ -71,7 +74,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [groupID])
+  }, [groupID, appliedSearch])
 
   useEffect(() => {
     void refresh()
@@ -216,6 +219,23 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
             </div>
           </CardHeader>
           <CardContent>
+            <form className="mb-4 flex flex-col gap-2 sm:flex-row" onSubmit={(event) => {
+              event.preventDefault()
+              const nextSearch = searchInput.trim()
+              setAppliedSearch(nextSearch)
+              void refresh(false, 1, nextSearch)
+            }}>
+              <Input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="搜索 Telegram ID、用户名、名字或姓氏" maxLength={100} />
+              <div className="flex gap-2">
+                <Button type="submit" disabled={loading}>搜索</Button>
+                <Button type="button" variant="outline" disabled={loading && !appliedSearch} onClick={() => {
+                  setSearchInput("")
+                  setAppliedSearch("")
+                  void refresh(false, 1, "")
+                }}>清空</Button>
+              </div>
+            </form>
+            {appliedSearch && <p className="mb-3 text-xs text-muted-foreground">当前搜索：{appliedSearch} · 匹配 {memberTotal} 位成员</p>}
             {loading ? (
               <p className="py-10 text-center text-sm text-muted-foreground">正在加载群成员...</p>
             ) : items.length === 0 ? (
