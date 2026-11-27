@@ -957,24 +957,8 @@ func (h *Handler) gmpayNotify(w http.ResponseWriter,r *http.Request){
 	if h.recharge==nil{http.Error(w,"payment service unavailable",http.StatusServiceUnavailable);return}
 	r.Body=http.MaxBytesReader(w,r.Body,64<<10)
 	raw,err:=io.ReadAll(r.Body);if err!=nil{http.Error(w,"invalid callback body",http.StatusBadRequest);return}
-	var rawParams map[string]any
-	decoder:=json.NewDecoder(strings.NewReader(string(raw)));decoder.UseNumber()
-	if err:=decoder.Decode(&rawParams);err!=nil{http.Error(w,"invalid callback JSON",http.StatusBadRequest);return}
-	params:=make(map[string]string,len(rawParams))
-	for key,value:=range rawParams{
-		switch typed:=value.(type){
-		case nil:
-			continue
-		case string:
-			params[key]=typed
-		case json.Number:
-			normalized,normalizeErr:=payments.NormalizeJSONNumber(typed.String())
-			if normalizeErr!=nil{http.Error(w,"invalid callback number",http.StatusBadRequest);return}
-			params[key]=normalized
-		default:
-			http.Error(w,"invalid callback field",http.StatusBadRequest);return
-		}
-	}
+	params,err:=decodeGMPayCallbackParams(raw)
+	if err!=nil{http.Error(w,"invalid callback JSON",http.StatusBadRequest);return}
 	hash:=sha256.Sum256(raw)
 	ctx,cancel:=context.WithTimeout(r.Context(),10*time.Second);defer cancel()
 	if err:=h.recharge.ApplyGMPayCallback(ctx,params,hash[:]);err!=nil{
@@ -1002,4 +986,30 @@ func (h *Handler) adminGMPayAssets(w http.ResponseWriter,r *http.Request){
 	config,err:=h.recharge.GetGMPayPublicConfig(ctx)
 	if err!=nil{h.logger.Error("read GMPay supported assets","error",err);writeError(w,http.StatusBadGateway,"读取 EPUSDT 支持的资产和网络失败");return}
 	writeJSON(w,http.StatusOK,config)
+}
+
+
+func decodeGMPayCallbackParams(raw []byte)(map[string]string,error){
+	decoder:=json.NewDecoder(strings.NewReader(string(raw)))
+	decoder.UseNumber()
+	var rawParams map[string]any
+	if err:=decoder.Decode(&rawParams);err!=nil{return nil,err}
+	var trailing any
+	if err:=decoder.Decode(&trailing);err!=io.EOF{return nil,errors.New("trailing callback JSON")}
+	params:=make(map[string]string,len(rawParams))
+	for key,value:=range rawParams{
+		switch typed:=value.(type){
+		case nil:
+			continue
+		case string:
+			params[key]=typed
+		case json.Number:
+			normalized,err:=payments.NormalizeJSONNumber(typed.String())
+			if err!=nil{return nil,err}
+			params[key]=normalized
+		default:
+			return nil,errors.New("unsupported callback field type")
+		}
+	}
+	return params,nil
 }
