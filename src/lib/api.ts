@@ -23,6 +23,7 @@ export type AgentLevel = {
   price_usdt: number
   sort_order: number
   benefits: Record<string, unknown>
+  enabled: boolean
 }
 
 export type AgentAccount = {
@@ -158,6 +159,40 @@ export function updateProfile(input: { display_name: string }) {
 export function getAgentAccount() {
   return request<AgentAccount>("/api/v1/account/agent", {
     headers: authenticatedHeaders(),
+  })
+}
+
+export function listAdminAgentLevels() {
+  return request<{ items: AgentLevel[] }>("/api/v1/admin/agent-levels", {
+    headers: authenticatedHeaders(),
+  })
+}
+
+export function createAdminAgentLevel(input: {
+  code: string
+  name: string
+  price_usdt: number
+  sort_order: number
+  benefits: Record<string, unknown>
+}) {
+  return request<AgentLevel>("/api/v1/admin/agent-levels", {
+    method: "POST",
+    headers: authenticatedHeaders(),
+    body: JSON.stringify(input),
+  })
+}
+
+export function updateAdminAgentLevel(levelID: string, input: {
+  name: string
+  price_usdt: number
+  sort_order: number
+  benefits: Record<string, unknown>
+  enabled: boolean
+}) {
+  return request<AgentLevel>(`/api/v1/admin/agent-levels/${encodeURIComponent(levelID)}`, {
+    method: "PATCH",
+    headers: authenticatedHeaders(),
+    body: JSON.stringify(input),
   })
 }
 
