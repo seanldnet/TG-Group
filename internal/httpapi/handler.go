@@ -895,18 +895,23 @@ type adminPaymentChannelRequest struct {
 	Enabled bool `json:"enabled"`
 }
 
+func (h *Handler) paymentAdmin(w http.ResponseWriter,r *http.Request)(auth.User,bool){
+	if h.auth==nil{writeError(w,http.StatusServiceUnavailable,"authentication service unavailable");return auth.User{},false}
+	user,ok:=h.currentUser(w,r);if !ok{return auth.User{},false}
+	if user.Role!="admin"{writeError(w,http.StatusForbidden,"platform administrator permission required");return auth.User{},false}
+	if h.paymentChannels==nil{writeError(w,http.StatusServiceUnavailable,"payment credentials encryption is not configured");return auth.User{},false}
+	return user,true
+}
+
 func (h *Handler) adminPaymentChannels(w http.ResponseWriter,r *http.Request){
-	user,ok:=h.platformAdmin(w,r);if !ok{return}
-	_ = user
-	if h.paymentChannels==nil{writeError(w,http.StatusServiceUnavailable,"payment credentials encryption is not configured");return}
+	if _,ok:=h.paymentAdmin(w,r);!ok{return}
 	items,err:=h.paymentChannels.List(r.Context())
 	if err!=nil{h.logger.Error("list payment channels","error",err);writeError(w,http.StatusInternalServerError,"读取支付渠道配置失败");return}
 	writeJSON(w,http.StatusOK,map[string]any{"items":items})
 }
 
 func (h *Handler) updateAdminPaymentChannel(w http.ResponseWriter,r *http.Request){
-	user,ok:=h.platformAdmin(w,r);if !ok{return}
-	if h.paymentChannels==nil{writeError(w,http.StatusServiceUnavailable,"payment credentials encryption is not configured");return}
+	user,ok:=h.paymentAdmin(w,r);if !ok{return}
 	var input adminPaymentChannelRequest
 	if !decodeJSON(w,r,&input){return}
 	channel:=payments.ChannelConfig{Code:r.PathValue("channelCode"),Name:input.Name,BaseURL:input.BaseURL,MerchantPID:input.MerchantPID,SecretKey:input.SecretKey,Currency:input.Currency,Token:input.Token,Network:input.Network,Enabled:input.Enabled}
