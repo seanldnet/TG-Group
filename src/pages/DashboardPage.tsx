@@ -44,10 +44,12 @@ export default function DashboardPage(){
  const [bots,setBots]=useState<TelegramBot[]>([])
  const [groups,setGroups]=useState<TelegramGroup[]>([])
  const [events,setEvents]=useState<ActivityItem[]>([])
+ const [chartEvents,setChartEvents]=useState<ActivityItem[]>([])
  const [error,setError]=useState("")
  const [loading,setLoading]=useState(true)
  const [refreshing,setRefreshing]=useState(false)
  const [lastUpdated,setLastUpdated]=useState<Date|null>(null)
+ const [apiConnected,setApiConnected]=useState<boolean|null>(null)
  const refresh=useCallback(async()=>{
   setRefreshing(true)
   try{
@@ -60,8 +62,8 @@ export default function DashboardPage(){
     if(result.status==="fulfilled")for(const event of result.value.items||[])collected.push({...event,groupTitle:recentGroups[index].title||"未命名群组"})
    })
    collected.sort((a,b)=>new Date(b.received_at).getTime()-new Date(a.received_at).getTime())
-   setEvents(collected.slice(0,12));setError("");setLastUpdated(new Date())
-  }catch(e){setError(e instanceof Error?e.message:"仪表盘加载失败")}
+   setChartEvents(collected);setEvents(collected.slice(0,12));setError("");setApiConnected(true);setLastUpdated(new Date())
+  }catch(e){setApiConnected(false);setError(e instanceof Error?e.message:"仪表盘加载失败")}
   finally{setLoading(false);setRefreshing(false)}
  },[])
  useEffect(()=>{
@@ -77,14 +79,14 @@ export default function DashboardPage(){
    const start=now-(11-index)*60*60*1000
    return {label:new Date(start).toLocaleTimeString("zh-CN",{hour:"2-digit",minute:undefined}),count:0}
   })
-  for(const event of events){
+  for(const event of chartEvents){
    const age=now-new Date(event.received_at).getTime()
    const index=11-Math.floor(age/3600000)
    if(index>=0&&index<12)buckets[index].count++
   }
   const max=Math.max(1,...buckets.map(bucket=>bucket.count))
   return buckets.map(bucket=>({...bucket,height:Math.max(7,Math.round(bucket.count/max*100))}))
- },[events,lastUpdated])
+ },[chartEvents,lastUpdated])
  const recentGroups=useMemo(()=>[...groups].sort((a,b)=>new Date(b.last_seen_at||0).getTime()-new Date(a.last_seen_at||0).getTime()).slice(0,5),[groups])
  return <main className="mx-auto w-full max-w-[1440px] space-y-6 p-4 sm:p-6 lg:p-8">
   <section className="dashboard-hero dashboard-enter relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-sm sm:p-7">
@@ -92,7 +94,7 @@ export default function DashboardPage(){
    <div className="dashboard-orb dashboard-orb-delay pointer-events-none absolute bottom-[-7rem] right-[28%] -z-10 size-56 rounded-full bg-sky-400/10 blur-3xl"/>
    <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
     <div className="min-w-0">
-     <div className="mb-3 flex flex-wrap items-center gap-2"><Badge variant="secondary" className="gap-1.5"><span className="dashboard-live-dot size-1.5 rounded-full bg-emerald-500"/>运行中</Badge></div>
+     <div className="mb-3 flex flex-wrap items-center gap-2"><Badge variant={apiConnected===true?"secondary":apiConnected===false?"destructive":"outline"} className="gap-1.5"><span className={"dashboard-live-dot size-1.5 rounded-full "+(apiConnected===true?"bg-emerald-500":apiConnected===false?"bg-destructive":"bg-muted-foreground")}/>{apiConnected===true?"数据已同步":apiConnected===false?"连接异常":"正在连接"}</Badge></div>
      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">欢迎回来，{user?.display_name||user?.email||"用户"}</h1>
      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">集中查看 Bot 接入、群组状态与最新群内动态。所有统计均来自当前账号实际接入的数据。</p>
     </div>
@@ -112,7 +114,7 @@ export default function DashboardPage(){
   <section className="grid gap-4 xl:grid-cols-[1.45fr_0.85fr]">
    <Card className="dashboard-enter overflow-hidden border-border/70 shadow-sm">
     <CardHeader className="flex flex-row items-start justify-between gap-3">
-     <div><CardTitle className="flex items-center gap-2 text-base"><Activity className="size-4 text-primary"/>群消息活跃趋势</CardTitle><CardDescription className="mt-1">最近 12 小时已采集消息分布 · </CardDescription></div>
+     <div><CardTitle className="flex items-center gap-2 text-base"><Activity className="size-4 text-primary"/>群消息活跃趋势</CardTitle><CardDescription className="mt-1">最近 12 小时采集消息按小时分布 · </CardDescription></div>
      <Badge variant="outline" className="shrink-0 gap-1.5"><Radio className="size-3 text-emerald-500"/>动态</Badge>
     </CardHeader>
     <CardContent>
@@ -125,7 +127,7 @@ export default function DashboardPage(){
    <Card className="dashboard-enter border-border/70 shadow-sm">
     <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Wifi className="size-4 text-primary"/>系统连接状态</CardTitle><CardDescription></CardDescription></CardHeader>
     <CardContent className="space-y-4">
-     <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-sm"><span className="dashboard-live-dot size-2 rounded-full bg-emerald-500"/>网页 API</div><Badge variant="secondary">已连接</Badge></div>
+     <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-sm"><span className={"dashboard-live-dot size-2 rounded-full "+(apiConnected===true?"bg-emerald-500":apiConnected===false?"bg-destructive":"bg-muted-foreground")}/>网页 API</div><Badge variant={apiConnected===true?"secondary":apiConnected===false?"destructive":"outline"}>{apiConnected===true?"已连接":apiConnected===false?"连接异常":"检测中"}</Badge></div>
      <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-sm"><Bot className="size-4 text-muted-foreground"/>Bot 接入</div><span className="text-sm font-medium tabular-nums">{activeBots}/{bots.length} 运行中</span></div>
      <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-sm"><UsersRound className="size-4 text-muted-foreground"/>群组同步</div><span className="text-sm font-medium tabular-nums">{activeGroups}/{groups.length} 活跃</span></div>
      <div className="rounded-lg bg-muted/50 p-3 text-xs leading-5 text-muted-foreground">数据每 30 秒自动更新。</div>
