@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -189,4 +190,68 @@ func (s *Service) UpgradeAgentWithWallet(ctx context.Context, userID, targetLeve
 	}
 	if err:=tx.Commit(ctx);err!=nil { return AgentUpgradeOrder{},fmt.Errorf("commit agent upgrade: %w",err) }
 	return order,nil
+}
+
+
+var ErrInvalidAgentLevel = errors.New("invalid agent level")
+
+func validateAgentLevel(code,name string,price int64,sortOrder int32) error {
+	if len(code)<2 || len(code)>40 || len(name)==0 || len(name)>80 || price<0 || sortOrder<0 {
+		return ErrInvalidAgentLevel
+	}
+	for _,r:=range code {
+		if !(r>='a'&&r<='z') && !(r>='0'&&r<='9') && r!='_' && r!='-' { return ErrInvalidAgentLevel }
+	}
+	return nil
+}
+
+func (s *Service) ListAdminAgentLevels(ctx context.Context) ([]AgentLevel,error) {
+	rows,err:=s.pool.Query(ctx,`SELECT id::text,code,name,price_usdt,sort_order,benefits FROM agent_levels ORDER BY sort_order,price_usdt,id`)
+	if err!=nil{return nil,fmt.Errorf("list admin agent levels: %w",err)}
+	defer rows.Close()
+	items:=make([]AgentLevel,0)
+	for rows.Next(){var item AgentLevel;if err:=rows.Scan(&item.ID,&item.Code,&item.Name,&item.PriceUSDT,&item.SortOrder,&item.Benefits);err!=nil{return nil,fmt.Errorf("scan admin agent level: %w",err)};items=append(items,item)}
+	if err:=rows.Err();err!=nil{return nil,fmt.Errorf("iterate admin agent levels: %w",err)}
+	return items,nil
+}
+
+func (s *Service) CreateAdminAgentLevel(ctx context.Context,actorID,code,name string,price int64,sortOrder int32,benefits map[string]any)(AgentLevel,error){
+	code=strings.TrimSpace(strings.ToLower(code));name=strings.TrimSpace(name)
+	if err:=validateAgentLevel(code,name,price,sortOrder);err!=nil{return AgentLevel{},err}
+	if benefits==nil{benefits=map[string]any{}}
+	raw,err:=json.Marshal(benefits);if err!=nil{return AgentLevel{},ErrInvalidAgentLevel}
+	tx,err:=s.pool.BeginTx(ctx,pgx.TxOptions{});if err!=nil{return AgentLevel{},fmt.Errorf("begin create agent level: %w",err)}
+	defer tx.Rollback(ctx)
+	var item AgentLevel
+	err=tx.QueryRow(ctx,`INSERT INTO agent_levels(code,name,price_usdt,sort_order,benefits) VALUES($1,$2,$3,$4,$5::jsonb)
+		RETURNING id::text,code,name,price_usdt,sort_order,benefits`,code,name,price,sortOrder,string(raw)).
+		Scan(&item.ID,&item.Code,&item.Name,&item.PriceUSDT,&item.SortOrder,&item.Benefits)
+	if err!=nil{return AgentLevel{},fmt.Errorf("create agent level: %w",err)}
+	var tenantID string
+	if err:=tx.QueryRow(ctx,`SELECT tenant_id::text FROM users WHERE id=$1`,actorID).Scan(&tenantID);err!=nil{return AgentLevel{},fmt.Errorf("load agent level actor tenant: %w",err)}
+	if _,err:=tx.Exec(ctx,`INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id)
+		VALUES($1,$2,'agent.level.create','agent_level',$3)`,tenantID,actorID,item.ID);err!=nil{return AgentLevel{},fmt.Errorf("audit agent level create: %w",err)}
+	if err:=tx.Commit(ctx);err!=nil{return AgentLevel{},fmt.Errorf("commit agent level create: %w",err)}
+	return item,nil
+}
+
+func (s *Service) UpdateAdminAgentLevel(ctx context.Context,actorID,levelID,name string,price int64,sortOrder int32,benefits map[string]any,enabled bool)(AgentLevel,error){
+	name=strings.TrimSpace(name)
+	if len(name)==0 || len(name)>80 || price<0 || sortOrder<0{return AgentLevel{},ErrInvalidAgentLevel}
+	if benefits==nil{benefits=map[string]any{}}
+	raw,err:=json.Marshal(benefits);if err!=nil{return AgentLevel{},ErrInvalidAgentLevel}
+	tx,err:=s.pool.BeginTx(ctx,pgx.TxOptions{});if err!=nil{return AgentLevel{},fmt.Errorf("begin update agent level: %w",err)}
+	defer tx.Rollback(ctx)
+	var item AgentLevel
+	err=tx.QueryRow(ctx,`UPDATE agent_levels SET name=$2,price_usdt=$3,sort_order=$4,benefits=$5::jsonb,enabled=$6,updated_at=now()
+		WHERE id=$1 RETURNING id::text,code,name,price_usdt,sort_order,benefits`,levelID,name,price,sortOrder,string(raw),enabled).
+		Scan(&item.ID,&item.Code,&item.Name,&item.PriceUSDT,&item.SortOrder,&item.Benefits)
+	if errors.Is(err,pgx.ErrNoRows){return AgentLevel{},ErrAgentLevelNotUpgradeable}
+	if err!=nil{return AgentLevel{},fmt.Errorf("update agent level: %w",err)}
+	var tenantID string
+	if err:=tx.QueryRow(ctx,`SELECT tenant_id::text FROM users WHERE id=$1`,actorID).Scan(&tenantID);err!=nil{return AgentLevel{},fmt.Errorf("load agent level actor tenant: %w",err)}
+	if _,err:=tx.Exec(ctx,`INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id)
+		VALUES($1,$2,'agent.level.update','agent_level',$3)`,tenantID,actorID,item.ID);err!=nil{return AgentLevel{},fmt.Errorf("audit agent level update: %w",err)}
+	if err:=tx.Commit(ctx);err!=nil{return AgentLevel{},fmt.Errorf("commit agent level update: %w",err)}
+	return item,nil
 }
