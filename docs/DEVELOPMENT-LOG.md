@@ -1242,3 +1242,15 @@
 - 金额前端校验为正整数 USDT；页面明确提示主动查单不直接入账，最终钱包入账仍以服务端验签回调为准。未新增支付成功按钮或客户端入账逻辑。
 - 涉及：`src/pages/WalletPaymentsPage.tsx`、`src/App.tsx`。复用既有 `createWalletRecharge`、`listWalletRecharges`、`refreshWalletRecharge` API。
 - 验证：等待本分支 GitHub Actions Go test/vet、前端 typecheck/build 结果；真实支付联调仍依赖部署环境配置渠道凭据和 HTTPS 公网回调地址。
+
+
+## 2026-11-28（套餐目录与平台配置第一阶段）
+
+- 新增 PostgreSQL `000023_plans_catalog` 迁移，并同步 internal embed migrations 与根目录迁移文件。
+- 新增套餐数据模型：标识、名称、说明、整数 USDT 价格、有效期、Bot/群组额度、JSON 功能配置、排序与启用状态。
+- 新增登录用户套餐目录读取 API；平台管理员可读取全部套餐、创建套餐、编辑配置及上下架。管理员写操作与平台审计日志在同一事务内提交。
+- 所有管理员接口服务端验证平台管理员角色；普通用户只能读取开放套餐，不可访问管理接口。
+- 新增套餐目录前端页面与平台管理员编辑表单；使用现有 shadcn/ui 组件，不引入新 UI 库。
+- 增加套餐标识、整数金额、期限和额度边界单测；同步 API 文档与开发计划。
+- **未完成边界**：本阶段不包含订单创建、支付关联、授权自动开通/续期、到期 worker；不能将套餐购买闭环标记为完成。
+- 验证：等待本分支 Go test/vet 与前端 typecheck/build CI。
