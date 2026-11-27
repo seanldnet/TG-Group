@@ -1043,3 +1043,12 @@
 - **组件规范**：个人中心编辑使用现有 shadcn/ui Input、Label、Button；未新增自制基础控件。
 - **涉及文件**：internal/auth/profile.go、internal/httpapi/handler.go、internal/httpapi/handler_test.go、src/lib/api.ts、src/pages/PersonalCenterPage.tsx、src/App.tsx、docs/API.md。
 - **验证状态**：已提交 main，等待本批最新 CI 验证；未宣称通过，需以 Actions 结果为准。
+
+
+## 2026-11-27：全站业务工作区交互补齐（第一轮）
+- 将通用业务工作区的创建入口改为可展开的表单交互，支持名称、备注、USDT 整数金额和状态字段。
+- 增加本地必填校验与金额整数校验；明确当前仅校验草稿，不写数据库、不伪造创建成功。
+- 增加按状态筛选、统计周期、每页条数、标签视图、搜索条件与分页控件；数据源未接入时明确展示真实空状态。
+- 切换路由时重置当前模块的标签、筛选和草稿状态，避免不同业务模块之间残留表单内容。
+- 覆盖范围为 BusinessWorkspacePage 所承载的代理、等级、佣金、API 密钥、套餐、订单、支付、授权、财务、AI、任务、统计、审计及平台管理页面。
+- 边界：本轮补齐页面交互，不代表上述模块后端 CRUD、支付、数据库持久化已完成；下一步按现有 Go 数据模型逐模块接 API。
