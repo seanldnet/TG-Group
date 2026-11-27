@@ -80,6 +80,9 @@ func (s *Service) Register(ctx context.Context, email, password, displayName, us
 		if isUniqueViolation(err) { return Session{}, ErrEmailTaken }
 		return Session{}, fmt.Errorf("create user: %w", err)
 	}
+	if _, err := tx.Exec(ctx, `INSERT INTO wallet_accounts(user_id) VALUES($1) ON CONFLICT (user_id) DO NOTHING`, userID); err != nil {
+		return Session{}, fmt.Errorf("create user wallet: %w", err)
+	}
 	var familyID string
 	if err := tx.QueryRow(ctx, `INSERT INTO user_refresh_tokens(user_id,token_hash,expires_at,user_agent,ip_address)
 		VALUES($1,$2,$3,$4,NULLIF($5,'')::inet) RETURNING family_id::text`, userID, refreshHash, refreshExpires, userAgent, ip).Scan(&familyID); err != nil {
