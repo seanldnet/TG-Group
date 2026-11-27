@@ -309,3 +309,33 @@ func TestGenerateJoinChallengeModes(t *testing.T) {
 		t.Fatal("unsupported CAPTCHA mode should fail closed")
 	}
 }
+
+func TestTelegramMessageMediaType(t *testing.T) {
+	tests := []struct {
+		name string
+		message *telegramMessage
+		want string
+	}{
+		{name: "photo", message: &telegramMessage{Photo: []json.RawMessage{json.RawMessage(`{}`)}}, want: "photo"},
+		{name: "video", message: &telegramMessage{Video: json.RawMessage(`{}`)}, want: "video"},
+		{name: "animation", message: &telegramMessage{Animation: json.RawMessage(`{}`)}, want: "animation"},
+		{name: "sticker", message: &telegramMessage{Sticker: json.RawMessage(`{}`)}, want: "sticker"},
+		{name: "voice", message: &telegramMessage{Voice: json.RawMessage(`{}`)}, want: "voice"},
+		{name: "audio", message: &telegramMessage{Audio: json.RawMessage(`{}`)}, want: "audio"},
+		{name: "document", message: &telegramMessage{Document: json.RawMessage(`{}`)}, want: "document"},
+		{name: "video note", message: &telegramMessage{VideoNote: json.RawMessage(`{}`)}, want: "video_note"},
+		{name: "poll", message: &telegramMessage{Poll: json.RawMessage(`{}`)}, want: "poll"},
+		{name: "contact", message: &telegramMessage{Contact: json.RawMessage(`{}`)}, want: "contact"},
+		{name: "location", message: &telegramMessage{Location: json.RawMessage(`{}`)}, want: "location"},
+		{name: "venue", message: &telegramMessage{Venue: json.RawMessage(`{}`)}, want: "venue"},
+		{name: "text only", message: &telegramMessage{Text: "hello"}, want: ""},
+		{name: "nil", message: nil, want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := telegramMessageMediaType(tt.message); got != tt.want {
+				t.Fatalf("media type = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
