@@ -1134,3 +1134,6 @@
 - 同步更新 API 文档和开发计划，明确钱包充值、支付渠道回调、佣金/结算仍未完成。
 - 涉及：`internal/auth/agent_wallet.go`、`internal/auth/service_test.go`、`internal/httpapi/handler.go`、`internal/httpapi/handler_test.go`、`src/lib/api.ts`、`src/pages/AgentCenterPage.tsx`、`docs/API.md`、`docs/DEVELOPMENT-PLAN.md`。
 - 验证：上一个稳定基线 `4015cc0` 的 CI 与 Docker 发布均通过；本轮提交的 CI/Docker 结果待 Actions 完成后记录。
+
+
+- CI 回归补充：新增输入边界测试发现纯空格等级名称此前未被拒绝，已在服务层校验中修复；以 `2d4d8f6` 最新提交重新触发 Go/前端 CI 与 Docker 构建，等待结果。
