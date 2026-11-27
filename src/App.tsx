@@ -29,6 +29,8 @@ import GroupMembersPage from "@/pages/GroupMembersPage"
 import GroupMemberListsPage from "@/pages/GroupMemberListsPage"
 import GroupRulesPage from "@/pages/GroupRulesPage"
 import GroupRuleEventsPage from "@/pages/GroupRuleEventsPage"
+import PersonalCenterPage from "@/pages/PersonalCenterPage"
+import UnderDevelopmentPage from "@/pages/UnderDevelopmentPage"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -369,12 +371,14 @@ export default function App() {
   if (pathname === "/dashboard") page = <DashboardPage />
   else if (pathname === "/dashboard/platform") page = <PlatformSettingsPage />
   else if (pathname === "/dashboard/admin/users") page = <AdminUsersPage />
+  else if (pathname === "/dashboard/account/profile") page = <PersonalCenterPage />
   else if (pathname === "/dashboard/account/links") page = <AccountLinksPage />
   else if (pathname === "/dashboard/security/password") page = <SecurityPage section="password" />
   else if (pathname === "/dashboard/security/sessions") page = <SecurityPage section="sessions" />
   else if (pathname === "/dashboard/security/logs") page = <SecurityPage section="logs" />
   else if (pathname === "/dashboard/bots") page = <BotsPage />
   else if (pathname === "/dashboard/groups") page = <GroupsPage />
+  else if (pathname.startsWith("/dashboard/")) page = <UnderDevelopmentPage pathname={pathname} />
   else {
     const groupEventsMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/events$/i)
     const groupMembersMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/members$/i)
