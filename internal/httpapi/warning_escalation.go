@@ -19,9 +19,15 @@ func (h *Handler) listWarningEscalations(w http.ResponseWriter, r *http.Request)
 		if parseErr != nil || value < 1 || value > 100 { writeError(w,http.StatusBadRequest,"limit must be between 1 and 100"); return }
 		limit = value
 	}
-	items, err := h.bots.ListWarningEscalations(r.Context(),user.TenantID,r.PathValue("groupID"),userID,limit)
+	offset := 0
+	if raw := r.URL.Query().Get("offset"); raw != "" {
+		value, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || value < 0 || value > 100000 { writeError(w,http.StatusBadRequest,"offset must be between 0 and 100000"); return }
+		offset = value
+	}
+	items, total, err := h.bots.ListWarningEscalationsPage(r.Context(),user.TenantID,r.PathValue("groupID"),userID,limit,offset)
 	if err != nil { h.writeGroupRuleError(w,err); return }
-	writeJSON(w,http.StatusOK,map[string]any{"items":items})
+	writeJSON(w,http.StatusOK,map[string]any{"items":items,"total":total,"limit":limit,"offset":offset})
 }
 
 func (h *Handler) retryWarningEscalation(w http.ResponseWriter, r *http.Request) {
