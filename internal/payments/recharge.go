@@ -240,8 +240,8 @@ func (s *RechargeService) RefreshUserRechargeOrder(ctx context.Context,userID,or
 
 func (s *RechargeService) getUserRechargeOrder(ctx context.Context,userID,orderID string)(RechargeOrder,error){
 	var item RechargeOrder
-	err:=s.pool.QueryRow(ctx,`SELECT id::text,order_no,merchant_order_id,amount_usdt,COALESCE(actual_amount::text,''),COALESCE(actual_token,''),COALESCE(actual_network,''),COALESCE(receive_address,''),COALESCE(payment_url,''),status,COALESCE(provider_status,0),expires_at,created_at
-		FROM wallet_recharge_orders WHERE id=$1 AND user_id=$2`,orderID,userID).Scan(&item.ID,&item.OrderNo,&item.MerchantOrderID,&item.AmountUSDT,&item.ActualAmount,&item.Token,&item.Network,&item.ReceiveAddress,&item.PaymentURL,&item.Status,&item.ProviderStatus,&item.ExpiresAt,&item.CreatedAt)
+	err:=s.pool.QueryRow(ctx,`SELECT id::text,order_no,merchant_order_id,COALESCE(provider_trade_id,''),amount_usdt,COALESCE(actual_amount::text,''),COALESCE(actual_token,''),COALESCE(actual_network,''),COALESCE(receive_address,''),COALESCE(payment_url,''),status,COALESCE(provider_status,0),expires_at,created_at
+		FROM wallet_recharge_orders WHERE id=$1 AND user_id=$2`,orderID,userID).Scan(&item.ID,&item.OrderNo,&item.MerchantOrderID,&item.ProviderTradeID,&item.AmountUSDT,&item.ActualAmount,&item.Token,&item.Network,&item.ReceiveAddress,&item.PaymentURL,&item.Status,&item.ProviderStatus,&item.ExpiresAt,&item.CreatedAt)
 	if err!=nil{if errors.Is(err,pgx.ErrNoRows){return RechargeOrder{},ErrRechargeOrderNotFound};return RechargeOrder{},fmt.Errorf("read refreshed recharge order: %w",err)}
 	return item,nil
 }
