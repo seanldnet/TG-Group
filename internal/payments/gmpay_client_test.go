@@ -25,7 +25,7 @@ func TestGMPayClientCreateOrderSignsRequestAndParsesResponse(t *testing.T){
 		_,_=w.Write([]byte(`{"status_code":200,"message":"success","data":{"trade_id":"trade-1","order_id":"RC123","actual_amount":25,"token":"USDT","status":1,"expiration_time":1779530812,"payment_url":"https://provider.example/pay/1","receive_address":"TAddress"}}`))
 	}))
 	defer server.Close()
-	channel:=ChannelConfig{Code:"epusdt_gmpay",BaseURL:server.URL,MerchantPID:"1000",SecretKey:"0123456789abcdef",Currency:"usd",Token:"usdt",Network:"tron"}
+	channel:=ChannelConfig{Code:"epusdt_gmpay",BaseURL:server.URL,MerchantPID:"1000",SecretKey:"0123456789abcdef",Currency:"usd",Token:"usdt",Network:"tron",Enabled:true}
 	channel.BaseURL="https://provider.example"
 	// httptest uses HTTP; the test client overrides transport only while preserving the HTTPS endpoint.
 	channel.BaseURL="https://provider.example"
