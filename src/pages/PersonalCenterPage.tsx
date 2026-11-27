@@ -67,7 +67,7 @@ export default function PersonalCenterPage() {
       <CardContent className="flex flex-wrap items-center gap-4 p-5 sm:p-6">
         <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary"><CircleUserRound className="size-7"/></div>
         <div className="min-w-0 flex-1"><p className="truncate text-lg font-semibold">{displayName}</p><p className="truncate text-sm text-muted-foreground">{user?.email || "正在加载账户..."}</p></div>
-        <Badge variant={user?.role === "admin" ? "default" : "secondary"}>{user?.role === "admin" ? "管理员" : "普通用户"}</Badge>
+        <Badge variant={user?.role === "admin" ? "default" : "secondary"}>{user?.role === "admin" ? "管理员" : user?.role === "agent" ? "代理" : "普通用户"}</Badge>
       </CardContent>
     </Card>
     <div className="grid gap-5 lg:grid-cols-[1.35fr_1fr]">
@@ -77,7 +77,7 @@ export default function PersonalCenterPage() {
           <Field label="用户 ID" value={user?.id || "加载中..."}/>
           <Field label="登录邮箱" value={user?.email || "加载中..."}/>
           <Field label="显示名称" value={user?.display_name || "加载中..."}/>
-          <Field label="账户角色" value={user?.role === "admin" ? "管理员" : user ? "普通用户" : "加载中..."}/>
+          <Field label="账户角色" value={user?.role === "admin" ? "管理员" : user?.role === "agent" ? "代理" : user ? "普通用户" : "加载中..."}/>
           <Field label="注册时间" value={user?.created_at ? new Date(user.created_at).toLocaleString() : "加载中..."}/>
           <Field label="所属租户" value={user?.tenant_id || "加载中..."}/>
           <form className="space-y-3 rounded-lg border p-4 sm:col-span-2" onSubmit={saveProfile}>
