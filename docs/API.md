@@ -249,6 +249,20 @@ openssl rand -base64 32
 支持 `ban`（封禁）、`unban`（解封）、`mute`（限时禁言）、`unmute`（解除禁言）。禁言时长为 1–525600 分钟；其他动作的 duration_minutes 必须为 0 或省略。执行前服务端实时核验 Bot 是群管理员/群主且具备 `can_restrict_members`，并向 Telegram 查询目标成员身份；不会处罚群主或管理员，也会拒绝与目标当前状态不匹配的动作。解除禁言时先读取群组默认权限并按群组默认权限恢复，不会直接把成员提升为全部权限；若 Telegram 未返回默认权限则拒绝解除禁言。Telegram 操作成功后更新本地成员状态并写入 audit_logs。外部 Telegram 操作与本地数据库事务无法构成分布式原子事务，因此若后续本地审计写入失败，接口会返回错误并在日志中体现“Telegram action succeeded”，应人工核对 Telegram 实际状态。
 
 
+### 群成员批量处罚
+
+`POST /api/v1/groups/{groupID}/members/actions/bulk`
+
+请求示例：
+
+```json
+{ "user_ids": [123456, 234567], "action": "mute", "duration_minutes": 60 }
+```
+
+支持 `ban`、`unban`、`mute`、`unmute`，每次请求必须提供 1–50 个互不重复的正 Telegram 用户 ID。禁言时长为 1–525600 分钟；非 mute 动作必须省略或将 `duration_minutes` 设为 0。接口逐个调用与单人处罚相同的服务，因此每位成员都会重新执行 Bot 实时权限检查、目标群成员状态检查、管理员/群主保护和审计；返回 `total`、`succeeded`、`failed` 及按输入顺序排列的 `items` 结果。单个成员失败不会中断后续成员，已成功的操作不会回滚，因此该接口不是原子批处理。每项错误详情最多返回 500 个 Unicode 字符。需要登录认证，群组和成员操作均受当前用户租户范围约束。
+
+
+
 ### 群组规则配置（第一阶段：配置管理）
 
 规则数据按当前登录用户的租户和群组隔离。支持以下类型：`keyword_filter`、`sensitive_word`、`anti_spam`、`anti_ad`、`welcome`、`leave_notice`、`join_verification`。
