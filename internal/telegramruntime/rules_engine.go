@@ -952,7 +952,7 @@ func (p *Poller) handleGroupSettings(ctx context.Context,bot managedBot,groupID 
 func parseGroupRuleCustomEditCallback(data string)(ruleID,field string,ok bool) {
  parts:=strings.Split(data,":")
  if len(parts)!=4 || parts[0]!="group" || parts[1]!="ec" || !validRuleUUID(parts[2]) { return "", "", false }
- if parts[3]!="text" && parts[3]!="words" && parts[3]!="patterns" && parts[3]!="channels" { return "", "", false }
+ if parts[3]!="text" && parts[3]!="words" && parts[3]!="patterns" && parts[3]!="exceptions" && parts[3]!="channels" { return "", "", false }
  return parts[2],parts[3],true
 }
 func (p *Poller) saveGroupPendingInput(ctx context.Context,bot managedBot,groupID string,userID int64,action,ruleID string) error {
@@ -978,6 +978,9 @@ func (p *Poller) beginGroupRuleCustomEdit(ctx context.Context,bot managedBot,gro
  case "patterns":
   if current.RuleType!="anti_ad" { return }
   action="rule_patterns";prompt="请发送广告匹配内容，每行一条，也可以用逗号分隔。最多 100 条，每条不超过 100 个字符。"
+ case "exceptions":
+  if current.RuleType!="anti_ad" { return }
+  action="rule_exceptions";prompt="请发送白名单例外关键词，每行一条，也可以用逗号分隔。命中例外关键词的消息不会被本条反广告规则删除；发送 none 可清空。最多 100 条。"
  case "channels":
   if current.RuleType!="join_verification" { return }
   action="rule_channels";prompt="请发送必需加入的频道列表，每行一个。支持 @频道用户名 或 -100 开头的频道 ID；最多 10 个。清空请发送 none。"
