@@ -52,19 +52,34 @@ export default function DashboardPage(){
  const [apiConnected,setApiConnected]=useState<boolean|null>(null)
  const refresh=useCallback(async()=>{
   setRefreshing(true)
-  try{
-   const [u,b,g]=await Promise.all([currentUser(),listBots(),listGroups()])
-   setUser(u);setBots(b.items||[]);setGroups(g.items||[])
-   const recentGroups=(g.items||[]).filter(group=>group.status==="active").slice(0,6)
-   const activity=await Promise.allSettled(recentGroups.map(group=>listGroupEvents(group.id,30)))
-   const collected:ActivityItem[]=[]
-   activity.forEach((result,index)=>{
-    if(result.status==="fulfilled")for(const event of result.value.items||[])collected.push({...event,groupTitle:recentGroups[index].title||"未命名群组"})
-   })
-   collected.sort((a,b)=>new Date(b.received_at).getTime()-new Date(a.received_at).getTime())
-   setChartEvents(collected);setEvents(collected.slice(0,12));setError("");setApiConnected(true);setLastUpdated(new Date())
-  }catch(e){setApiConnected(false);setError(e instanceof Error?e.message:"仪表盘加载失败")}
-  finally{setLoading(false);setRefreshing(false)}
+  const [userResult,botsResult,groupsResult]=await Promise.allSettled([
+   currentUser(),listBots(),listGroups(),
+  ])
+  const failures:string[]=[]
+  if(userResult.status==="fulfilled")setUser(userResult.value)
+  else failures.push("账号资料："+(userResult.reason instanceof Error?userResult.reason.message:"读取失败"))
+  if(botsResult.status==="fulfilled")setBots(botsResult.value.items||[])
+  else failures.push("Bot 列表："+(botsResult.reason instanceof Error?botsResult.reason.message:"读取失败"))
+  if(groupsResult.status==="fulfilled")setGroups(groupsResult.value.items||[])
+  else failures.push("群组列表："+(groupsResult.reason instanceof Error?groupsResult.reason.message:"读取失败"))
+
+  const recentGroups=groupsResult.status==="fulfilled"
+   ?(groupsResult.value.items||[]).filter(group=>group.status==="active").slice(0,6)
+   :[]
+  const activity=await Promise.allSettled(recentGroups.map(group=>listGroupEvents(group.id,30)))
+  const collected:ActivityItem[]=[]
+  activity.forEach((result,index)=>{
+   if(result.status==="fulfilled")for(const event of result.value.items||[])collected.push({...event,groupTitle:recentGroups[index].title||"未命名群组"})
+   else failures.push("群组动态："+(result.reason instanceof Error?result.reason.message:"读取失败"))
+  })
+  collected.sort((a,b)=>new Date(b.received_at).getTime()-new Date(a.received_at).getTime())
+  if(groupsResult.status==="fulfilled"){setChartEvents(collected);setEvents(collected.slice(0,12))}
+  const succeeded=[userResult,botsResult,groupsResult].some(result=>result.status==="fulfilled")
+  setApiConnected(succeeded)
+  setError(failures.length?failures.join("；"):"")
+  if(succeeded)setLastUpdated(new Date())
+  setLoading(false)
+  setRefreshing(false)
  },[])
  useEffect(()=>{
   void refresh()
