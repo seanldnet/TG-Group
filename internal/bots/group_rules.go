@@ -41,10 +41,16 @@ type keywordRuleConfig struct {
 	Words []string `json:"words"`
 	Action string `json:"action"`
 }
+type spamPenaltyLevel struct {
+	Threshold int `json:"threshold"`
+	Action string `json:"action"`
+	DurationMinutes int `json:"duration_minutes,omitempty"`
+}
 type spamRuleConfig struct {
 	MaxMessages int `json:"max_messages"`
 	WindowSeconds int `json:"window_seconds"`
 	DuplicateCount int `json:"duplicate_count,omitempty"`
+	Levels []spamPenaltyLevel `json:"levels,omitempty"`
 	Action string `json:"action"`
 }
 type mediaRestrictionRuleConfig struct {
@@ -145,7 +151,14 @@ func ValidateGroupRule(input GroupRuleInput) error {
 		if decode(&cfg) != nil || !validTerms(cfg.Words) || cfg.Action != "delete" { return ErrInvalidGroupRule }
 	case "anti_spam":
 		var cfg spamRuleConfig
-		if decode(&cfg) != nil || cfg.MaxMessages < 2 || cfg.MaxMessages > 100 || cfg.WindowSeconds < 2 || cfg.WindowSeconds > 3600 || (cfg.DuplicateCount != 0 && (cfg.DuplicateCount < 2 || cfg.DuplicateCount > 100)) || cfg.Action != "delete" { return ErrInvalidGroupRule }
+		if decode(&cfg) != nil || cfg.MaxMessages < 2 || cfg.MaxMessages > 100 || cfg.WindowSeconds < 2 || cfg.WindowSeconds > 3600 || (cfg.DuplicateCount != 0 && (cfg.DuplicateCount < 2 || cfg.DuplicateCount > 100)) || cfg.Action != "delete" || len(cfg.Levels)>5 { return ErrInvalidGroupRule }
+		previous:=1
+		for _,level:=range cfg.Levels {
+			if level.Threshold<=previous || level.Threshold>100 || (level.Action!="mute" && level.Action!="ban") { return ErrInvalidGroupRule }
+			if level.Action=="mute" && (level.DurationMinutes<1 || level.DurationMinutes>10080) { return ErrInvalidGroupRule }
+			if level.Action=="ban" && level.DurationMinutes!=0 { return ErrInvalidGroupRule }
+			previous=level.Threshold
+		}
 	case "media_restriction":
 		var cfg mediaRestrictionRuleConfig
 		if decode(&cfg) != nil || !validTerms(cfg.Types) || cfg.Action != "delete" { return ErrInvalidGroupRule }
