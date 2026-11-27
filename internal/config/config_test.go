@@ -11,6 +11,8 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("CAP_SITE_KEY", "")
 	t.Setenv("CAP_SECRET", "")
 	t.Setenv("CAP_WIDGET_URL", "")
+	t.Setenv("PAYMENT_CREDENTIALS_ENCRYPTION_KEY", "")
+	t.Setenv("PAYMENT_PUBLIC_BASE_URL", "")
 	t.Setenv("TELEGRAM_AUTH_BOT_TOKEN", "")
 	t.Setenv("TELEGRAM_AUTH_BOT_USERNAME", "")
 
@@ -88,4 +90,29 @@ func TestLoadRejectsUnsafeTelegramBotUsername(t *testing.T) {
     t.Setenv("TELEGRAM_AUTH_BOT_TOKEN","123:token")
     t.Setenv("TELEGRAM_AUTH_BOT_USERNAME","evil.example/bot")
     if _,err:=Load();err==nil { t.Fatal("Load() error = nil, want invalid Telegram Bot username error") }
+}
+
+
+func TestLoadRequiresPaymentPublicURLWithEncryptionKey(t *testing.T) {
+	t.Setenv("TG_GROUP_HTTP_PORT","8080")
+	t.Setenv("CAP_BASE_URL","")
+	t.Setenv("CAP_SITE_KEY","")
+	t.Setenv("CAP_SECRET","")
+	t.Setenv("TELEGRAM_AUTH_BOT_TOKEN","")
+	t.Setenv("TELEGRAM_AUTH_BOT_USERNAME","")
+	t.Setenv("PAYMENT_CREDENTIALS_ENCRYPTION_KEY","a2V5")
+	t.Setenv("PAYMENT_PUBLIC_BASE_URL","")
+	if _,err:=Load();err==nil{t.Fatal("expected paired payment configuration validation")}
+}
+
+func TestLoadRejectsInsecurePaymentPublicURL(t *testing.T) {
+	t.Setenv("TG_GROUP_HTTP_PORT","8080")
+	t.Setenv("CAP_BASE_URL","")
+	t.Setenv("CAP_SITE_KEY","")
+	t.Setenv("CAP_SECRET","")
+	t.Setenv("TELEGRAM_AUTH_BOT_TOKEN","")
+	t.Setenv("TELEGRAM_AUTH_BOT_USERNAME","")
+	t.Setenv("PAYMENT_CREDENTIALS_ENCRYPTION_KEY","a2V5")
+	t.Setenv("PAYMENT_PUBLIC_BASE_URL","http://merchant.example")
+	if _,err:=Load();err==nil{t.Fatal("expected HTTPS payment public URL validation")}
 }
