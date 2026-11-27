@@ -31,6 +31,7 @@ import GroupRulesPage from "@/pages/GroupRulesPage"
 import GroupRuleEventsPage from "@/pages/GroupRuleEventsPage"
 import PersonalCenterPage from "@/pages/PersonalCenterPage"
 import BusinessWorkspacePage from "@/pages/BusinessWorkspacePage"
+import NotFoundPage from "@/pages/NotFoundPage"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -392,5 +393,6 @@ export default function App() {
     else if (pathname.startsWith("/dashboard/")) page = <BusinessWorkspacePage pathname={pathname} />
   }
   if (page) return <DashboardLayout>{page}</DashboardLayout>
-  return <HomePage />
+  if (pathname === "/") return <HomePage />
+  return <NotFoundPage />
 }
