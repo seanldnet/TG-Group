@@ -922,3 +922,13 @@
 - 补齐 `docs/API.md` 的批量成员处罚接口契约：请求格式、人数/时长边界、逐项权限检查、部分成功语义和错误详情上限。
 - 当前提交：`8c28820`、`7c39966`、`a869c3c`。
 - 仍未完成：带有效登录会话和 PostgreSQL 的 HTTP 集成测试、真实 Telegram 群组验收；本批测试只验证服务未就绪路径与纯执行器行为，不将其表述为端到端验收。
+
+
+## 2026-11-27（群管：消息与媒体类型限制）
+
+- 新增 `media_restriction` 群规类型，按群组独立配置允许/禁止处理的消息类型列表；当前安全动作仅为删除命中的当前消息。
+- 接入 Telegram 消息更新中的 photo、video、animation、sticker、voice、audio、document、video_note、poll、contact、location、venue 类型识别；按规则配置匹配后复用现有删除执行器，执行前仍实时检查 Bot 的 `can_delete_messages` 权限并写入幂等规则事件。
+- 网站规则管理页增加“消息与媒体限制”类型与默认配置；Telegram 群管菜单增加独立分类和常见媒体限制预设。
+- 增加规则配置校验、重复/非法类型拒绝、消息类型分类及分类路由测试。
+- 涉及：`internal/bots/group_rules.go`、`internal/bots/group_rules_test.go`、`internal/telegramruntime/poller.go`、`internal/telegramruntime/rules_engine.go`、`internal/telegramruntime/rules_engine_test.go`、`src/lib/api.ts`、`src/pages/GroupRulesPage.tsx`、`docs/API.md`。
+- 本批尚待 CI 验证及真实 Telegram 群组权限验收；当前规则只对 Bot 实际收到的群消息生效，受 Telegram 群组隐私模式与 Bot API 更新可见性限制。
