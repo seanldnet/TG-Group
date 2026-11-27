@@ -790,3 +790,29 @@ export function getGMPaySupportedAssets() {
     headers: authenticatedHeaders(),
   })
 }
+
+
+export type AdminRechargeOrder = {
+  id: string
+  order_no: string
+  user_id: string
+  email: string
+  channel_code: string
+  amount_usdt: number
+  actual_amount?: string
+  token?: string
+  network?: string
+  provider_trade_id?: string
+  block_transaction_id?: string
+  status: "pending" | "paid" | "expired" | "failed" | "review"
+  created_at: string
+  paid_at?: string
+}
+
+export function listAdminRechargeOrders(status = "", limit = 25, offset = 0) {
+  const params = new URLSearchParams({ status, limit: String(limit), offset: String(offset) })
+  return request<{ items: AdminRechargeOrder[]; total: number; limit: number; offset: number }>(
+    `/api/v1/admin/payment-recharges?${params.toString()}`,
+    { headers: authenticatedHeaders() },
+  )
+}
