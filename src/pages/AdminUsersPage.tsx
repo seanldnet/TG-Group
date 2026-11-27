@@ -51,7 +51,7 @@ export default function AdminUsersPage() {
           <Input value={search} onChange={e=>setSearch(e.target.value)} placeholder="搜索邮箱、昵称、用户 ID、Telegram ID 或用户名"/>
           <Button type="submit"><Search className="mr-2 size-4"/>搜索</Button>
         </form>
-        {loading?<p className="py-10 text-center text-sm text-muted-foreground">正在加载用户...</p>:items.length===0?<p className="py-10 text-center text-sm text-muted-foreground">没有找到符合条件的用户</p>:
+        {loading?<p className="py-10 text-center text-sm text-muted-foreground">正在加载用户...</p>:items.length===0&&error?<p className="py-10 text-center text-sm text-destructive">用户列表加载失败，请检查连接后点击刷新重试。</p>:items.length===0?<p className="py-10 text-center text-sm text-muted-foreground">没有找到符合条件的用户</p>:
           <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>用户</TableHead><TableHead>平台角色</TableHead><TableHead>Telegram</TableHead><TableHead>租户</TableHead><TableHead>Bot 数量</TableHead><TableHead>注册时间</TableHead><TableHead>状态</TableHead><TableHead>操作</TableHead></TableRow></TableHeader>
           <TableBody>{items.map(item=><TableRow key={item.id}>
             <TableCell><div className="font-medium">{item.display_name||"未设置昵称"}</div><div className="text-xs text-muted-foreground">{item.email}</div><div className="font-mono text-[10px] text-muted-foreground">{item.id}</div></TableCell>
