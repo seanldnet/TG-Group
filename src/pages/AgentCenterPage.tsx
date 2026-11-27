@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { AlertCircle, RefreshCw, Wallet, Crown, ArrowDownUp } from "lucide-react"
 import { getAgentAccount, listWalletLedger, upgradeAgentWithWallet, type AgentAccount, type WalletLedgerEntry } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
@@ -29,6 +29,7 @@ export default function AgentCenterPage() {
   const [error, setError] = useState("")
   const [upgradingLevelID, setUpgradingLevelID] = useState("")
   const [upgradeMessage, setUpgradeMessage] = useState("")
+  const upgradeKeys = useRef<Record<string, string>>({})
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -54,7 +55,10 @@ export default function AgentCenterPage() {
     setUpgradingLevelID(levelID)
     setUpgradeMessage("")
     try {
-      const order = await upgradeAgentWithWallet(levelID, crypto.randomUUID())
+      const idempotencyKey = upgradeKeys.current[levelID] ?? crypto.randomUUID()
+      upgradeKeys.current[levelID] = idempotencyKey
+      const order = await upgradeAgentWithWallet(levelID, idempotencyKey)
+      delete upgradeKeys.current[levelID]
       setUpgradeMessage(`升级成功，订单号：${order.order_no}。代理等级已自动生效。`)
       await load()
     } catch (err) {
