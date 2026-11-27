@@ -58,7 +58,7 @@ type gmpayEnvelope struct {
 type GMPayClient struct { HTTP *http.Client }
 
 func (c GMPayClient) CreateOrder(ctx context.Context,channel ChannelConfig,orderID string,amountUSDT int64,notifyURL,redirectURL string)(GMPayOrderResult,error){
-	if channel.Code!="epusdt_gmpay" || channel.Currency!="usd" || amountUSDT<=0 || len(orderID)>32 || strings.TrimSpace(orderID)=="" {
+	if channel.Code!="epusdt_gmpay" || !channel.Enabled || channel.Currency!="usd" || amountUSDT<=0 || len(orderID)>32 || strings.TrimSpace(orderID)=="" {
 		return GMPayOrderResult{},ErrInvalidChannelConfig
 	}
 	notify,err:=url.Parse(notifyURL)
