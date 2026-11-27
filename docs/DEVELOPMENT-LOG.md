@@ -1090,3 +1090,16 @@
 - UI 继续使用现有 shadcn/ui Badge、Button、Card 组件与 lucide-react 图标；未引入其他 UI 组件库。
 - 验证：本批提交后 CI 尚待运行；前端构建结果以对应 GitHub Actions 为准。
 - 未完成：代理/余额/套餐/支付目前仍是业务规划页面，需继续实现 Go 服务、PostgreSQL 模型、API、权限、幂等和自动化测试。
+
+
+## 2026-11-27（代理中心账户查询 API 第一阶段）
+
+- 新增代理账户查询：按当前登录用户返回钱包 USDT 余额、当前代理等级/状态、上下级关系标识及已启用的等级目录。
+- 新增钱包流水分页查询：仅查询当前会话用户自己的资金记录，支持 limit/offset，返回总条数；金额字段保持 BIGINT/int64。
+- 新用户注册事务内同步创建 USDT 钱包账户，避免新注册用户在余额查询时缺少钱包记录。
+- 新增 `GET /api/v1/account/agent` 与 `GET /api/v1/account/wallet/ledger`，两个接口均从 Bearer token 解析用户身份，不接受客户端指定 user_id。
+- 新增代理中心页面，真实展示钱包余额、等级目录和资金流水；未接通升级订单/支付前不展示可购买按钮，不制造升级成功假象。
+- 新增无数据库服务时接口返回 503 的路由测试。
+- 涉及：`internal/auth/agent_wallet.go`、`internal/auth/service.go`、`internal/httpapi/handler.go`、`internal/httpapi/handler_test.go`、`src/lib/api.ts`、`src/pages/AgentCenterPage.tsx`、`src/App.tsx`。
+- 当前边界：等级目录和账户/流水查询已接入；管理员等级 CRUD、升级订单、事务扣款、充值与在线支付仍未完成。升级流程继续遵守用户自助购买、支付成功自动生效，不设置人工申请审核。
+- 验证：代码已提交 main，等待最新 Go CI、前端构建及 Docker workflow 结果。
