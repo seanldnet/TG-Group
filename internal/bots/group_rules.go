@@ -61,6 +61,13 @@ type antiBotRuleConfig struct {
 	AllowedUsernames []string `json:"allowed_usernames,omitempty"`
 	Action string `json:"action"`
 }
+type antiInviteFloodRuleConfig struct {
+	MaxMembers int `json:"max_members"`
+	WindowSeconds int `json:"window_seconds"`
+	Action string `json:"action"`
+	DurationMinutes int `json:"duration_minutes,omitempty"`
+	AllowedInviterIDs []int64 `json:"allowed_inviter_ids,omitempty"`
+}
 type adRuleConfig struct {
 	Patterns []string `json:"patterns"`
 	Exceptions []string `json:"exceptions,omitempty"`
@@ -177,6 +184,13 @@ func ValidateGroupRule(input GroupRuleInput) error {
 			if !validTelegramUsername(name) { return ErrInvalidGroupRule }
 			key:=strings.ToLower(name);if _,ok:=seen[key];ok{return ErrInvalidGroupRule};seen[key]=struct{}{}
 		}
+	case "anti_invite_flood":
+		var cfg antiInviteFloodRuleConfig
+		if decode(&cfg)!=nil || cfg.MaxMembers<2 || cfg.MaxMembers>100 || cfg.WindowSeconds<10 || cfg.WindowSeconds>3600 || len(cfg.AllowedInviterIDs)>100 || (cfg.Action!="mute" && cfg.Action!="ban") { return ErrInvalidGroupRule }
+		if cfg.Action=="mute" && (cfg.DurationMinutes<1 || cfg.DurationMinutes>10080) { return ErrInvalidGroupRule }
+		if cfg.Action=="ban" && cfg.DurationMinutes!=0 { return ErrInvalidGroupRule }
+		seen:=map[int64]struct{}{}
+		for _,id:=range cfg.AllowedInviterIDs { if id<=0 { return ErrInvalidGroupRule }; if _,ok:=seen[id];ok{return ErrInvalidGroupRule};seen[id]=struct{}{} }
 	case "anti_ad":
 		var cfg adRuleConfig
 		if decode(&cfg) != nil || !validTerms(cfg.Patterns) || (len(cfg.Exceptions) > 0 && !validTerms(cfg.Exceptions)) || (len(cfg.BlockedDomains)>0 && !validDomains(cfg.BlockedDomains)) || (len(cfg.AllowedDomains)>0 && !validDomains(cfg.AllowedDomains)) || cfg.Action != "delete" { return ErrInvalidGroupRule }
