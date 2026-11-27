@@ -339,3 +339,18 @@ func TestTelegramMessageMediaType(t *testing.T) {
 		})
 	}
 }
+
+
+func TestMatchesBlockedLink(t *testing.T) {
+	tests:=[]struct{name,message string;blocked,allowed []string;invites,want bool}{
+		{name:"exact blocked domain",message:"visit https://spam.example/path",blocked:[]string{"spam.example"},want:true},
+		{name:"blocked subdomain",message:"visit ads.spam.example now",blocked:[]string{"spam.example"},want:true},
+		{name:"allowed domain exception",message:"visit https://safe.spam.example",blocked:[]string{"spam.example"},allowed:[]string{"safe.spam.example"},want:false},
+		{name:"allowed parent domain",message:"visit https://news.safe.example",blocked:[]string{"example"},allowed:[]string{"safe.example"},want:false},
+		{name:"Telegram invite",message:"join https://t.me/+AbCdEf",invites:true,want:true},
+		{name:"Telegram public channel not invite",message:"https://t.me/channelname",invites:true,want:false},
+		{name:"bare blocked domain",message:"spam.example",blocked:[]string{"spam.example"},want:true},
+		{name:"ordinary text",message:"this is ordinary text",blocked:[]string{"spam.example"},want:false},
+	}
+	for _,test:=range tests { t.Run(test.name,func(t *testing.T){if got:=matchesBlockedLink(test.message,test.blocked,test.allowed,test.invites);got!=test.want{t.Fatalf("matchesBlockedLink()=%v want %v",got,test.want)}}) }
+}
