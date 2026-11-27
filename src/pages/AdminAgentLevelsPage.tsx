@@ -58,7 +58,7 @@ export default function AdminAgentLevelsPage() {
     event.preventDefault()
     setError("")
     setNotice("")
-    if (!/^\d+$/.test(form.price) || !/^\d+$/.test(form.sortOrder)) {
+    if (!/^\d+$/.test(form.price) || !/^\d+$/.test(form.sortOrder) || !Number.isSafeInteger(Number(form.price)) || !Number.isSafeInteger(Number(form.sortOrder))) {
       setError("价格和排序必须填写非负整数；价格单位为 USDT。")
       return
     }
