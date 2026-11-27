@@ -378,7 +378,6 @@ export default function App() {
   else if (pathname === "/dashboard/security/logs") page = <SecurityPage section="logs" />
   else if (pathname === "/dashboard/bots") page = <BotsPage />
   else if (pathname === "/dashboard/groups") page = <GroupsPage />
-  else if (pathname.startsWith("/dashboard/")) page = <UnderDevelopmentPage pathname={pathname} />
   else {
     const groupEventsMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/events$/i)
     const groupMembersMatch = pathname.match(/^\/dashboard\/groups\/([0-9a-f-]+)\/members$/i)
@@ -390,6 +389,7 @@ export default function App() {
     else if (groupMemberListsMatch) page = <GroupMemberListsPage groupID={groupMemberListsMatch[1]} />
     else if (groupRuleEventsMatch) page = <GroupRuleEventsPage groupID={groupRuleEventsMatch[1]} />
     else if (groupRulesMatch) page = <GroupRulesPage groupID={groupRulesMatch[1]} />
+    else if (pathname.startsWith("/dashboard/")) page = <UnderDevelopmentPage pathname={pathname} />
   }
   if (page) return <DashboardLayout>{page}</DashboardLayout>
   return <HomePage />
