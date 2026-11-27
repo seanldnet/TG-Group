@@ -603,7 +603,10 @@ func executeBulkMemberAction(userIDs []int64, apply func(int64) error) ([]bulkMe
 	succeeded:=0
 	for _,id:=range userIDs {
 		result:=bulkMemberActionResult{TelegramUserID:id}
-		if err:=apply(id); err!=nil { result.Error=err.Error() } else { result.OK=true; succeeded++ }
+		if err:=apply(id); err!=nil {
+			result.Error=err.Error()
+			if len([]rune(result.Error))>500 { result.Error=string([]rune(result.Error)[:500]) }
+		} else { result.OK=true; succeeded++ }
 		results=append(results,result)
 	}
 	return results,succeeded
