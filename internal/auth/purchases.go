@@ -92,7 +92,7 @@ func (s *Service) PurchasePlanWithWallet(ctx context.Context,userID,planID,idemp
 			WHERE user_id=$1 AND balance_usdt >= $2 RETURNING balance_usdt`,userID,plan.PriceUSDT).Scan(&balance);err!=nil{return AccountOrder{},ErrInsufficientPlanBalance}
 		ledgerKey:="plan-order:"+order.ID
 		if _,err:=tx.Exec(ctx,`INSERT INTO wallet_ledger(user_id,entry_type,amount_usdt,balance_after_usdt,reference_type,reference_id,idempotency_key,description)
-			VALUES($1,'plan_purchase',$2,$3,'order',$4,$5,$6)`,userID,-plan.PriceUSDT,balance,order.ID,ledgerKey,"套餐购买扣款："+plan.Name);err!=nil{return AccountOrder{},fmt.Errorf("write plan purchase ledger: %w",err)}
+			VALUES($1,'order_payment',$2,$3,'order',$4,$5,$6)`,userID,-plan.PriceUSDT,balance,order.ID,ledgerKey,"套餐购买扣款："+plan.Name);err!=nil{return AccountOrder{},fmt.Errorf("write plan purchase ledger: %w",err)}
 	}
 
 	features:=plan.Features
