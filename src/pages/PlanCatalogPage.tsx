@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react"
 import { AlertCircle, Check, Pencil, Plus, RefreshCw } from "lucide-react"
-import { createAdminPlan, listAdminPlans, listPlans, updateAdminPlan, type Plan } from "@/lib/api"
+import { createAdminPlan, getAgentAccount, listAdminPlans, listPlans, purchasePlanWithWallet, updateAdminPlan, type Plan } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,15 +18,27 @@ export default function PlanCatalogPage({ admin = false }: { admin?: boolean }) 
   const [error,setError]=useState("")
   const [notice,setNotice]=useState("")
   const [editingID,setEditingID]=useState("")
+  const [walletBalance,setWalletBalance]=useState<number|null>(null)
+  const [purchasingID,setPurchasingID]=useState("")
   const [form,setForm]=useState(emptyForm)
 
   const load=useCallback(async()=>{
     setLoading(true);setError("")
-    try { const result=admin?await listAdminPlans():await listPlans();setItems(result.items) }
+    try { if(admin){const result=await listAdminPlans();setItems(result.items)}else{const [result,account]=await Promise.all([listPlans(),getAgentAccount()]);setItems(result.items);setWalletBalance(account.wallet_balance_usdt)} }
     catch(err){setError(err instanceof Error?err.message:"读取套餐目录失败")}
     finally{setLoading(false)}
   },[admin])
   useEffect(()=>{void load()},[load])
+
+  async function buy(item:Plan){
+    setPurchasingID(item.id);setError("");setNotice("")
+    try{
+      const order=await purchasePlanWithWallet(item.id,crypto.randomUUID())
+      setNotice(`购买成功，订单 ${order.order_no} 已支付，套餐授权已自动开通/续期。`)
+      await load()
+    }catch(err){setError(err instanceof Error?err.message:"套餐购买失败")}
+    finally{setPurchasingID("")}
+  }
 
   function edit(item:Plan){
     setEditingID(item.id)
@@ -56,7 +68,7 @@ export default function PlanCatalogPage({ admin = false }: { admin?: boolean }) 
 
   return <main className="mx-auto w-full max-w-[1440px] space-y-6 p-4 sm:p-6 lg:p-8">
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <div><div className="mb-2 flex gap-2"><Badge variant="secondary">{admin?"平台管理":"业务管理"}</Badge><Badge variant="outline">真实套餐目录</Badge></div><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{admin?"平台套餐配置":"套餐目录"}</h1><p className="mt-2 text-sm text-muted-foreground">{admin?"配置全站销售套餐、整数 USDT 价格、有效期和 Bot/群组额度。停用套餐会从用户目录隐藏。":"查看当前开放销售的套餐。订单创建、在线支付和授权开通正在按业务闭环继续接入。"}</p></div>
+      <div><div className="mb-2 flex gap-2"><Badge variant="secondary">{admin?"平台管理":"业务管理"}</Badge><Badge variant="outline">真实套餐目录</Badge></div><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{admin?"平台套餐配置":"套餐目录"}</h1><p className="mt-2 text-sm text-muted-foreground">{admin?"配置全站销售套餐、整数 USDT 价格、有效期和 Bot/群组额度。停用套餐会从用户目录隐藏。":`查看当前开放销售的套餐。钱包余额：${walletBalance===null?"读取中…":new Intl.NumberFormat("en-US").format(walletBalance)+" USDT"}。余额购买成功后会自动开通或续期授权。`}</p></div>
       <Button variant="outline" onClick={()=>void load()} disabled={loading}><RefreshCw className={`mr-2 size-4 ${loading?"animate-spin":""}`}/>刷新</Button>
     </div>
     {error&&<div role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"><AlertCircle className="mt-0.5 size-4 shrink-0"/>{error}</div>}
@@ -68,7 +80,7 @@ export default function PlanCatalogPage({ admin = false }: { admin?: boolean }) 
           <p className="mt-4 text-2xl font-semibold tabular-nums">{new Intl.NumberFormat("en-US").format(item.price_usdt)} <span className="text-xs font-medium text-muted-foreground">USDT</span></p>
           <p className="mt-1 text-xs text-muted-foreground">有效期 {item.duration_days} 天 · Bot {item.bot_limit===0?"不限":item.bot_limit} 个 · 群组 {item.group_limit===0?"不限":item.group_limit} 个</p>
           {item.description&&<p className="mt-3 text-sm leading-6 text-muted-foreground">{item.description}</p>}
-          {admin&&<Button size="sm" variant="outline" className="mt-4" onClick={()=>edit(item)}><Pencil className="mr-2 size-3.5"/>编辑套餐</Button>}
+          {admin?<Button size="sm" variant="outline" className="mt-4" onClick={()=>edit(item)}><Pencil className="mr-2 size-3.5"/>编辑套餐</Button>:<Button size="sm" className="mt-4" disabled={purchasingID===item.id||walletBalance===null} onClick={()=>void buy(item)}>{purchasingID===item.id?"购买处理中…":`余额购买 · ${item.price_usdt} USDT`}</Button>}
         </div>)}</div>:<p className="py-8 text-center text-sm text-muted-foreground">{error?"套餐目录读取失败，请刷新重试。":"暂无开放套餐。"}</p>}
       </CardContent></Card>
       {admin&&<Card><CardHeader><div className="flex items-center justify-between gap-3"><div><CardTitle className="text-base">{editingID?"编辑套餐":"新增套餐"}</CardTitle><CardDescription>金额为整数 USDT；额度 0 表示不限。</CardDescription></div>{editingID?<Button variant="ghost" size="sm" onClick={reset}>取消编辑</Button>:<Plus className="size-4 text-muted-foreground"/>}</div></CardHeader><CardContent>
