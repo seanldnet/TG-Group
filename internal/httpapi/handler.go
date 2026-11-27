@@ -15,6 +15,7 @@ import (
 	"github.com/seanldnet/tg-group/internal/bots"
 	"github.com/seanldnet/tg-group/internal/platformsettings"
 	"github.com/seanldnet/tg-group/internal/telegramauthbot"
+	"github.com/seanldnet/tg-group/internal/payments"
 )
 
 type Handler struct {
@@ -25,6 +26,9 @@ type Handler struct {
 	telegramAuthBotUsername string
 	platformSettings *platformsettings.Service
 	telegramAuthBotManager *telegramauthbot.Manager
+	paymentChannels *payments.ConfigStore
+	recharge *payments.RechargeService
+	paymentPublicBaseURL string
 }
 
 func NewHandler(logger *slog.Logger, authService *auth.Service, botService *bots.Service, captcha *CaptchaVerifier) http.Handler {
@@ -36,8 +40,12 @@ func NewHandlerWithTelegramAuthBot(logger *slog.Logger, authService *auth.Servic
 }
 
 func NewHandlerWithPlatformBot(logger *slog.Logger, authService *auth.Service, botService *bots.Service, captcha *CaptchaVerifier, telegramBotUsername string, settings *platformsettings.Service, manager *telegramauthbot.Manager) http.Handler {
+	return NewHandlerWithPayments(logger,authService,botService,captcha,telegramBotUsername,settings,manager,nil,nil,"")
+}
+
+func NewHandlerWithPayments(logger *slog.Logger, authService *auth.Service, botService *bots.Service, captcha *CaptchaVerifier, telegramBotUsername string, settings *platformsettings.Service, manager *telegramauthbot.Manager, paymentChannels *payments.ConfigStore, recharge *payments.RechargeService, paymentPublicBaseURL string) http.Handler {
 	if logger == nil { logger = slog.Default() }
-	h := &Handler{logger:logger,auth:authService,bots:botService,captcha:captcha,telegramAuthBotUsername:telegramBotUsername,platformSettings:settings,telegramAuthBotManager:manager}
+	h := &Handler{logger:logger,auth:authService,bots:botService,captcha:captcha,telegramAuthBotUsername:telegramBotUsername,platformSettings:settings,telegramAuthBotManager:manager,paymentChannels:paymentChannels,recharge:recharge,paymentPublicBaseURL:strings.TrimRight(strings.TrimSpace(paymentPublicBaseURL),"/")}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz",h.health)
 	mux.HandleFunc("GET /api/v1/security/captcha",h.captchaConfig)
@@ -57,6 +65,11 @@ func NewHandlerWithPlatformBot(logger *slog.Logger, authService *auth.Service, b
 	mux.HandleFunc("POST /api/v1/account/agent/upgrade",h.upgradeAgent)
 	mux.HandleFunc("GET /api/v1/account/agent/orders",h.agentUpgradeOrders)
 	mux.HandleFunc("GET /api/v1/admin/agent-levels",h.adminAgentLevels)
+	mux.HandleFunc("GET /api/v1/admin/payment-channels",h.adminPaymentChannels)
+	mux.HandleFunc("PUT /api/v1/admin/payment-channels/{channelCode}",h.updateAdminPaymentChannel)
+	mux.HandleFunc("POST /api/v1/account/wallet/recharge",h.createWalletRecharge)
+	mux.HandleFunc("GET /api/v1/account/wallet/recharges",h.listWalletRecharges)
+	mux.HandleFunc("POST /api/v1/payments/epusdt/gmpay/notify",h.gmpayNotify)
 	mux.HandleFunc("POST /api/v1/admin/agent-levels",h.createAdminAgentLevel)
 	mux.HandleFunc("PATCH /api/v1/admin/agent-levels/{levelID}",h.updateAdminAgentLevel)
 	mux.HandleFunc("PATCH /api/v1/auth/profile",h.updateProfile)
