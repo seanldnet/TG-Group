@@ -1233,3 +1233,12 @@
 
 - 新增 API 进程后台充值对账 worker：每 30 秒最多查询 50 笔已有 trade_id 的 pending 订单，更新网关状态、过期和 review 状态；状态 2 不直接入账，继续等待签名回调。轮询失败会更新重试排序，避免早期故障订单长期占满批次。
 - Worker 随 API 生命周期启动/优雅停止；没有配置网关或没有待处理订单时不产生入账动作。
+
+
+## 2026-11-27（用户钱包充值工作台）
+
+- 将已有的用户充值 API 独立接入 `/dashboard/payments`，页面不再落入通用占位工作区；管理员渠道配置仍保留在 `/dashboard/admin/payments`。
+- 新增充值订单创建、服务端分页列表、待支付收银台跳转、待支付/待核查订单主动刷新，以及加载、空态、错误和操作反馈。
+- 金额前端校验为正整数 USDT；页面明确提示主动查单不直接入账，最终钱包入账仍以服务端验签回调为准。未新增支付成功按钮或客户端入账逻辑。
+- 涉及：`src/pages/WalletPaymentsPage.tsx`、`src/App.tsx`。复用既有 `createWalletRecharge`、`listWalletRecharges`、`refreshWalletRecharge` API。
+- 验证：等待本分支 GitHub Actions Go test/vet、前端 typecheck/build 结果；真实支付联调仍依赖部署环境配置渠道凭据和 HTTPS 公网回调地址。
