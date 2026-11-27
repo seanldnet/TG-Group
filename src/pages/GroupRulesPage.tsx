@@ -142,9 +142,9 @@ export default function GroupRulesPage({ groupID }: { groupID: string }) {
       <div className="mx-auto w-full max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>
-            <Badge variant="secondary" className="mb-3">群组独立配置</Badge>
-            <h1 className="text-3xl font-semibold tracking-tight">规则管理</h1>
-            <p className="mt-2 text-sm text-muted-foreground">为当前群组建立自动问答、文本过滤、媒体限制、成员通知、入群验证及警告策略。</p>
+            
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">群组规则</h1>
+            
           </div>
           <div className="flex flex-wrap gap-2"><Button asChild variant="outline"><a href={`/dashboard/groups/${groupID}/rule-events`}>执行记录</a></Button><Button variant="outline" onClick={() => void refresh()}><RefreshCw className="mr-2 size-4" />刷新规则</Button></div>
         </div>
@@ -155,7 +155,7 @@ export default function GroupRulesPage({ groupID }: { groupID: string }) {
           <Card>
             <CardHeader>
               <CardTitle>已配置规则</CardTitle>
-              <CardDescription>共 {items.length} 条，优先级数值越小越先执行。</CardDescription>
+              <CardDescription>共 {items.length} 条规则</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {loading ? <p className="py-8 text-center text-sm text-muted-foreground">正在加载...</p> : items.length === 0 ? (
@@ -182,7 +182,7 @@ export default function GroupRulesPage({ groupID }: { groupID: string }) {
           <Card>
             <CardHeader>
               <CardTitle>{editing ? "编辑规则" : "创建规则"}</CardTitle>
-              <CardDescription>配置字段由服务端按规则类型严格校验，不接受未定义字段。</CardDescription>
+              
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -205,9 +205,9 @@ export default function GroupRulesPage({ groupID }: { groupID: string }) {
                 <Switch id="rule-enabled" checked={enabled} onCheckedChange={setEnabled} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="rule-config">规则配置（JSON）</Label>
+                <Label htmlFor="rule-config">规则内容</Label>
                 <Textarea id="rule-config" value={configText} onChange={(event) => setConfigText(event.target.value)} rows={10} className="font-mono text-xs" />
-                <p className="text-xs text-muted-foreground">自动问答支持 exact（完全匹配）、contains（包含）和 prefix（前缀）三种触发方式，可配置多个触发词、回复内容及大小写敏感。过滤类规则 action 目前仅支持 delete；反广告可配置 exceptions 例外关键词、blocked_domains 域名黑名单、allowed_domains 域名白名单及 block_invite_links 邀请链接拦截；域名匹配包含子域名，白名单优先。防机器人规则会封禁新加入的 Bot 账号，可通过 allowed_usernames 配置允许加入的 Bot 用户名。批量邀请防护按同一邀请者在时间窗内新增成员总数触发，对邀请者执行 mute/ban；allowed_inviter_ids 可配置豁免的 Telegram 用户 ID。反刷屏可配置 duplicate_count（2–100）检测重复文本；可选 levels 按窗口内消息数量递进执行 mute/ban，mute 时长 1–10080 分钟，处罚成功后同一用户 30 秒内不会重复执行相同或更低等级处罚，更高等级封禁可升级执行。未配置 levels 时维持原有删除消息行为。媒体限制 types 支持 photo、video、animation、sticker、voice、audio、document、video_note、poll、contact、location、venue，命中后删除当前消息。欢迎/离群通知使用 text 字段。警告递进 levels 按警告总数递增配置，达到阈值后自动执行 mute/ban；mute 必须设置 1–10080 分钟，ban 不设置时长。失败处罚会进入持久化重试队列，采用指数退避，最多自动重试 8 次；管理员也可在成员警告记录中手动重试。</p>
+                <p className="text-xs text-muted-foreground">填写规则内容并保存即可生效。</p>
               </div>
               <div className="flex gap-2">
                 <Button onClick={() => void submit()} disabled={saving || !name.trim()}><Save className="mr-2 size-4" />{saving ? "保存中..." : editing ? "保存修改" : <><Plus className="mr-2 size-4" />创建规则</>}</Button>
