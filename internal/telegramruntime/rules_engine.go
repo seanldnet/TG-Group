@@ -571,7 +571,7 @@ func (p *Poller) sendGroupCategory(ctx context.Context,bot managedBot,groupID st
 	case "media": keyboard=append(keyboard,[]map[string]string{{"text":"消息与媒体限制规则","callback_data":"group:rules:media"}})
 	case "protection": keyboard=append(keyboard,[]map[string]string{{"text":"防机器人规则","callback_data":"group:rules:protection"}})
 	case "retract": keyboard=append(keyboard,[]map[string]string{{"text":"最近群消息","callback_data":"group:messages"}})
-	case "admins": keyboard=append(keyboard,[]map[string]string{{"text":"查看 Bot 权限","callback_data":"group:status"}})
+	case "admins": keyboard=append(keyboard,[]map[string]string{{"text":"查看群管理员","callback_data":"group:admins"},{"text":"检查 Bot 权限","callback_data":"group:status"}})
 	case "verify": keyboard=append(keyboard,[]map[string]string{{"text":"入群验证规则","callback_data":"group:rules:verify"}})
 	case "qa": keyboard=append(keyboard,[]map[string]string{{"text":"问答规则列表","callback_data":"group:rules:qa"}})
 	case "lists": keyboard=append(keyboard,[]map[string]string{{"text":"查看群组黑白名单","callback_data":"group:lists"}})
@@ -614,7 +614,8 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 		case strings.HasPrefix(query.Data,"group:delete:"): p.handleGroupRuleDelete(ctx,bot,groupID,query.Message.Chat.ID,query.Data,token)
 	case strings.HasPrefix(query.Data,"group:member:detail:"):
 		p.sendGroupMemberDetail(ctx,bot,groupID,query.Message.Chat.ID,query.Data,token)
-	case query.Data=="group:status": p.sendGroupStatus(ctx,bot,groupID,query.Message.Chat.ID,token)
+	case query.Data=="group:admins": p.sendGroupAdministrators(ctx,bot,groupID,query.Message.Chat.ID,token)
+\tcase query.Data=="group:status": p.sendGroupStatus(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:help" || query.Data=="group:home": p.sendGroupMenu(ctx,query.Message.Chat.ID,0,token)
 	case strings.HasPrefix(query.Data,"group:toggle:"):
 		ruleID:=strings.TrimPrefix(query.Data,"group:toggle:")
@@ -1369,6 +1370,36 @@ func (p *Poller) sendGroupRuleEvents(ctx context.Context,bot managedBot,groupID 
 	}
 	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\n"),"reply_markup":map[string]any{"inline_keyboard":[][]map[string]string{
 		{{"text":"刷新记录","callback_data":"group:rule-events"},{"text":"返回规则","callback_data":"group:rules"}},
+	}}},nil)
+}
+
+func (p *Poller) sendGroupAdministrators(ctx context.Context,bot managedBot,groupID string,chatID int64,token string) {
+	var telegramChatID int64
+	if err:=p.pool.QueryRow(ctx,`SELECT telegram_chat_id FROM telegram_groups WHERE tenant_id=$1 AND id=$2 AND status='active'`,bot.tenantID,groupID).Scan(&telegramChatID);err!=nil {
+		p.logger.Warn("load Telegram group for administrator list","group_id",groupID,"error",err)
+		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"无法读取群组信息，请刷新后重试。"},nil)
+		return
+	}
+	var members []telegramChatMember
+	if err:=p.callTelegram(ctx,token,"getChatAdministrators",map[string]any{"chat_id":telegramChatID},&members);err!=nil {
+		p.logger.Warn("list Telegram group administrators","group_id",groupID,"error",err)
+		_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":"读取群管理员失败，请确认 Bot 仍在群内且 Telegram API 可用。"},nil)
+		return
+	}
+	lines:=[]string{fmt.Sprintf("当前群管理员（%d 人）：",len(members))}
+	for i,member:=range members {
+		name:=senderDisplayName(&member.User)
+		if name=="" { name=strconv.FormatInt(member.User.ID,10) }
+		if member.User.Username!="" { name+=" (@"+member.User.Username+")" }
+		role:="管理员"
+		if member.Status=="creator" { role="群主" }
+		lines=append(lines,fmt.Sprintf("%d. %s｜%s｜ID %d",i+1,name,role,member.User.ID))
+	}
+	if len(members)==0 { lines=append(lines,"Telegram 未返回管理员列表。") }
+	lines=append(lines,"\n权限以 Telegram 当前实时成员身份为准；被降级或移出群组后将无法继续使用群管菜单。")
+	_=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":chatID,"text":strings.Join(lines,"\n"),"reply_markup":map[string]any{"inline_keyboard":[][]map[string]string{
+		{{"text":"刷新管理员","callback_data":"group:admins"},{"text":"检查 Bot 权限","callback_data":"group:status"}},
+		{{"text":"返回管理员管理","callback_data":"group:cat:admins"},{"text":"返回菜单","callback_data":"group:home"}},
 	}}},nil)
 }
 
