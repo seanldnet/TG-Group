@@ -22,7 +22,7 @@ func TestGMPayClientCreateOrderSignsRequestAndParsesResponse(t *testing.T){
 		if signature!=GMPaySignature(params,"0123456789abcdef"){t.Fatal("request signature mismatch")}
 		if params["amount"]!=strconv.Itoa(25)||params["currency"]!="usd"{t.Fatalf("unexpected amount/currency: %#v",params)}
 		w.Header().Set("Content-Type","application/json")
-		_,_=w.Write([]byte(`{"status_code":200,"message":"success","data":{"trade_id":"trade-1","order_id":"RC123","actual_amount":25,"token":"USDT","status":1,"expiration_time":1779530812,"payment_url":"https://checkout.example/pay/1","receive_address":"TAddress"}}`))
+		_,_=w.Write([]byte(`{"status_code":200,"message":"success","data":{"trade_id":"trade-1","order_id":"RC123","actual_amount":25,"token":"USDT","status":1,"expiration_time":1779530812,"payment_url":"https://provider.example/pay/1","receive_address":"TAddress"}}`))
 	}))
 	defer server.Close()
 	channel:=ChannelConfig{Code:"epusdt_gmpay",BaseURL:server.URL,MerchantPID:"1000",SecretKey:"0123456789abcdef",Currency:"usd",Token:"usdt",Network:"tron"}
