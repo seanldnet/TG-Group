@@ -67,6 +67,7 @@ func NewHandlerWithPayments(logger *slog.Logger, authService *auth.Service, botS
 	mux.HandleFunc("GET /api/v1/account/agent/orders",h.agentUpgradeOrders)
 	mux.HandleFunc("GET /api/v1/admin/agent-levels",h.adminAgentLevels)
 	mux.HandleFunc("GET /api/v1/admin/payment-channels",h.adminPaymentChannels)
+	mux.HandleFunc("GET /api/v1/admin/payment-channels/epusdt_gmpay/assets",h.adminGMPayAssets)
 	mux.HandleFunc("PUT /api/v1/admin/payment-channels/{channelCode}",h.updateAdminPaymentChannel)
 	mux.HandleFunc("POST /api/v1/account/wallet/recharge",h.createWalletRecharge)
 	mux.HandleFunc("GET /api/v1/account/wallet/recharges",h.listWalletRecharges)
@@ -991,4 +992,14 @@ func (h *Handler) gmpayNotify(w http.ResponseWriter,r *http.Request){
 	w.Header().Set("Content-Type","text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_,_=w.Write([]byte("ok"))
+}
+
+
+func (h *Handler) adminGMPayAssets(w http.ResponseWriter,r *http.Request){
+	if _,ok:=h.paymentAdmin(w,r);!ok{return}
+	if h.recharge==nil{writeError(w,http.StatusServiceUnavailable,"GMPay service is not configured");return}
+	ctx,cancel:=context.WithTimeout(r.Context(),10*time.Second);defer cancel()
+	config,err:=h.recharge.GetGMPayPublicConfig(ctx)
+	if err!=nil{h.logger.Error("read GMPay supported assets","error",err);writeError(w,http.StatusBadGateway,"读取 EPUSDT 支持的资产和网络失败");return}
+	writeJSON(w,http.StatusOK,config)
 }
