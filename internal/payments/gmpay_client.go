@@ -83,7 +83,6 @@ func (c GMPayClient) CreateOrder(ctx context.Context,channel ChannelConfig,order
 		return GMPayOrderResult{},fmt.Errorf("%w: HTTP %d: %s",ErrProviderRejected,response.StatusCode,envelope.Message)
 	}
 	paymentURL,err:=url.Parse(envelope.Data.PaymentURL)
-	baseURL,baseErr:=url.Parse(channel.BaseURL)
-	if err!=nil||baseErr!=nil||paymentURL.Scheme!="https"||paymentURL.Host==""||!strings.EqualFold(paymentURL.Host,baseURL.Host) { return GMPayOrderResult{},errors.New("EPUSDT returned an invalid payment URL") }
+	if err!=nil||paymentURL.Scheme!="https"||paymentURL.Host==""||paymentURL.User!=nil { return GMPayOrderResult{},errors.New("EPUSDT returned an invalid payment URL") }
 	return GMPayOrderResult{TradeID:envelope.Data.TradeID,OrderID:envelope.Data.OrderID,ActualAmount:envelope.Data.ActualAmount.String(),Token:envelope.Data.Token,Status:envelope.Data.Status,ExpirationTime:envelope.Data.ExpirationTime,PaymentURL:envelope.Data.PaymentURL,ReceiveAddress:envelope.Data.ReceiveAddress},nil
 }
