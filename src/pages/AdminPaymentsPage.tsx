@@ -15,6 +15,7 @@ export default function AdminPaymentsPage() {
   const [supportedAssets, setSupportedAssets] = useState<SupportedPaymentAsset[]>([])
   const [rechargeOrders, setRechargeOrders] = useState<AdminRechargeOrder[]>([])
   const [rechargeTotal, setRechargeTotal] = useState(0)
+  const [statusFilter, setStatusFilter] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -27,7 +28,7 @@ export default function AdminPaymentsPage() {
       const [result, assets, orders] = await Promise.all([
         listAdminPaymentChannels(),
         getGMPaySupportedAssets().catch(() => ({ supported_assets: [] as SupportedPaymentAsset[] })),
-        listAdminRechargeOrders("", 20, 0),
+        listAdminRechargeOrders(statusFilter, 20, 0),
       ])
       setSupportedAssets(assets.supported_assets)
       setRechargeOrders(orders.items)
@@ -115,6 +116,18 @@ export default function AdminPaymentsPage() {
         <CardHeader>
           <CardTitle className="text-base">最近充值订单</CardTitle>
           <CardDescription>平台共 {rechargeTotal} 笔充值订单。金额异常的订单进入待核查状态，不会自动入账。</CardDescription>
+          <div className="flex flex-wrap items-center gap-2 pt-2">
+            <Label htmlFor="recharge-status-filter">订单状态</Label>
+            <select id="recharge-status-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-9 rounded-md border bg-background px-3 text-sm">
+              <option value="">全部状态</option>
+              <option value="pending">待支付</option>
+              <option value="paid">已到账</option>
+              <option value="review">待核查</option>
+              <option value="expired">已过期</option>
+              <option value="failed">失败</option>
+            </select>
+            <Button size="sm" variant="outline" onClick={() => void load()} disabled={loading}>筛选</Button>
+          </div>
         </CardHeader>
         <CardContent>
           {rechargeOrders.length ? (
