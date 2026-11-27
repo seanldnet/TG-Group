@@ -22,7 +22,7 @@ const ruleTypes = [
   { value: "keyword_filter", label: "关键词过滤", config: { words: ["广告"], action: "delete" } },
   { value: "sensitive_word", label: "敏感词过滤", config: { words: ["敏感词"], action: "delete" } },
   { value: "anti_spam", label: "反刷屏", config: { max_messages: 5, window_seconds: 10, duplicate_count: 3, action: "delete" } },
-  { value: "anti_ad", label: "反广告", config: { patterns: ["t.me/"], exceptions: [], action: "delete" } },
+  { value: "anti_ad", label: "反广告", config: { patterns: ["t.me/"], exceptions: [], blocked_domains: [], allowed_domains: [], block_invite_links: false, action: "delete" } },
   { value: "media_restriction", label: "消息与媒体限制", config: { types: ["photo", "video", "animation", "sticker", "voice", "audio", "document", "video_note", "poll", "contact", "location", "venue"], action: "delete" } },
   { value: "welcome", label: "入群欢迎", config: { text: "欢迎加入本群！" } },
   { value: "leave_notice", label: "离群通知", config: { text: "有成员离开了群组" } },
