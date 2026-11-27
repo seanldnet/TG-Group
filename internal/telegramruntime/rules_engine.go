@@ -551,7 +551,7 @@ func (p *Poller) sendGroupCategory(ctx context.Context,bot managedBot,groupID st
 		"admins":{"管理员管理","自动识别 Telegram 当前群管理员。管理员升为管理员后即可使用本群管理菜单；被降级或移出后自动失去权限。","已开放"},
 		"lists":{"黑白名单","管理禁止入群名单、允许名单和规则豁免名单。","部分开放"},
 		"verify":{"入群验证","配置数字、字母、数字字母组合验证及入群必需频道。","部分开放"},
-		"warnings":{"警告系统","记录成员违规次数并查看警告历史；自动递进处罚策略后续开放。","部分开放"},
+		"warnings":{"警告系统","记录成员警告、查看历史，并按递进策略自动执行禁言或封禁；失败处罚支持持久化重试。","已开放"},
 		"profile":{"名片管理","设置成员昵称、名片格式及资料规范。","开发中"},
 		"schedule":{"定时任务","设置定时公告、提醒和自动清理任务。","开发中"},
 		"polls":{"投票管理","创建群投票并查看投票结果。","开发中"},
@@ -592,14 +592,14 @@ func (p *Poller) handleGroupCallback(ctx context.Context,bot managedBot,groupID 
 	case query.Data=="group:rules": p.sendGroupRules(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case strings.HasPrefix(query.Data,"group:rules:"):
 		category:=strings.TrimPrefix(query.Data,"group:rules:")
-		if category=="notices"||category=="spam"||category=="ads"||category=="media"||category=="verify"||category=="qa" { p.sendGroupRulesForCategory(ctx,bot,groupID,query.Message.Chat.ID,category,token) }
+		if category=="notices"||category=="spam"||category=="ads"||category=="media"||category=="verify"||category=="qa"||category=="protection" { p.sendGroupRulesForCategory(ctx,bot,groupID,query.Message.Chat.ID,category,token) }
 	case query.Data=="group:members" || strings.HasPrefix(query.Data,"group:members:page:"):
 		offset:=0
 		if query.Data!="group:members" { parsed,err:=strconv.Atoi(strings.TrimPrefix(query.Data,"group:members:page:"));if err!=nil||parsed<0||parsed>100000{return};offset=parsed }
 		p.sendGroupMembers(ctx,bot,groupID,query.Message.Chat.ID,token,offset)
 	case query.Data=="group:rule-events": p.sendGroupRuleEvents(ctx,bot,groupID,query.Message.Chat.ID,token)
 	case query.Data=="group:lists": p.sendGroupMemberLists(ctx,bot,groupID,query.Message.Chat.ID,token)
-	case query.Data=="group:warnings": _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"警告系统：可在成员详情中为成员添加警告并查看最近记录。警告阈值自动处罚策略正在开发，当前不会自动封禁或禁言。"},nil)
+	case query.Data=="group:warnings": _=p.callTelegram(ctx,token,"sendMessage",map[string]any{"chat_id":query.Message.Chat.ID,"text":"警告系统：可在成员详情中记录管理员警告、查看历史，并按已配置的递进策略自动执行禁言或封禁。处罚失败会进入持久化重试队列；管理员可在网页端成员详情中查看执行记录并手动重试。","reply_markup":map[string]any{"inline_keyboard":[][]map[string]string{{{"text":"打开成员管理","callback_data":"group:members"}},{{"text":"查看处罚执行记录","callback_data":"group:rule-events"}},{{"text":"返回菜单","callback_data":"group:home"}}}}},nil)
 	case strings.HasPrefix(query.Data,"group:list:add:"): p.handleGroupMemberListAdd(ctx,bot,groupID,query,token)
 	case strings.HasPrefix(query.Data,"group:warn:"): p.handleGroupMemberWarning(ctx,bot,groupID,query,token)
 	case strings.HasPrefix(query.Data,"group:list:delete:"): p.handleGroupMemberListDelete(ctx,bot,groupID,query,token)
