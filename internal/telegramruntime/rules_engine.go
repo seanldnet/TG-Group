@@ -157,6 +157,9 @@ func (p *Poller) executeBotProtection(ctx context.Context,bot managedBot,groupID
 	if err:=p.pool.QueryRow(ctx,"SELECT telegram_bot_id FROM telegram_bots WHERE tenant_id=$1 AND id=$2 AND status='active'",bot.tenantID,bot.id).Scan(&telegramBotID);err!=nil {
 		p.finishRuleEvent(ctx,eventID,"failed","could not load active Bot identity"); return true
 	}
+	if p.botService==nil {
+		p.finishRuleEvent(ctx,eventID,"failed","Bot moderation service is unavailable"); return true
+	}
 	if err:=p.botService.ModerateGroupMemberForTelegramAdmin(ctx,bot.tenantID,telegramBotID,groupID,member.ID,"ban",0);err!=nil {
 		p.finishRuleEvent(ctx,eventID,"failed","automatic Bot ban failed: "+err.Error()); return true
 	}
