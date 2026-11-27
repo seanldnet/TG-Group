@@ -117,7 +117,7 @@ func (s *ConfigStore) Load(ctx context.Context,code string)(ChannelConfig,error)
 	var c ChannelConfig
 	var ciphertext,nonce []byte
 	err:=s.pool.QueryRow(ctx,`SELECT code,name,base_url,merchant_pid,secret_ciphertext,secret_nonce,currency,token,network,enabled
-		FROM payment_channels WHERE code=$1 AND enabled=TRUE`,code).Scan(&c.Code,&c.Name,&c.BaseURL,&c.MerchantPID,&ciphertext,&nonce,&c.Currency,&c.Token,&c.Network,&c.Enabled)
+		FROM payment_channels WHERE code=$1`,code).Scan(&c.Code,&c.Name,&c.BaseURL,&c.MerchantPID,&ciphertext,&nonce,&c.Currency,&c.Token,&c.Network,&c.Enabled)
 	if err!=nil{return ChannelConfig{},err}
 	secret,err:=s.aead.Open(nil,nonce,ciphertext,[]byte("tg-group/payment-channel/"+c.Code+"/v1"))
 	if err!=nil{return ChannelConfig{},errors.New("stored payment credential could not be decrypted")}
