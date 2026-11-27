@@ -22,8 +22,6 @@ func VerifyGMPayCallback(params map[string]string,secret,expectedPID,expectedOrd
 	if !VerifyGMPaySignature(params,secret){return VerifiedGMPayCallback{},ErrInvalidGMPayCallback}
 	amount,err:=ParseIntegerUSDT(params["amount"])
 	if err!=nil||amount!=expectedAmountUSDT{return VerifiedGMPayCallback{},ErrInvalidGMPayCallback}
-	credited,err:=ParseIntegerUSDT(params["actual_amount"])
-	if err!=nil{return VerifiedGMPayCallback{},ErrInvalidGMPayCallback}
 	status,err:=strconv.Atoi(params["status"])
 	if err!=nil||status!=2{return VerifiedGMPayCallback{},ErrInvalidGMPayCallback}
 	pid:=strings.TrimSpace(params["pid"])
@@ -33,5 +31,7 @@ func VerifyGMPayCallback(params map[string]string,secret,expectedPID,expectedOrd
 	if pid!=expectedPID||orderID!=expectedOrderID||tradeID==""||txID==""||!strings.EqualFold(strings.TrimSpace(params["token"]),"USDT"){
 		return VerifiedGMPayCallback{},ErrInvalidGMPayCallback
 	}
+	credited,err:=ParseIntegerUSDT(params["actual_amount"])
+	if err!=nil{return VerifiedGMPayCallback{PID:pid,TradeID:tradeID,OrderID:orderID,AmountUSDT:amount,Token:"USDT",TransactionID:txID},ErrNonIntegerUSDT}
 	return VerifiedGMPayCallback{PID:pid,TradeID:tradeID,OrderID:orderID,AmountUSDT:amount,CreditedUSDT:credited,Token:"USDT",TransactionID:txID},nil
 }
