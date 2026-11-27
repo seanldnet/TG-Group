@@ -194,8 +194,10 @@ func (s *Service) UpgradeAgentWithWallet(ctx context.Context, userID, targetLeve
 }
 
 
-var ErrInvalidAgentLevel = errors.New("invalid agent level")
+var (
+	ErrInvalidAgentLevel = errors.New("invalid agent level")
 	ErrAgentLevelConflict = errors.New("agent level code already exists")
+)
 
 func validateAgentLevel(code,name string,price int64,sortOrder int32) error {
 	if len(code)<2 || len(code)>40 || len(name)==0 || len(name)>80 || price<0 || sortOrder<0 {
