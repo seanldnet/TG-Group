@@ -721,3 +721,59 @@ export function retryWarningEscalation(groupID: string, userID: number, executio
     { method: "POST", headers: authenticatedHeaders() },
   )
 }
+
+
+export type PaymentChannelStatus = {
+  code: "epusdt_gmpay" | "epusdt_epay"
+  name: string
+  base_url: string
+  merchant_pid: string
+  currency: string
+  token: string
+  network: string
+  enabled: boolean
+}
+
+export type WalletRechargeOrder = {
+  id: string
+  order_no: string
+  merchant_order_id: string
+  amount_usdt: number
+  actual_amount?: string
+  token?: string
+  network?: string
+  receive_address?: string
+  payment_url?: string
+  status: "pending" | "paid" | "expired" | "failed" | "review"
+  expires_at?: string
+  created_at: string
+}
+
+export function listAdminPaymentChannels() {
+  return request<{ items: PaymentChannelStatus[] }>("/api/v1/admin/payment-channels", {
+    headers: authenticatedHeaders(),
+  })
+}
+
+export function saveAdminPaymentChannel(code: PaymentChannelStatus["code"], input: {
+  name: string; base_url: string; merchant_pid: string; secret_key: string;
+  currency: string; token: string; network: string; enabled: boolean
+}) {
+  return request<{ items: PaymentChannelStatus[] }>(`/api/v1/admin/payment-channels/${encodeURIComponent(code)}`, {
+    method: "PUT", headers: authenticatedHeaders(), body: JSON.stringify(input),
+  })
+}
+
+export function createWalletRecharge(amountUSDT: number) {
+  return request<WalletRechargeOrder>("/api/v1/account/wallet/recharge", {
+    method: "POST", headers: authenticatedHeaders(), body: JSON.stringify({ amount_usdt: amountUSDT }),
+  })
+}
+
+export function listWalletRecharges(limit = 20, offset = 0) {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  return request<{ items: WalletRechargeOrder[]; total: number; limit: number; offset: number }>(
+    `/api/v1/account/wallet/recharges?${params.toString()}`,
+    { headers: authenticatedHeaders() },
+  )
+}
