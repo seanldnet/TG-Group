@@ -361,3 +361,23 @@ func TestIsAllowedBotUsername(t *testing.T) {
 	if isAllowedBotUsername("untrusted_bot",[]string{"trusted_bot"}) { t.Fatal("unexpected allowlist match") }
 	if isAllowedBotUsername("",[]string{"trusted_bot"}) { t.Fatal("empty username must not match") }
 }
+
+
+func TestSelectSpamPenaltyLevel(t *testing.T) {
+	levels:=[]spamRulePenalty{
+		{Threshold:4,Action:"mute",DurationMinutes:10},
+		{Threshold:12,Action:"ban"},
+	}
+	tests:=[]struct{count int;wantAction string;wantThreshold int}{
+		{count:2,wantAction:"",wantThreshold:0},
+		{count:4,wantAction:"mute",wantThreshold:4},
+		{count:11,wantAction:"mute",wantThreshold:4},
+		{count:12,wantAction:"ban",wantThreshold:12},
+		{count:30,wantAction:"ban",wantThreshold:12},
+	}
+	for _,test:=range tests {
+		got:=selectSpamPenaltyLevel(levels,test.count)
+		if test.wantAction=="" { if got!=nil { t.Fatalf("count %d unexpectedly selected %+v",test.count,got) }; continue }
+		if got==nil || got.Action!=test.wantAction || got.Threshold!=test.wantThreshold { t.Errorf("count %d selected %+v, want action=%s threshold=%d",test.count,got,test.wantAction,test.wantThreshold) }
+	}
+}
