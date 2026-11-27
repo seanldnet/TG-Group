@@ -176,3 +176,37 @@ func (s *RechargeService) GetGMPayPublicConfig(ctx context.Context)(PublicConfig
 	if err!=nil{return PublicConfig{},fmt.Errorf("load GMPay channel: %w",err)}
 	return s.client.GetPublicConfig(ctx,channel.BaseURL)
 }
+
+
+type AdminRechargeOrder struct {
+	ID string `json:"id"`
+	OrderNo string `json:"order_no"`
+	UserID string `json:"user_id"`
+	Email string `json:"email"`
+	ChannelCode string `json:"channel_code"`
+	AmountUSDT int64 `json:"amount_usdt"`
+	ActualAmount string `json:"actual_amount,omitempty"`
+	Token string `json:"token,omitempty"`
+	Network string `json:"network,omitempty"`
+	ProviderTradeID string `json:"provider_trade_id,omitempty"`
+	TransactionID string `json:"block_transaction_id,omitempty"`
+	Status string `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	PaidAt *time.Time `json:"paid_at,omitempty"`
+}
+
+func (s *RechargeService) ListAdminRechargeOrders(ctx context.Context,status string,limit,offset int)([]AdminRechargeOrder,int64,error){
+	var total int64
+	if err:=s.pool.QueryRow(ctx,`SELECT count(*) FROM wallet_recharge_orders WHERE ($1='' OR status=$1)`,status).Scan(&total);err!=nil{return nil,0,fmt.Errorf("count admin recharge orders: %w",err)}
+	rows,err:=s.pool.Query(ctx,`SELECT o.id::text,o.order_no,o.user_id::text,u.email,o.channel_code,o.amount_usdt,
+		COALESCE(o.actual_amount::text,''),COALESCE(o.actual_token,''),COALESCE(o.actual_network,''),
+		COALESCE(o.provider_trade_id,''),COALESCE(o.block_transaction_id,''),o.status,o.created_at,o.paid_at
+		FROM wallet_recharge_orders o JOIN users u ON u.id=o.user_id
+		WHERE ($1='' OR o.status=$1) ORDER BY o.created_at DESC,o.id DESC LIMIT $2 OFFSET $3`,status,limit,offset)
+	if err!=nil{return nil,0,fmt.Errorf("list admin recharge orders: %w",err)}
+	defer rows.Close()
+	items:=make([]AdminRechargeOrder,0)
+	for rows.Next(){var item AdminRechargeOrder;if err:=rows.Scan(&item.ID,&item.OrderNo,&item.UserID,&item.Email,&item.ChannelCode,&item.AmountUSDT,&item.ActualAmount,&item.Token,&item.Network,&item.ProviderTradeID,&item.TransactionID,&item.Status,&item.CreatedAt,&item.PaidAt);err!=nil{return nil,0,fmt.Errorf("scan admin recharge order: %w",err)};items=append(items,item)}
+	if err:=rows.Err();err!=nil{return nil,0,fmt.Errorf("iterate admin recharge orders: %w",err)}
+	return items,total,nil
+}
