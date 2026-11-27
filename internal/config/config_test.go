@@ -93,16 +93,16 @@ func TestLoadRejectsUnsafeTelegramBotUsername(t *testing.T) {
 }
 
 
-func TestLoadRequiresPaymentPublicURLWithEncryptionKey(t *testing.T) {
+func TestLoadRequiresEncryptionKeyWhenPublicURLIsSet(t *testing.T) {
 	t.Setenv("TG_GROUP_HTTP_PORT","8080")
 	t.Setenv("CAP_BASE_URL","")
 	t.Setenv("CAP_SITE_KEY","")
 	t.Setenv("CAP_SECRET","")
 	t.Setenv("TELEGRAM_AUTH_BOT_TOKEN","")
 	t.Setenv("TELEGRAM_AUTH_BOT_USERNAME","")
-	t.Setenv("PAYMENT_CREDENTIALS_ENCRYPTION_KEY","a2V5")
-	t.Setenv("PAYMENT_PUBLIC_BASE_URL","")
-	if _,err:=Load();err==nil{t.Fatal("expected paired payment configuration validation")}
+	t.Setenv("PAYMENT_CREDENTIALS_ENCRYPTION_KEY","")
+	t.Setenv("PAYMENT_PUBLIC_BASE_URL","https://merchant.example")
+	if _,err:=Load();err==nil{t.Fatal("expected payment encryption key validation")}
 }
 
 func TestLoadRejectsInsecurePaymentPublicURL(t *testing.T) {
