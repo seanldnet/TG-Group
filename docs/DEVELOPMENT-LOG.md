@@ -987,3 +987,13 @@
 - 增加配置校验测试（阈值顺序、动作、时长）、档位选择测试及 Telegram 预设/自定义编辑回调测试。
 - 涉及：`internal/bots/group_rules.go`、`internal/bots/group_rules_test.go`、`internal/telegramruntime/rules_engine.go`、`internal/telegramruntime/rules_engine_test.go`、`src/pages/GroupRulesPage.tsx`、`docs/API.md`。
 - 本批已提交 main，等待 CI；真实 Telegram 群组权限与处罚冷却验收仍需部署后完成。
+
+
+## 2026-11-27（群组保护：批量邀请防护第一阶段）
+
+- 新增 `anti_invite_flood` 群规，按同一邀请者在时间窗内邀请的新成员总数触发；默认预设为 60 秒内 8 人。
+- Telegram 新成员服务消息事件记录为 `new_members`，`telegram_user_id` 保存发起邀请的 `message.from`，`message_text` 保存本次新增人数；不会把被邀请成员误当作邀请者。
+- 触发后对邀请者执行可配置 mute/ban，支持邀请者 Telegram ID 白名单；复用现有实时 Bot 权限检查、管理员保护、审计和幂等群规事件，成功处罚后 60 秒冷却。
+- 网站规则编辑器增加规则类型与默认配置；Telegram 群组保护菜单增加预设创建入口。
+- 限制：阈值 2–100 人、时间窗 10–3600 秒；mute 1–10080 分钟；ban 不设置时长；白名单最多 100 个正数 ID。
+- 仅统计 Bot 实际收到的 `message.new_chat_members` 服务消息，不代表 Telegram 全量成员/邀请事件枚举；CI 和真实群组验收待确认。
