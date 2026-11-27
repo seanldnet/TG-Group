@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"crypto/sha256"
 	"context"
 	"errors"
 	"io"
@@ -880,4 +881,96 @@ func (h *Handler) updateAdminUserStatus(w http.ResponseWriter,r *http.Request) {
 	case errors.Is(err,auth.ErrAdminUserNotFound): writeError(w,http.StatusNotFound,"用户不存在")
 	default: h.logger.Error("update platform user status","error",err);writeError(w,http.StatusInternalServerError,"更新用户状态失败")
 	}
+}
+
+
+type adminPaymentChannelRequest struct {
+	Name string `json:"name"`
+	BaseURL string `json:"base_url"`
+	MerchantPID string `json:"merchant_pid"`
+	SecretKey string `json:"secret_key"`
+	Currency string `json:"currency"`
+	Token string `json:"token"`
+	Network string `json:"network"`
+	Enabled bool `json:"enabled"`
+}
+
+func (h *Handler) adminPaymentChannels(w http.ResponseWriter,r *http.Request){
+	user,ok:=h.platformAdmin(w,r);if !ok{return}
+	_ = user
+	if h.paymentChannels==nil{writeError(w,http.StatusServiceUnavailable,"payment credentials encryption is not configured");return}
+	items,err:=h.paymentChannels.List(r.Context())
+	if err!=nil{h.logger.Error("list payment channels","error",err);writeError(w,http.StatusInternalServerError,"读取支付渠道配置失败");return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":items})
+}
+
+func (h *Handler) updateAdminPaymentChannel(w http.ResponseWriter,r *http.Request){
+	user,ok:=h.platformAdmin(w,r);if !ok{return}
+	if h.paymentChannels==nil{writeError(w,http.StatusServiceUnavailable,"payment credentials encryption is not configured");return}
+	var input adminPaymentChannelRequest
+	if !decodeJSON(w,r,&input){return}
+	channel:=payments.ChannelConfig{Code:r.PathValue("channelCode"),Name:input.Name,BaseURL:input.BaseURL,MerchantPID:input.MerchantPID,SecretKey:input.SecretKey,Currency:input.Currency,Token:input.Token,Network:input.Network,Enabled:input.Enabled}
+	if err:=h.paymentChannels.Save(r.Context(),channel,user.ID);err!=nil{
+		if errors.Is(err,payments.ErrInvalidChannelConfig){writeError(w,http.StatusBadRequest,"支付渠道配置无效：请检查 HTTPS 网关地址、商户凭证、币种和网络");return}
+		h.logger.Error("save payment channel","error",err);writeError(w,http.StatusInternalServerError,"保存支付渠道配置失败");return
+	}
+	items,err:=h.paymentChannels.List(r.Context());if err!=nil{h.logger.Error("reload payment channels","error",err);writeError(w,http.StatusInternalServerError,"配置已保存，但读取状态失败");return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":items})
+}
+
+type walletRechargeRequest struct { AmountUSDT int64 `json:"amount_usdt"` }
+
+func (h *Handler) createWalletRecharge(w http.ResponseWriter,r *http.Request){
+	if !h.requireAuthStore(w){return}
+	user,err:=h.auth.Authenticate(r.Context(),bearerToken(r));if err!=nil{writeError(w,http.StatusUnauthorized,"unauthorized");return}
+	if h.recharge==nil||h.paymentPublicBaseURL==""{writeError(w,http.StatusServiceUnavailable,"钱包在线充值暂未配置");return}
+	var input walletRechargeRequest
+	if !decodeJSON(w,r,&input){return}
+	if input.AmountUSDT<=0||input.AmountUSDT>1000000000{writeError(w,http.StatusBadRequest,"充值金额必须为 1 至 1000000000 整数 USDT");return}
+	ctx,cancel:=context.WithTimeout(r.Context(),20*time.Second);defer cancel()
+	notifyURL:=h.paymentPublicBaseURL+"/api/v1/payments/epusdt/gmpay/notify"
+	redirectURL:=h.paymentPublicBaseURL+"/dashboard/account/agent"
+	order,err:=h.recharge.CreateGMPayOrder(ctx,user.ID,input.AmountUSDT,notifyURL,redirectURL)
+	if err!=nil{h.logger.Error("create wallet recharge order","error",err);if errors.Is(err,payments.ErrProviderRejected){writeError(w,http.StatusBadGateway,"支付网关未能创建订单，请稍后重试");return};writeError(w,http.StatusBadGateway,"创建充值订单失败，请检查支付渠道配置");return}
+	writeJSON(w,http.StatusCreated,order)
+}
+
+func (h *Handler) listWalletRecharges(w http.ResponseWriter,r *http.Request){
+	if !h.requireAuthStore(w){return}
+	user,err:=h.auth.Authenticate(r.Context(),bearerToken(r));if err!=nil{writeError(w,http.StatusUnauthorized,"unauthorized");return}
+	if h.recharge==nil{writeError(w,http.StatusServiceUnavailable,"钱包在线充值暂未配置");return}
+	limit,offset:=20,0
+	if raw:=r.URL.Query().Get("limit");raw!=""{value,e:=strconv.Atoi(raw);if e!=nil||value<1||value>100{writeError(w,http.StatusBadRequest,"limit must be between 1 and 100");return};limit=value}
+	if raw:=r.URL.Query().Get("offset");raw!=""{value,e:=strconv.Atoi(raw);if e!=nil||value<0||value>1000000{writeError(w,http.StatusBadRequest,"offset must be between 0 and 1000000");return};offset=value}
+	items,total,err:=h.recharge.ListUserRechargeOrders(r.Context(),user.ID,limit,offset)
+	if err!=nil{h.logger.Error("list wallet recharge orders","error",err);writeError(w,http.StatusInternalServerError,"读取充值订单失败");return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":items,"total":total,"limit":limit,"offset":offset})
+}
+
+func (h *Handler) gmpayNotify(w http.ResponseWriter,r *http.Request){
+	if h.recharge==nil{http.Error(w,"payment service unavailable",http.StatusServiceUnavailable);return}
+	r.Body=http.MaxBytesReader(w,r.Body,64<<10)
+	raw,err:=io.ReadAll(r.Body);if err!=nil{http.Error(w,"invalid callback body",http.StatusBadRequest);return}
+	var rawParams map[string]json.RawMessage
+	decoder:=json.NewDecoder(strings.NewReader(string(raw)));decoder.UseNumber()
+	if err:=decoder.Decode(&rawParams);err!=nil{http.Error(w,"invalid callback JSON",http.StatusBadRequest);return}
+	params:=make(map[string]string,len(rawParams))
+	for key,value:=range rawParams{
+		if string(value)=="null"{continue}
+		var textValue string
+		if err:=json.Unmarshal(value,&textValue);err==nil{params[key]=textValue;continue}
+		var number json.Number
+		if err:=json.Unmarshal(value,&number);err==nil{params[key]=number.String();continue}
+		http.Error(w,"invalid callback field",http.StatusBadRequest);return
+	}
+	hash:=sha256.Sum256(raw)
+	ctx,cancel:=context.WithTimeout(r.Context(),10*time.Second);defer cancel()
+	if err:=h.recharge.ApplyGMPayCallback(ctx,params,hash[:]);err!=nil{
+		if errors.Is(err,payments.ErrRechargeOrderNotFound){http.Error(w,"order not found",http.StatusNotFound);return}
+		if errors.Is(err,payments.ErrInvalidGMPayCallback)||errors.Is(err,payments.ErrRechargeOrderConflict){http.Error(w,"invalid payment callback",http.StatusBadRequest);return}
+		h.logger.Error("process GMPay callback","error",err);http.Error(w,"payment callback processing failed",http.StatusInternalServerError);return
+	}
+	w.Header().Set("Content-Type","text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_,_=w.Write([]byte("ok"))
 }
