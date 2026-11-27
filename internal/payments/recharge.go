@@ -251,7 +251,7 @@ func (s *RechargeService) ReconcilePendingOrders(ctx context.Context,limit int)(
 	if limit<1||limit>100{return 0,errors.New("reconciliation limit must be between 1 and 100")}
 	rows,err:=s.pool.Query(ctx,`SELECT id::text,channel_code,provider_trade_id FROM wallet_recharge_orders
 		WHERE status='pending' AND provider_trade_id IS NOT NULL AND created_at<now()-interval '20 seconds'
-		ORDER BY created_at ASC LIMIT $1`,limit)
+		ORDER BY updated_at ASC LIMIT $1`,limit)
 	if err!=nil{return 0,fmt.Errorf("list pending recharge orders for reconciliation: %w",err)}
 	type pending struct{id,channel,tradeID string}
 	items:=make([]pending,0)
@@ -265,11 +265,11 @@ func (s *RechargeService) ReconcilePendingOrders(ctx context.Context,limit int)(
 		channel,ok:=channelCache[item.channel]
 		if !ok{
 			channel,err=s.channels.Load(ctx,item.channel)
-			if err!=nil{if firstErr==nil{firstErr=fmt.Errorf("load channel %s: %w",item.channel,err)};continue}
+			if err!=nil{_,_=s.pool.Exec(ctx,`UPDATE wallet_recharge_orders SET updated_at=now() WHERE id=$1 AND status='pending'`,item.id);if firstErr==nil{firstErr=fmt.Errorf("load channel %s: %w",item.channel,err)};continue}
 			channelCache[item.channel]=channel
 		}
 		status,queryErr:=s.client.CheckOrderStatus(ctx,channel.BaseURL,item.tradeID)
-		if queryErr!=nil{if firstErr==nil{firstErr=fmt.Errorf("query trade %s: %w",item.tradeID,queryErr)};continue}
+		if queryErr!=nil{_,_=s.pool.Exec(ctx,`UPDATE wallet_recharge_orders SET updated_at=now() WHERE id=$1 AND status='pending'`,item.id);if firstErr==nil{firstErr=fmt.Errorf("query trade %s: %w",item.tradeID,queryErr)};continue}
 		newStatus:="pending"
 		if status==3{newStatus="expired"}else if status==6{newStatus="review"}
 		if _,err:=s.pool.Exec(ctx,`UPDATE wallet_recharge_orders SET provider_status=$2,status=$3,updated_at=now() WHERE id=$1 AND status='pending'`,item.id,status,newStatus);err!=nil{
