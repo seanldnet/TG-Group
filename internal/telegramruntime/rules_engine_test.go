@@ -259,7 +259,7 @@ func TestGroupRuleCategoryKeepsFeatureIsolation(t *testing.T) {
 	tests:=[]struct{ruleType,want string}{
 		{"welcome","notices"},{"leave_notice","notices"},
 		{"anti_spam","spam"},
-		{"anti_ad","ads"},{"keyword_filter","ads"},{"sensitive_word","ads"},{"media_restriction","media"},{"anti_bot","protection"},
+		{"anti_ad","ads"},{"keyword_filter","ads"},{"sensitive_word","ads"},{"media_restriction","media"},{"anti_bot","protection"},{"anti_invite_flood","protection"},
 		{"join_verification","verify"},
 		{"unknown","all"},
 	}
