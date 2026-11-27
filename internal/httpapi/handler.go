@@ -916,6 +916,19 @@ func (h *Handler) updateAdminPaymentChannel(w http.ResponseWriter,r *http.Reques
 	var input adminPaymentChannelRequest
 	if !decodeJSON(w,r,&input){return}
 	channel:=payments.ChannelConfig{Code:r.PathValue("channelCode"),Name:input.Name,BaseURL:input.BaseURL,MerchantPID:input.MerchantPID,SecretKey:input.SecretKey,Currency:input.Currency,Token:input.Token,Network:input.Network,Enabled:input.Enabled}
+	if channel.Enabled {
+		ctx,cancel:=context.WithTimeout(r.Context(),10*time.Second)
+		publicConfig,configErr:=(payments.GMPayClient{}).GetPublicConfig(ctx,channel.BaseURL)
+		cancel()
+		if configErr!=nil{h.logger.Error("validate enabled payment channel assets","error",configErr);writeError(w,http.StatusBadGateway,"无法读取支付网关支持的资产，请检查网关地址和网络连接");return}
+		supported:=false
+		for _,asset:=range publicConfig.SupportedAssets{
+			if !strings.EqualFold(asset.Network,channel.Network){continue}
+			for _,token:=range asset.Tokens{if strings.EqualFold(token,channel.Token){supported=true;break}}
+			if supported{break}
+		}
+		if !supported{writeError(w,http.StatusBadRequest,"所选网络未启用 USDT 收款资产，请根据网关支持列表调整");return}
+	}
 	if err:=h.paymentChannels.Save(r.Context(),channel,user.ID);err!=nil{
 		if errors.Is(err,payments.ErrInvalidChannelConfig){writeError(w,http.StatusBadRequest,"支付渠道配置无效：请检查 HTTPS 网关地址、商户凭证、币种和网络");return}
 		h.logger.Error("save payment channel","error",err);writeError(w,http.StatusInternalServerError,"保存支付渠道配置失败");return
