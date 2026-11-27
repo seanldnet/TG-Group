@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { listAdminPaymentChannels, saveAdminPaymentChannel, type PaymentChannelStatus } from "@/lib/api"
+import { getGMPaySupportedAssets, listAdminPaymentChannels, saveAdminPaymentChannel, type PaymentChannelStatus, type SupportedPaymentAsset } from "@/lib/api"
 
 const initial = { name: "EPUSDT GMPay", base_url: "", merchant_pid: "", secret_key: "", currency: "usd", token: "usdt", network: "tron", enabled: false }
 
 export default function AdminPaymentsPage() {
   const [form, setForm] = useState(initial)
   const [status, setStatus] = useState<PaymentChannelStatus | null>(null)
+  const [supportedAssets, setSupportedAssets] = useState<SupportedPaymentAsset[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -92,6 +93,10 @@ export default function AdminPaymentsPage() {
               </div>
               <label className="flex items-center gap-3 rounded-lg border p-3 text-sm"><input type="checkbox" checked={form.enabled} onChange={(event) => update("enabled", event.target.checked)} className="size-4" /><span>启用此支付渠道</span></label>
               <div className="flex items-start gap-2 rounded-lg bg-muted/40 p-3 text-xs leading-5 text-muted-foreground"><ShieldCheck className="mt-0.5 size-4 shrink-0" />请同时设置服务端环境变量 PAYMENT_CREDENTIALS_ENCRYPTION_KEY（Base64 编码的 32 字节密钥）和 PAYMENT_PUBLIC_BASE_URL（网站 HTTPS 公网根地址），并确保该地址能接收 GMPay 异步回调。</div>
+              <div className="rounded-lg border p-3">
+                <p className="text-sm font-medium">网关当前支持的资产与网络</p>
+                {supportedAssets.length ? <div className="mt-2 flex flex-wrap gap-2">{supportedAssets.map((asset) => <Badge key={asset.network} variant="secondary">{asset.display_name} · {asset.network} · {asset.tokens.join(", ")}</Badge>)}</div> : <p className="mt-1 text-xs text-muted-foreground">保存商户网关地址与凭证后，可读取 EPUSDT 公共配置；请只选择网关实际启用的网络。</p>}
+              </div>
               <div className="flex justify-end"><Button type="submit" disabled={saving || !form.secret_key.trim()}><Save className="mr-2 size-4" />{saving ? "正在保存…" : "保存渠道配置"}</Button></div>
             </form>
           )}
