@@ -51,6 +51,10 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
   const warningPageCount = Math.max(1, Math.ceil(warningTotal / warningPageSize))
   const [warningBusy, setWarningBusy] = useState(false)
   const [escalations, setEscalations] = useState<TelegramWarningEscalationExecution[]>([])
+  const [escalationTotal, setEscalationTotal] = useState(0)
+  const [escalationPage, setEscalationPage] = useState(1)
+  const escalationPageSize = 10
+  const escalationPageCount = Math.max(1, Math.ceil(escalationTotal / escalationPageSize))
 
   const refresh = useCallback(async (manual = false, targetPage = 1) => {
     setError("")
@@ -78,11 +82,16 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
     setWarningBusy(true)
     setError("")
     try {
-      const [response, executions] = await Promise.all([listGroupMemberWarnings(groupID, userID, warningPageSize, 0), listWarningEscalations(groupID, userID)])
+      const [response, executions] = await Promise.all([listGroupMemberWarnings(groupID, userID, warningPageSize, 0), listWarningEscalations(groupID, userID, escalationPageSize, 0)])
       setWarnings(response.items)
       setWarningTotal(response.total)
       setWarningPage(1)
       setEscalations(executions.items)
+      setEscalationTotal(executions.total)
+      setEscalationTotal(executions.total)
+      setEscalationPage(1)
+      setEscalationTotal(executions.total)
+      setEscalationPage(1)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "加载警告记录失败")
       setWarnings([])
@@ -100,7 +109,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
     setError("")
     try {
       await addGroupMemberWarning(groupID, warningUserID, reason.trim())
-      const [response, executions] = await Promise.all([listGroupMemberWarnings(groupID, warningUserID, warningPageSize, 0), listWarningEscalations(groupID, warningUserID)])
+      const [response, executions] = await Promise.all([listGroupMemberWarnings(groupID, warningUserID, warningPageSize, 0), listWarningEscalations(groupID, warningUserID, escalationPageSize, 0)])
       setWarnings(response.items)
       setWarningTotal(response.total)
       setWarningPage(1)
@@ -118,13 +127,13 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
     setError("")
     try {
       await retryWarningEscalation(groupID, warningUserID, execution.id)
-      const [response, executions] = await Promise.all([listGroupMemberWarnings(groupID, warningUserID), listWarningEscalations(groupID, warningUserID)])
+      const [response, executions] = await Promise.all([listGroupMemberWarnings(groupID, warningUserID), listWarningEscalations(groupID, warningUserID, escalationPageSize, (escalationPage - 1) * escalationPageSize)])
       setWarnings(response.items)
       setWarningTotal(response.total)
       setEscalations(executions.items)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "重试自动处罚失败")
-      try { const executions = await listWarningEscalations(groupID, warningUserID); setEscalations(executions.items) } catch { /* preserve original error */ }
+      try { const executions = await listWarningEscalations(groupID, warningUserID, escalationPageSize, (escalationPage - 1) * escalationPageSize); setEscalations(executions.items); setEscalationTotal(executions.total) } catch { /* preserve original error */ }
     } finally { setWarningBusy(false) }
   }
 
@@ -138,6 +147,8 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
       setWarningTotal(0)
       setWarningPage(1)
       setEscalations([])
+      setEscalationTotal(0)
+      setEscalationPage(1)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "清零警告失败")
     } finally {
@@ -292,6 +303,29 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
                     {execution.status === "failed" && <Button size="sm" variant="outline" disabled={warningBusy || !permissions?.can_restrict_members} onClick={() => void retryEscalation(execution)}>重试处罚</Button>}
                   </div>
                 ))}
+                {escalationTotal > 0 && (
+                  <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+                    <span>执行记录第 {escalationPage} / {escalationPageCount} 页，共 {escalationTotal} 条</span>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" disabled={warningBusy || escalationPage <= 1} onClick={async () => {
+                        if (warningUserID === null) return
+                        const nextPage = escalationPage - 1
+                        setWarningBusy(true)
+                        try { const response = await listWarningEscalations(groupID, warningUserID, escalationPageSize, (nextPage - 1) * escalationPageSize); setEscalations(response.items); setEscalationTotal(response.total); setEscalationPage(nextPage) }
+                        catch (cause) { setError(cause instanceof Error ? cause.message : "读取处罚执行记录失败") }
+                        finally { setWarningBusy(false) }
+                      }}>上一页</Button>
+                      <Button size="sm" variant="outline" disabled={warningBusy || escalationPage >= escalationPageCount} onClick={async () => {
+                        if (warningUserID === null) return
+                        const nextPage = escalationPage + 1
+                        setWarningBusy(true)
+                        try { const response = await listWarningEscalations(groupID, warningUserID, escalationPageSize, (nextPage - 1) * escalationPageSize); setEscalations(response.items); setEscalationTotal(response.total); setEscalationPage(nextPage) }
+                        catch (cause) { setError(cause instanceof Error ? cause.message : "读取处罚执行记录失败") }
+                        finally { setWarningBusy(false) }
+                      }}>下一页</Button>
+                    </div>
+                  </div>
+                )}
               </div>
               {warnings.length > 0 && (
                 <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
