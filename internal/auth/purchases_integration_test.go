@@ -76,4 +76,11 @@ func TestPurchasePlanWithWalletPostgres(t *testing.T) {
 	restored,err:=service.SetAdminLicenseStatus(ctx,session.User.ID,licenseID,"active")
 	if err!=nil{t.Fatalf("restore license: %v",err)}
 	if restored.Status!="active"{t.Fatalf("restored license status = %s, want active",restored.Status)}
+
+	summary,err:=service.GetAdminFinanceSummary(ctx)
+	if err!=nil{t.Fatalf("get platform finance summary: %v",err)}
+	if summary.WalletCount<1||summary.LedgerEntryCount<2||summary.DebitTotalUSDT<200{t.Fatalf("unexpected platform finance summary: %+v",summary)}
+	ledger,ledgerTotal,err:=service.ListAdminWalletLedger(ctx,"order_payment",email,20,0)
+	if err!=nil{t.Fatalf("list platform wallet ledger: %v",err)}
+	if ledgerTotal!=2||len(ledger)!=2{t.Fatalf("platform ledger total/items = %d/%d, want 2/2",ledgerTotal,len(ledger))}
 }

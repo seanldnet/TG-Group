@@ -46,6 +46,7 @@ const administration: NavItem[] = [
   { href: "/dashboard/admin/agent-levels", label: "代理等级配置", icon: Crown },
   { href: "/dashboard/admin/plans", label: "平台套餐", icon: Package },
   { href: "/dashboard/admin/orders", label: "平台订单", icon: Receipt },
+  { href: "/dashboard/admin/finance", label: "平台财务", icon: Wallet },
   { href: "/dashboard/admin/payments", label: "支付渠道", icon: CreditCard },
   { href: "/dashboard/admin/licenses", label: "全站授权", icon: ShieldCheck },
   { href: "/dashboard/admin/ai", label: "AI 服务配置", icon: Sparkles },
