@@ -571,9 +571,10 @@ export type TelegramWarningEscalationExecution = {
   updated_at: string
 }
 
-export function listWarningEscalations(groupID: string, userID: number, limit = 50) {
-  return request<{ items: TelegramWarningEscalationExecution[] }>(
-    `/api/v1/groups/${encodeURIComponent(groupID)}/members/${userID}/warning-escalations?limit=${limit}`,
+export function listWarningEscalations(groupID: string, userID: number, limit = 10, offset = 0) {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  return request<{ items: TelegramWarningEscalationExecution[]; total: number; limit: number; offset: number }>(
+    `/api/v1/groups/${encodeURIComponent(groupID)}/members/${userID}/warning-escalations?${params.toString()}`,
     { headers: authenticatedHeaders() },
   )
 }
