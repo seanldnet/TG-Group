@@ -46,7 +46,7 @@ type spamRuleConfig struct {
 	WindowSeconds int `json:"window_seconds"`
 	Action string `json:"action"`
 }
-type adRuleConfig struct {
+type mediaRestrictionRuleConfig struct {\n\tTypes []string `json:"types"`\n\tAction string `json:"action"`\n}\ntype adRuleConfig struct {
 	Patterns []string `json:"patterns"`
 	Action string `json:"action"`
 }
@@ -355,3 +355,4 @@ func nullableTelegramActor(id int64) any {
 	if id <= 0 { return nil }
 	return id
 }
+\nfunc validTelegramMediaType(value string) bool {\n\tswitch value { case "photo", "video", "animation", "sticker", "voice", "audio", "document", "video_note", "poll", "contact", "location", "venue": return true; default: return false }\n}\n
