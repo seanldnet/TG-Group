@@ -31,6 +31,7 @@ import GroupRulesPage from "@/pages/GroupRulesPage"
 import GroupRuleEventsPage from "@/pages/GroupRuleEventsPage"
 import PersonalCenterPage from "@/pages/PersonalCenterPage"
 import UnderDevelopmentPage from "@/pages/UnderDevelopmentPage"
+import BusinessWorkspacePage from "@/pages/BusinessWorkspacePage"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -389,7 +390,7 @@ export default function App() {
     else if (groupMemberListsMatch) page = <GroupMemberListsPage groupID={groupMemberListsMatch[1]} />
     else if (groupRuleEventsMatch) page = <GroupRuleEventsPage groupID={groupRuleEventsMatch[1]} />
     else if (groupRulesMatch) page = <GroupRulesPage groupID={groupRulesMatch[1]} />
-    else if (pathname.startsWith("/dashboard/")) page = <UnderDevelopmentPage pathname={pathname} />
+    else if (pathname.startsWith("/dashboard/")) page = <BusinessWorkspacePage pathname={pathname} />
   }
   if (page) return <DashboardLayout>{page}</DashboardLayout>
   return <HomePage />
