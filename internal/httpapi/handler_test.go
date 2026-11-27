@@ -61,6 +61,7 @@ func TestAuthEndpointsRequireDatabase(t *testing.T) {
 		{http.MethodGet, "/api/v1/auth/me"},
 		{http.MethodGet, "/api/v1/account/agent"},
 		{http.MethodGet, "/api/v1/account/wallet/ledger"},
+		{http.MethodPost, "/api/v1/account/agent/upgrade"},
 		{http.MethodPatch, "/api/v1/auth/profile"},
 		{http.MethodGet, "/api/v1/auth/security-events"},
 		{http.MethodGet, "/api/v1/auth/sessions"},
