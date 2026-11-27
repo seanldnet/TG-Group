@@ -3,7 +3,6 @@ package payments
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"encoding/base64"
 	"testing"
 )
 
@@ -38,5 +37,5 @@ func TestPaymentCredentialEncryptionUsesChannelBoundAAD(t *testing.T){
 }
 
 func TestPaymentEncryptionKeyMustBe32Bytes(t *testing.T){
-	if _,err:=base64.StdEncoding.DecodeString(base64.StdEncoding.EncodeToString(make([]byte,16)));err!=nil{t.Fatal(err)}
+	if _,err:=NewConfigStore(nil,"YWJj");err==nil{t.Fatal("short encryption key accepted")}
 }
