@@ -216,6 +216,14 @@ export function upgradeAgentWithWallet(targetLevelID: string, idempotencyKey: st
   })
 }
 
+export function listAgentUpgradeOrders(limit = 20, offset = 0) {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  return request<{ items: AgentUpgradeOrder[]; total: number; limit: number; offset: number }>(
+    `/api/v1/account/agent/orders?${params.toString()}`,
+    { headers: authenticatedHeaders() },
+  )
+}
+
 export function listWalletLedger(limit = 20, offset = 0) {
   return request<{ items: WalletLedgerEntry[]; total: number; limit: number; offset: number }>(
     `/api/v1/account/wallet/ledger?limit=${limit}&offset=${offset}`,
