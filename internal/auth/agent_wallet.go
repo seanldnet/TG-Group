@@ -260,3 +260,25 @@ func (s *Service) UpdateAdminAgentLevel(ctx context.Context,actorID,levelID,name
 	if err:=tx.Commit(ctx);err!=nil{return AgentLevel{},fmt.Errorf("commit agent level update: %w",err)}
 	return item,nil
 }
+
+
+func (s *Service) ListAgentUpgradeOrders(ctx context.Context,userID string,limit,offset int)([]AgentUpgradeOrder,int64,error){
+	var total int64
+	if err:=s.pool.QueryRow(ctx,`SELECT count(*) FROM agent_upgrade_orders WHERE user_id=$1`,userID).Scan(&total);err!=nil{
+		return nil,0,fmt.Errorf("count agent upgrade orders: %w",err)
+	}
+	rows,err:=s.pool.Query(ctx,`SELECT id::text,order_no,from_level_id::text,target_level_id::text,amount_usdt,payment_method,status,paid_at,created_at
+		FROM agent_upgrade_orders WHERE user_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2 OFFSET $3`,userID,limit,offset)
+	if err!=nil{return nil,0,fmt.Errorf("list agent upgrade orders: %w",err)}
+	defer rows.Close()
+	items:=make([]AgentUpgradeOrder,0)
+	for rows.Next(){
+		var item AgentUpgradeOrder
+		if err:=rows.Scan(&item.ID,&item.OrderNo,&item.FromLevelID,&item.TargetLevelID,&item.AmountUSDT,&item.PaymentMethod,&item.Status,&item.PaidAt,&item.CreatedAt);err!=nil{
+			return nil,0,fmt.Errorf("scan agent upgrade order: %w",err)
+		}
+		items=append(items,item)
+	}
+	if err:=rows.Err();err!=nil{return nil,0,fmt.Errorf("iterate agent upgrade orders: %w",err)}
+	return items,total,nil
+}
