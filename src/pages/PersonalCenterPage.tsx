@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { ArrowUpRight, CalendarDays, CircleUserRound, Link2, ShieldCheck } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,7 +28,7 @@ export default function PersonalCenterPage() {
       .catch((e: unknown) => { if (active) setError(e instanceof Error ? e.message : "账户信息加载失败") })
     return () => { active = false }
   }, [])
-  async function saveProfile(event: React.FormEvent<HTMLFormElement>) {
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError("")
     setNotice("")
