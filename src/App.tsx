@@ -2,6 +2,9 @@ import { useEffect, type ReactNode } from "react"
 import {
   ArrowRight,
   Bot,
+  Crown,
+  CreditCard,
+  Wallet,
   ClipboardList,
   Fingerprint,
   Layers3,
@@ -86,6 +89,24 @@ const features: Feature[] = [
     title: "操作审计与追溯",
     description: "记录关键操作的执行人、目标和时间，让管理变更有迹可循。",
     label: "审计记录",
+  },
+  {
+    icon: Crown,
+    title: "代理等级与自助升级",
+    description: "规划代理等级、权益与升级价格，用户可自主购买升级，支付确认后自动生效。",
+    label: "代理业务",
+  },
+  {
+    icon: Wallet,
+    title: "余额、套餐与订单",
+    description: "统一账户余额、资金流水、套餐目录、订单状态和授权记录，避免业务数据分散。",
+    label: "账户业务",
+  },
+  {
+    icon: CreditCard,
+    title: "多渠道在线支付",
+    description: "按服务商官方协议接入 USDT、EPUSDT 与 GMPay，执行签名核验、幂等确认和自动开通。",
+    label: "支付业务",
   },
 ]
 
@@ -275,10 +296,10 @@ function HomePage() {
           <div className="mx-auto mb-12 max-w-2xl text-center">
             <Badge variant="outline" className="mb-4">核心能力</Badge>
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-              从 Bot 接入到群组安全，统一管理
+              社群运营与账户业务，统一管理
             </h2>
             <p className="mt-4 text-sm leading-7 text-muted-foreground sm:text-base">
-              围绕社群运营的核心工作流规划功能模块，逐步交付可配置、可审计、可扩展的管理能力。
+              围绕 Bot 管理、代理体系、套餐支付和授权管理建设完整网站。所有模块按真实接口逐步交付，未接通的业务不会伪装成已上线功能。
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -287,7 +308,7 @@ function HomePage() {
             ))}
           </div>
           <p className="mt-6 text-center text-xs text-muted-foreground">
-            以上为产品规划范围，具体功能将按开发阶段逐项实现和开放。
+            以上包含已建立的基础能力与正在建设的业务规划；代理升级、余额、套餐和支付等模块完成真实后端闭环前，不视为可用服务。
           </p>
         </div>
       </section>
@@ -335,7 +356,7 @@ function HomePage() {
               <div className="max-w-2xl">
                 <Badge variant="secondary" className="mb-4">项目建设中</Badge>
                 <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                  先把基础能力做扎实，再逐步开放完整群管功能
+                  网站业务优先，逐步交付完整业务闭环
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-muted-foreground">
                   当前已建立 Go 服务、PostgreSQL 身份数据模型和第一版注册登录 API，
