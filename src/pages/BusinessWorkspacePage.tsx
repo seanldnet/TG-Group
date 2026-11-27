@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react"
-import { CheckCircle2, Clock3, Filter, ListChecks, Plus, Search, ShieldCheck } from "lucide-react"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { CheckCircle2, Clock3, ListChecks, Plus, Search, ShieldCheck } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -55,7 +55,7 @@ export default function BusinessWorkspacePage({pathname}:{pathname:string}){
  },[pathname,item])
  if(!item)return <main className="p-8"><Card><CardHeader><CardTitle>页面不存在</CardTitle><CardDescription>请从左侧菜单选择有效模块。</CardDescription></CardHeader></Card></main>
  function openEditor(){setEditorOpen(true);setDraftNotice("")}
- function previewDraft(event:React.FormEvent<HTMLFormElement>){
+ function previewDraft(event:FormEvent<HTMLFormElement>){
   event.preventDefault()
   if(!draftName.trim()){setDraftNotice("请填写名称后再预览。");return}
   if(draftAmount.trim()&&!/^\\d+$/.test(draftAmount.trim())){setDraftNotice("金额必须为 USDT 整数，不能包含小数。");return}
