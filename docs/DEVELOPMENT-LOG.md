@@ -997,3 +997,15 @@
 - 网站规则编辑器增加规则类型与默认配置；Telegram 群组保护菜单增加预设创建入口。
 - 限制：阈值 2–100 人、时间窗 10–3600 秒；mute 1–10080 分钟；ban 不设置时长；白名单最多 100 个正数 ID。
 - 仅统计 Bot 实际收到的 `message.new_chat_members` 服务消息，不代表 Telegram 全量成员/邀请事件枚举；CI 和真实群组验收待确认。
+
+
+## 2026-11-27（后台导航全量补齐与个人中心）
+
+- **导航结构**：工作台、账户、业务管理和平台管理四个分区；新增代理管理/等级/佣金/API、套餐、订单、支付、授权、财务、赞助商、AI 审核、定时任务、数据统计、操作审计等入口。平台管理入口仅管理员可见。
+- **页面保留**：新增统一开发中页面，所有预留业务路由可访问并显示对应模块名称与范围，不再因未实现页面而退回首页；未开发模块明确不开放操作，不伪装成已完成。
+- **个人中心**：新增账户资料页，读取当前用户、注册时间、租户信息和 Telegram 关联状态，并提供账号关联及安全页面快捷入口。资料编辑暂不开放，避免在后端没有保存接口时出现假编辑。
+- **组件规范审查**：项目需求基线要求 shadcn/ui。检查 package.json、components.json 和 src/components/ui：项目采用 shadcn CLI 配置（radix-nova），交互原语来自 Radix，图标来自 lucide-react；当前没有发现 MUI、Ant Design、Chakra 等第二套 UI 组件库。CaptchaField 与 DashboardLayout 属于业务组件/布局，不是替代 UI 控件库；业务页面使用 src/components/ui 下的 Button、Card、Badge、Input、Label、Dialog、Select、Switch、Table、Tabs、Textarea、Tooltip、Separator 等组件。后续新增控件继续通过 shadcn CLI 添加，避免手写基础控件。
+- **涉及文件**：src/App.tsx、src/components/DashboardLayout.tsx、src/pages/PersonalCenterPage.tsx、src/pages/UnderDevelopmentPage.tsx。
+- **验证状态**：本批代码已提交 main；等待本次提交对应 CI typecheck/build 与 Docker workflow。尚未进行浏览器逐页交互验收。
+- **当前边界**：代理、套餐、订单、支付、授权、财务、赞助商、AI、定时任务、统计和平台审计当前先提供导航与开发中占位页，尚无完整业务 API/数据操作。个人中心当前只读展示，不提供资料编辑。
+- **下一步**：先完成全站页面骨架与 shadcn 组件审查，再按业务优先级逐个实现代理、套餐、订单、支付、授权和个人资料编辑，之后恢复群管深度功能开发。
