@@ -89,6 +89,7 @@ func TestBotEndpointsRequireConfiguredServices(t *testing.T) {
 		{http.MethodPut, "/api/v1/groups/00000000-0000-0000-0000-000000000000/rules/00000000-0000-0000-0000-000000000001"},
 		{http.MethodDelete, "/api/v1/groups/00000000-0000-0000-0000-000000000000/rules/00000000-0000-0000-0000-000000000001"},
 		{http.MethodPost, "/api/v1/groups/00000000-0000-0000-0000-000000000000/members/123/action"},
+		{http.MethodPost, "/api/v1/groups/00000000-0000-0000-0000-000000000000/members/actions/bulk"},
 		{http.MethodGet, "/api/v1/groups/00000000-0000-0000-0000-000000000000/members/123/warnings"},
 		{http.MethodPost, "/api/v1/groups/00000000-0000-0000-0000-000000000000/members/123/warnings"},
 		{http.MethodDelete, "/api/v1/groups/00000000-0000-0000-0000-000000000000/members/123/warnings"},
