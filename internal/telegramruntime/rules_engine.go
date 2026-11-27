@@ -1052,6 +1052,12 @@ func (p *Poller) processPendingGroupInput(ctx context.Context,bot managedBot,gro
    if current.RuleType!="keyword_filter" && current.RuleType!="sensitive_word" { return true }; config["words"]=splitRuleTerms(value); config["action"]="delete"
   case "rule_patterns":
    if current.RuleType!="anti_ad" { return true }; config["patterns"]=splitRuleTerms(value); config["action"]="delete"
+  case "rule_exceptions":
+   if current.RuleType!="anti_ad" { return true }
+   var existing struct { Patterns []string `json:"patterns"` }
+   if json.Unmarshal(current.Config,&existing)!=nil { return true }
+   exceptions:=[]string{};if strings.ToLower(value)!="none" { exceptions=splitRuleTerms(value) }
+   config["patterns"]=existing.Patterns;config["exceptions"]=exceptions;config["action"]="delete"
   case "rule_channels":
    if current.RuleType!="join_verification" { return true }
    var existing struct { ChallengeType string "json:\"challenge_type\""; TimeoutSeconds int "json:\"timeout_seconds\""; FailureAction string "json:\"failure_action\"" }
