@@ -47,8 +47,8 @@ type spamRuleConfig struct {
 	Action string `json:"action"`
 }
 type mediaRestrictionRuleConfig struct {
-\tTypes []string `json:"types"`
-\tAction string `json:"action"`
+	Types []string `json:"types"`
+	Action string `json:"action"`
 }
 type adRuleConfig struct {
 	Patterns []string `json:"patterns"`
@@ -116,6 +116,15 @@ func ValidateGroupRule(input GroupRuleInput) error {
 	case "anti_spam":
 		var cfg spamRuleConfig
 		if decode(&cfg) != nil || cfg.MaxMessages < 2 || cfg.MaxMessages > 100 || cfg.WindowSeconds < 2 || cfg.WindowSeconds > 3600 || cfg.Action != "delete" { return ErrInvalidGroupRule }
+	case "media_restriction":
+		var cfg mediaRestrictionRuleConfig
+		if decode(&cfg) != nil || !validTerms(cfg.Types) || cfg.Action != "delete" { return ErrInvalidGroupRule }
+		seen := make(map[string]struct{}, len(cfg.Types))
+		for _, value := range cfg.Types {
+			if !validTelegramMediaType(value) { return ErrInvalidGroupRule }
+			if _, exists := seen[value]; exists { return ErrInvalidGroupRule }
+			seen[value] = struct{}{}
+		}
 	case "anti_ad":
 		var cfg adRuleConfig
 		if decode(&cfg) != nil || !validTerms(cfg.Patterns) || cfg.Action != "delete" { return ErrInvalidGroupRule }
@@ -361,5 +370,10 @@ func nullableTelegramActor(id int64) any {
 }
 
 func validTelegramMediaType(value string) bool {
-\tswitch value { case "photo", "video", "animation", "sticker", "voice", "audio", "document", "video_note", "poll", "contact", "location", "venue": return true; default: return false }
+	switch value {
+	case "photo", "video", "animation", "sticker", "voice", "audio", "document", "video_note", "poll", "contact", "location", "venue":
+		return true
+	default:
+		return false
+	}
 }
