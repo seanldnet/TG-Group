@@ -3,15 +3,11 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"errors"
-	"time"
-
-	"github.com/jackc/pgx/v5"
-	"fmt"
 )
 
 type AgentLevel struct {
