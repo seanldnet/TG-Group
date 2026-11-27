@@ -19,6 +19,7 @@ const workspace: NavItem[] = [
 ]
 const account: NavItem[] = [
   { href: "/dashboard/account/profile", label: "个人中心", icon: UserRound },
+  { href: "/dashboard/account/agent", label: "代理中心 / 等级升级", icon: Crown },
   { href: "/dashboard/account/links", label: "账号关联", icon: Link2 },
   { href: "/dashboard/security/password", label: "修改密码", icon: ShieldCheck },
   { href: "/dashboard/security/sessions", label: "登录设备", icon: Activity },
@@ -41,7 +42,7 @@ const business: NavItem[] = [
 ]
 const administration: NavItem[] = [
   { href: "/dashboard/admin/users", label: "用户管理", icon: UsersRound },
-  { href: "/dashboard/admin/agents", label: "代理审核", icon: Network },
+  { href: "/dashboard/admin/agents", label: "平台代理管理", icon: Network },
   { href: "/dashboard/admin/plans", label: "平台套餐", icon: Package },
   { href: "/dashboard/admin/orders", label: "平台订单", icon: Receipt },
   { href: "/dashboard/admin/payments", label: "支付渠道", icon: CreditCard },
