@@ -592,22 +592,32 @@ func validateBulkMemberAction(input bulkMemberActionRequest) error {
 	return nil
 }
 
+type bulkMemberActionResult struct {
+	TelegramUserID int64 `json:"telegram_user_id"`
+	OK bool `json:"ok"`
+	Error string `json:"error,omitempty"`
+}
+
+func executeBulkMemberAction(userIDs []int64, apply func(int64) error) ([]bulkMemberActionResult, int) {
+	results:=make([]bulkMemberActionResult,0,len(userIDs))
+	succeeded:=0
+	for _,id:=range userIDs {
+		result:=bulkMemberActionResult{TelegramUserID:id}
+		if err:=apply(id); err!=nil { result.Error=err.Error() } else { result.OK=true; succeeded++ }
+		results=append(results,result)
+	}
+	return results,succeeded
+}
+
 func (h *Handler) bulkModerateGroupMembers(w http.ResponseWriter,r *http.Request) {
 	if !h.botServicesReady(w) { return }
 	user,ok:=h.currentUser(w,r); if !ok { return }
 	var input bulkMemberActionRequest
 	if !decodeJSON(w,r,&input) { return }
 	if err:=validateBulkMemberAction(input); err!=nil { writeError(w,http.StatusBadRequest,err.Error()); return }
-	type itemResult struct { TelegramUserID int64 `json:"telegram_user_id"`; OK bool `json:"ok"`; Error string `json:"error,omitempty"` }
-	results:=make([]itemResult,0,len(input.UserIDs))
-	succeeded:=0
-	for _,id:=range input.UserIDs {
-		result:=itemResult{TelegramUserID:id}
-		if err:=h.bots.ModerateGroupMember(r.Context(),user.TenantID,user.ID,r.PathValue("groupID"),id,input.Action,input.DurationMinutes); err!=nil {
-			result.Error=err.Error()
-		} else { result.OK=true; succeeded++ }
-		results=append(results,result)
-	}
+	results,succeeded:=executeBulkMemberAction(input.UserIDs,func(id int64) error {
+		return h.bots.ModerateGroupMember(r.Context(),user.TenantID,user.ID,r.PathValue("groupID"),id,input.Action,input.DurationMinutes)
+	})
 	writeJSON(w,http.StatusOK,map[string]any{"action":input.Action,"total":len(results),"succeeded":succeeded,"failed":len(results)-succeeded,"items":results})
 }
 
