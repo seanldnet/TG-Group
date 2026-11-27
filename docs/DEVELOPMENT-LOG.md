@@ -965,3 +965,14 @@
 - 增加域名配置校验、非法/重复域名测试、URL/裸域/子域/白名单/邀请链接运行时测试及 Telegram 编辑回调测试。
 - 涉及：`internal/bots/group_rules.go`、`internal/bots/group_rules_test.go`、`internal/telegramruntime/rules_engine.go`、`internal/telegramruntime/rules_engine_test.go`、`src/pages/GroupRulesPage.tsx`、`docs/API.md`。
 - 本批代码已提交 main，等待 Go tests/vet、前端 typecheck/build 和 Docker CI；真实群组验证仍需部署后确认。当前链接识别只检查 Bot 实际收到的消息文本/说明，不会读取 Telegram 不提供给 Bot 的隐藏内容。
+
+
+## 2026-11-27（群管：群组保护第一阶段——防机器人）
+
+- 新增 `anti_bot` 群规：新成员事件中识别 Telegram 标记为 Bot 的账号；未命中允许用户名白名单时，复用现有成员处罚服务执行封禁。
+- 封禁前仍执行 Bot 实时群管理员/限制成员权限检查、目标管理员保护及成员状态校验；记录幂等群规事件与审计日志。失败时保留失败事件，不会误报封禁成功。
+- 网站规则类型、默认配置和说明已增加防机器人规则；Telegram 群管菜单新增“群组保护”分类、规则预设和允许机器人用户名白名单编辑。
+- 白名单用户名按大小写不敏感匹配，支持可选 @ 前缀，限制 Telegram 用户名格式；自动封禁动作固定为 ban，不开放任意自定义危险动作。
+- 增加规则配置校验、用户名白名单匹配、群规分类和 Telegram 编辑回调测试。
+- 涉及：`internal/bots/group_rules.go`、`internal/bots/group_rules_test.go`、`internal/telegramruntime/rules_engine.go`、`internal/telegramruntime/rules_engine_test.go`、`src/lib/api.ts`、`src/pages/GroupRulesPage.tsx`、`docs/API.md`。
+- 尚待最新 CI 与真实群组权限验收；只处理 Telegram Update 中明确标记为 is_bot 的新成员，不推断普通账号是否为机器人。
