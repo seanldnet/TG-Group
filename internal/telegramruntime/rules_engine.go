@@ -122,6 +122,26 @@ func (p *Poller) processMessageRules(ctx context.Context, bot managedBot, groupI
 	p.executeDeleteRule(ctx,bot,groupID,item.UpdateID,message.MessageID,senderID.(int64),*matched,token)
 }
 
+
+func telegramMessageMediaType(message *telegramMessage) string {
+	if message == nil { return "" }
+	switch {
+	case len(message.Photo) > 0: return "photo"
+	case len(message.Video) > 0: return "video"
+	case len(message.Animation) > 0: return "animation"
+	case len(message.Sticker) > 0: return "sticker"
+	case len(message.Voice) > 0: return "voice"
+	case len(message.Audio) > 0: return "audio"
+	case len(message.Document) > 0: return "document"
+	case len(message.VideoNote) > 0: return "video_note"
+	case len(message.Poll) > 0: return "poll"
+	case len(message.Contact) > 0: return "contact"
+	case len(message.Location) > 0: return "location"
+	case len(message.Venue) > 0: return "venue"
+	default: return ""
+	}
+}
+
 func matchesQARule(message string,triggers []string,mode string,caseSensitive bool) bool {
 	value:=strings.TrimSpace(message)
 	if !caseSensitive { value=strings.ToLower(value) }
