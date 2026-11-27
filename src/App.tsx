@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { useEffect, type ReactNode } from "react"
 import {
   ArrowRight,
   Bot,
@@ -366,6 +366,15 @@ function HomePage() {
 
 export default function App() {
   const pathname = window.location.pathname
+  useEffect(() => {
+    const titles: Record<string, string> = {
+      "/": "TG-Group｜Telegram 社群管理平台",
+      "/login": "登录｜TG-Group",
+      "/register": "注册账号｜TG-Group",
+      "/dashboard": "管理中心｜TG-Group",
+    }
+    document.title = titles[pathname] || (pathname.startsWith("/dashboard/") ? "业务工作台｜TG-Group" : "页面不存在｜TG-Group")
+  }, [pathname])
   if (pathname === "/login") return <LoginPage />
   if (pathname === "/register") return <RegisterPage />
   let page: ReactNode = null
