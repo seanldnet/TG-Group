@@ -72,6 +72,9 @@ func NewHandlerWithPayments(logger *slog.Logger, authService *auth.Service, botS
 	mux.HandleFunc("GET /api/v1/admin/plans",h.adminPlans)
 	mux.HandleFunc("POST /api/v1/admin/plans",h.createAdminPlan)
 	mux.HandleFunc("PATCH /api/v1/admin/plans/{planID}",h.updateAdminPlan)
+	mux.HandleFunc("GET /api/v1/admin/orders",h.adminOrders)
+	mux.HandleFunc("GET /api/v1/admin/licenses",h.adminLicenses)
+	mux.HandleFunc("PATCH /api/v1/admin/licenses/{licenseID}/status",h.updateAdminLicenseStatus)
 	mux.HandleFunc("GET /api/v1/admin/agent-levels",h.adminAgentLevels)
 	mux.HandleFunc("GET /api/v1/admin/payment-channels",h.adminPaymentChannels)
 	mux.HandleFunc("GET /api/v1/admin/payment-recharges",h.adminPaymentRecharges)
@@ -455,6 +458,40 @@ func (h *Handler) accountLicenses(w http.ResponseWriter,r *http.Request) {
 	items,err:=h.auth.ListAccountLicenses(r.Context(),user.ID)
 	if err!=nil{h.logger.Error("list account licenses","error",err);writeError(w,http.StatusInternalServerError,"读取授权失败");return}
 	writeJSON(w,http.StatusOK,map[string]any{"items":items})
+}
+
+type adminLicenseStatusRequest struct { Status string `json:"status"` }
+
+func (h *Handler) adminOrders(w http.ResponseWriter,r *http.Request) {
+	if _,ok:=h.adminAgentLevelUser(w,r);!ok{return}
+	limit,offset,ok:=accountPageParams(w,r);if !ok{return}
+	items,total,err:=h.auth.ListAdminOrders(r.Context(),r.URL.Query().Get("status"),r.URL.Query().Get("q"),limit,offset)
+	if errors.Is(err,auth.ErrInvalidInput){writeError(w,http.StatusBadRequest,"订单状态筛选值无效");return}
+	if err!=nil{h.logger.Error("list platform orders","error",err);writeError(w,http.StatusInternalServerError,"读取平台订单失败");return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":items,"total":total,"limit":limit,"offset":offset})
+}
+
+func (h *Handler) adminLicenses(w http.ResponseWriter,r *http.Request) {
+	if _,ok:=h.adminAgentLevelUser(w,r);!ok{return}
+	limit,offset,ok:=accountPageParams(w,r);if !ok{return}
+	items,total,err:=h.auth.ListAdminLicenses(r.Context(),r.URL.Query().Get("status"),r.URL.Query().Get("q"),limit,offset)
+	if errors.Is(err,auth.ErrInvalidInput){writeError(w,http.StatusBadRequest,"授权状态筛选值无效");return}
+	if err!=nil{h.logger.Error("list platform licenses","error",err);writeError(w,http.StatusInternalServerError,"读取全站授权失败");return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":items,"total":total,"limit":limit,"offset":offset})
+}
+
+func (h *Handler) updateAdminLicenseStatus(w http.ResponseWriter,r *http.Request) {
+	user,ok:=h.adminAgentLevelUser(w,r);if !ok{return}
+	var input adminLicenseStatusRequest
+	if !decodeJSON(w,r,&input){return}
+	item,err:=h.auth.SetAdminLicenseStatus(r.Context(),user.ID,r.PathValue("licenseID"),input.Status)
+	switch {
+	case err==nil:writeJSON(w,http.StatusOK,item)
+	case errors.Is(err,auth.ErrInvalidLicenseStatus):writeError(w,http.StatusBadRequest,"授权状态只允许 active 或 suspended")
+	case errors.Is(err,auth.ErrLicenseExpired):writeError(w,http.StatusConflict,"授权已到期，不能直接恢复；请通过购买续期")
+	case errors.Is(err,auth.ErrLicenseNotFound):writeError(w,http.StatusNotFound,"授权不存在")
+	default:h.logger.Error("update platform license status","error",err);writeError(w,http.StatusInternalServerError,"更新授权状态失败")
+	}
 }
 
 type adminPlanRequest struct {
