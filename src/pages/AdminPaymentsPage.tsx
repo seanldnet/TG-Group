@@ -13,6 +13,7 @@ export default function AdminPaymentsPage() {
   const [form, setForm] = useState(initial)
   const [status, setStatus] = useState<PaymentChannelStatus | null>(null)
   const [supportedAssets, setSupportedAssets] = useState<SupportedPaymentAsset[]>([])
+  const [assetsError, setAssetsError] = useState("")
   const [rechargeOrders, setRechargeOrders] = useState<AdminRechargeOrder[]>([])
   const [rechargeTotal, setRechargeTotal] = useState(0)
   const [statusFilter, setStatusFilter] = useState("")
@@ -24,13 +25,17 @@ export default function AdminPaymentsPage() {
   async function load() {
     setLoading(true)
     setError("")
+    setAssetsError("")
     try {
-      const [result, assets, orders] = await Promise.all([
+      const [result, orders] = await Promise.all([
         listAdminPaymentChannels(),
-        getGMPaySupportedAssets().catch(() => ({ supported_assets: [] as SupportedPaymentAsset[] })),
         listAdminRechargeOrders(statusFilter, 20, 0),
       ])
-      setSupportedAssets(assets.supported_assets)
+      const assets = await getGMPaySupportedAssets()
+        .then((value) => ({ items: value.supported_assets, error: "" }))
+        .catch((cause) => ({ items: [] as SupportedPaymentAsset[], error: cause instanceof Error ? cause.message : "读取网关支持资产失败" }))
+      setSupportedAssets(assets.items)
+      setAssetsError(assets.error)
       setRechargeOrders(orders.items)
       setRechargeTotal(orders.total)
       const channel = result.items.find((item) => item.code === "epusdt_gmpay")
@@ -105,7 +110,7 @@ export default function AdminPaymentsPage() {
               <div className="flex items-start gap-2 rounded-lg bg-muted/40 p-3 text-xs leading-5 text-muted-foreground"><ShieldCheck className="mt-0.5 size-4 shrink-0" />请同时设置服务端环境变量 PAYMENT_CREDENTIALS_ENCRYPTION_KEY（Base64 编码的 32 字节密钥）和 PAYMENT_PUBLIC_BASE_URL（网站 HTTPS 公网根地址），并确保该地址能接收 GMPay 异步回调。</div>
               <div className="rounded-lg border p-3">
                 <p className="text-sm font-medium">网关当前支持的资产与网络</p>
-                {supportedAssets.length ? <div className="mt-2 flex flex-wrap gap-2">{supportedAssets.map((asset) => <Badge key={asset.network} variant="secondary">{asset.display_name} · {asset.network} · {asset.tokens.join(", ")}</Badge>)}</div> : <p className="mt-1 text-xs text-muted-foreground">保存商户网关地址与凭证后，可读取 EPUSDT 公共配置；请只选择网关实际启用的网络。</p>}
+                {assetsError ? <p role="alert" className="mt-1 text-xs text-destructive">读取支持资产失败：{assetsError}。请检查网关连通性后刷新。</p> : supportedAssets.length ? <div className="mt-2 flex flex-wrap gap-2">{supportedAssets.map((asset) => <Badge key={asset.network} variant="secondary">{asset.display_name} · {asset.network} · {asset.tokens.join(", ")}</Badge>)}</div> : <p className="mt-1 text-xs text-muted-foreground">当前未返回可用资产，请检查网关配置或稍后刷新。</p>}
               </div>
               <div className="flex justify-end"><Button type="submit" disabled={saving || !form.secret_key.trim()}><Save className="mr-2 size-4" />{saving ? "正在保存…" : "保存渠道配置"}</Button></div>
             </form>
