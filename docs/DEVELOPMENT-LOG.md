@@ -1124,3 +1124,13 @@
 - 代理中心仅展示启用等级，并按 sort_order 判断可升级目标。
 - 涉及：`internal/auth/agent_wallet.go`、`internal/httpapi/handler.go`、`internal/httpapi/handler_test.go`、`src/lib/api.ts`、`src/pages/AdminAgentLevelsPage.tsx`、`src/components/DashboardLayout.tsx`、`src/App.tsx`、`docs/API.md`。
 - 验证：本轮中间提交曾发现并修复 Go sort_order 类型不一致问题；当前最新提交仍需等待 CI Go tests/vet、前端构建和 Docker workflow 完成。
+
+
+## 2026-11-27（代理升级订单历史与验证补强）
+
+- 新增 `GET /api/v1/account/agent/orders`，只按当前认证用户 ID 查询代理升级订单，支持 limit/offset 服务端分页与稳定倒序；不接受任意 user_id 查询参数。
+- 代理中心新增最近升级订单列表，展示订单号、支付方式、整数 USDT 金额、创建时间和服务端状态；账户加载同时获取等级、钱包流水和升级订单。
+- 新增代理等级输入校验单测，覆盖有效标识、零价等级、负价格、负排序、非法字符、空名称和长度边界。
+- 同步更新 API 文档和开发计划，明确钱包充值、支付渠道回调、佣金/结算仍未完成。
+- 涉及：`internal/auth/agent_wallet.go`、`internal/auth/service_test.go`、`internal/httpapi/handler.go`、`internal/httpapi/handler_test.go`、`src/lib/api.ts`、`src/pages/AgentCenterPage.tsx`、`docs/API.md`、`docs/DEVELOPMENT-PLAN.md`。
+- 验证：上一个稳定基线 `4015cc0` 的 CI 与 Docker 发布均通过；本轮提交的 CI/Docker 结果待 Actions 完成后记录。
