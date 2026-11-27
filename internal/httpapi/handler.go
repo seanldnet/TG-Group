@@ -72,6 +72,8 @@ func NewHandlerWithPayments(logger *slog.Logger, authService *auth.Service, botS
 	mux.HandleFunc("GET /api/v1/admin/plans",h.adminPlans)
 	mux.HandleFunc("POST /api/v1/admin/plans",h.createAdminPlan)
 	mux.HandleFunc("PATCH /api/v1/admin/plans/{planID}",h.updateAdminPlan)
+	mux.HandleFunc("GET /api/v1/admin/finance/summary",h.adminFinanceSummary)
+	mux.HandleFunc("GET /api/v1/admin/finance/ledger",h.adminFinanceLedger)
 	mux.HandleFunc("GET /api/v1/admin/orders",h.adminOrders)
 	mux.HandleFunc("GET /api/v1/admin/licenses",h.adminLicenses)
 	mux.HandleFunc("PATCH /api/v1/admin/licenses/{licenseID}/status",h.updateAdminLicenseStatus)
@@ -458,6 +460,22 @@ func (h *Handler) accountLicenses(w http.ResponseWriter,r *http.Request) {
 	items,err:=h.auth.ListAccountLicenses(r.Context(),user.ID)
 	if err!=nil{h.logger.Error("list account licenses","error",err);writeError(w,http.StatusInternalServerError,"读取授权失败");return}
 	writeJSON(w,http.StatusOK,map[string]any{"items":items})
+}
+
+func (h *Handler) adminFinanceSummary(w http.ResponseWriter,r *http.Request) {
+	if _,ok:=h.adminAgentLevelUser(w,r);!ok{return}
+	summary,err:=h.auth.GetAdminFinanceSummary(r.Context())
+	if err!=nil{h.logger.Error("load platform finance summary","error",err);writeError(w,http.StatusInternalServerError,"读取平台财务概览失败");return}
+	writeJSON(w,http.StatusOK,summary)
+}
+
+func (h *Handler) adminFinanceLedger(w http.ResponseWriter,r *http.Request) {
+	if _,ok:=h.adminAgentLevelUser(w,r);!ok{return}
+	limit,offset,ok:=accountPageParams(w,r);if !ok{return}
+	items,total,err:=h.auth.ListAdminWalletLedger(r.Context(),r.URL.Query().Get("entry_type"),r.URL.Query().Get("q"),limit,offset)
+	if errors.Is(err,auth.ErrInvalidInput){writeError(w,http.StatusBadRequest,"资金流水类型筛选值无效");return}
+	if err!=nil{h.logger.Error("list platform wallet ledger","error",err);writeError(w,http.StatusInternalServerError,"读取平台资金流水失败");return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":items,"total":total,"limit":limit,"offset":offset})
 }
 
 type adminLicenseStatusRequest struct { Status string `json:"status"` }
