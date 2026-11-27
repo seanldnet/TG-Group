@@ -293,10 +293,21 @@ func (s *Service) ListGroupMembers(ctx context.Context, tenantID, groupID string
 
 
 func (s *Service) ListGroupMembersPage(ctx context.Context, tenantID, groupID string, limit, offset int) ([]GroupMember, int, error) {
+	return s.ListGroupMembersPageWithSearch(ctx, tenantID, groupID, "", limit, offset)
+}
+
+// ListGroupMembersPageWithSearch searches only within the requested tenant and group.
+func (s *Service) ListGroupMembersPageWithSearch(ctx context.Context, tenantID, groupID, search string, limit, offset int) ([]GroupMember, int, error) {
 	if limit < 1 || limit > 100 { limit = 20 }
 	if offset < 0 { offset = 0 }
+	search = strings.TrimSpace(search)
+	if len([]rune(search)) > 100 { search = string([]rune(search)[:100]) }
+	pattern := "%" + search + "%"
 	var total int
-	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM telegram_group_members WHERE tenant_id=$1 AND group_id=$2`, tenantID, groupID).Scan(&total); err != nil {
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM telegram_group_members
+		WHERE tenant_id=$1 AND group_id=$2
+		AND ($3='' OR telegram_user_id::text ILIKE $4 OR username ILIKE $4 OR first_name ILIKE $4 OR last_name ILIKE $4)`,
+		tenantID, groupID, search, pattern).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count Telegram group members: %w", err)
 	}
 	rows, err := s.pool.Query(ctx, `SELECT id,group_id::text,telegram_user_id,username,first_name,last_name,is_bot,status,
@@ -304,8 +315,9 @@ func (s *Service) ListGroupMembersPage(ctx context.Context, tenantID, groupID st
 		can_manage_topics,joined_at,last_seen_at
 		FROM telegram_group_members
 		WHERE tenant_id=$1 AND group_id=$2
+		AND ($3='' OR telegram_user_id::text ILIKE $4 OR username ILIKE $4 OR first_name ILIKE $4 OR last_name ILIKE $4)
 		ORDER BY CASE WHEN status IN ('creator','administrator') THEN 0 WHEN status='member' THEN 1 ELSE 2 END,
-		last_seen_at DESC, id DESC LIMIT $3 OFFSET $4`, tenantID, groupID, limit, offset)
+		last_seen_at DESC, id DESC LIMIT $5 OFFSET $6`, tenantID, groupID, search, pattern, limit, offset)
 	if err != nil { return nil, 0, fmt.Errorf("list paginated Telegram group members: %w", err) }
 	defer rows.Close()
 	result := make([]GroupMember, 0)
