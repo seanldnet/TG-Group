@@ -140,3 +140,104 @@ func (s *Service) ListAccountLicenses(ctx context.Context,userID string)([]Accou
 	if err:=rows.Err();err!=nil{return nil,fmt.Errorf("iterate account licenses: %w",err)}
 	return items,nil
 }
+
+
+var (
+	ErrInvalidLicenseStatus = errors.New("invalid license status")
+	ErrLicenseExpired = errors.New("license has expired")
+	ErrLicenseNotFound = errors.New("license not found")
+)
+
+type AdminOrder struct {
+	ID string `json:"id"`
+	OrderNo string `json:"order_no"`
+	UserID string `json:"user_id"`
+	UserEmail string `json:"user_email"`
+	DisplayName string `json:"display_name"`
+	PlanName string `json:"plan_name"`
+	AmountUSDT int64 `json:"amount_usdt"`
+	PaymentMethod string `json:"payment_method"`
+	Status string `json:"status"`
+	PaidAt *time.Time `json:"paid_at"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type AdminLicense struct {
+	ID string `json:"id"`
+	UserID string `json:"user_id"`
+	UserEmail string `json:"user_email"`
+	DisplayName string `json:"display_name"`
+	PlanName string `json:"plan_name"`
+	Status string `json:"status"`
+	StartsAt time.Time `json:"starts_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+	BotLimit int32 `json:"bot_limit"`
+	GroupLimit int32 `json:"group_limit"`
+}
+
+func (s *Service) ListAdminOrders(ctx context.Context,status,query string,limit,offset int)([]AdminOrder,int64,error) {
+	status=strings.TrimSpace(status);query=strings.TrimSpace(query)
+	if status!="" && status!="pending" && status!="paid" && status!="failed" && status!="cancelled" {return nil,0,ErrInvalidInput}
+	pattern:="%"+query+"%"
+	var total int64
+	if err:=s.pool.QueryRow(ctx,`SELECT count(*) FROM orders o JOIN users u ON u.id=o.user_id
+		WHERE ($1='' OR o.status=$1) AND ($2='' OR o.order_no ILIKE $3 OR u.email ILIKE $3 OR u.display_name ILIKE $3)`,status,query,pattern).Scan(&total);err!=nil{return nil,0,fmt.Errorf("count platform orders: %w",err)}
+	rows,err:=s.pool.Query(ctx,`SELECT o.id::text,o.order_no,o.user_id::text,u.email,u.display_name,o.plan_name,o.amount_usdt,o.payment_method,o.status,o.paid_at,o.created_at
+		FROM orders o JOIN users u ON u.id=o.user_id
+		WHERE ($1='' OR o.status=$1) AND ($2='' OR o.order_no ILIKE $3 OR u.email ILIKE $3 OR u.display_name ILIKE $3)
+		ORDER BY o.created_at DESC,o.id DESC LIMIT $4 OFFSET $5`,status,query,pattern,limit,offset)
+	if err!=nil{return nil,0,fmt.Errorf("list platform orders: %w",err)}
+	defer rows.Close()
+	items:=make([]AdminOrder,0)
+	for rows.Next(){var item AdminOrder;if err:=rows.Scan(&item.ID,&item.OrderNo,&item.UserID,&item.UserEmail,&item.DisplayName,&item.PlanName,&item.AmountUSDT,&item.PaymentMethod,&item.Status,&item.PaidAt,&item.CreatedAt);err!=nil{return nil,0,fmt.Errorf("scan platform order: %w",err)};items=append(items,item)}
+	if err:=rows.Err();err!=nil{return nil,0,fmt.Errorf("iterate platform orders: %w",err)}
+	return items,total,nil
+}
+
+func (s *Service) ListAdminLicenses(ctx context.Context,status,query string,limit,offset int)([]AdminLicense,int64,error) {
+	status=strings.TrimSpace(status);query=strings.TrimSpace(query)
+	if status!="" && status!="active" && status!="expired" && status!="suspended" {return nil,0,ErrInvalidInput}
+	pattern:="%"+query+"%"
+	var total int64
+	if err:=s.pool.QueryRow(ctx,`SELECT count(*) FROM licenses l JOIN users u ON u.id=l.user_id
+		WHERE ($1='' OR (CASE WHEN l.status='active' AND l.expires_at<=now() THEN 'expired' ELSE l.status END)=$1)
+		AND ($2='' OR u.email ILIKE $3 OR u.display_name ILIKE $3 OR l.plan_name ILIKE $3)`,status,query,pattern).Scan(&total);err!=nil{return nil,0,fmt.Errorf("count platform licenses: %w",err)}
+	rows,err:=s.pool.Query(ctx,`SELECT l.id::text,l.user_id::text,u.email,u.display_name,l.plan_name,
+		CASE WHEN l.status='active' AND l.expires_at<=now() THEN 'expired' ELSE l.status END,
+		l.starts_at,l.expires_at,l.bot_limit,l.group_limit
+		FROM licenses l JOIN users u ON u.id=l.user_id
+		WHERE ($1='' OR (CASE WHEN l.status='active' AND l.expires_at<=now() THEN 'expired' ELSE l.status END)=$1)
+		AND ($2='' OR u.email ILIKE $3 OR u.display_name ILIKE $3 OR l.plan_name ILIKE $3)
+		ORDER BY l.expires_at DESC,l.id DESC LIMIT $4 OFFSET $5`,status,query,pattern,limit,offset)
+	if err!=nil{return nil,0,fmt.Errorf("list platform licenses: %w",err)}
+	defer rows.Close()
+	items:=make([]AdminLicense,0)
+	for rows.Next(){var item AdminLicense;if err:=rows.Scan(&item.ID,&item.UserID,&item.UserEmail,&item.DisplayName,&item.PlanName,&item.Status,&item.StartsAt,&item.ExpiresAt,&item.BotLimit,&item.GroupLimit);err!=nil{return nil,0,fmt.Errorf("scan platform license: %w",err)};items=append(items,item)}
+	if err:=rows.Err();err!=nil{return nil,0,fmt.Errorf("iterate platform licenses: %w",err)}
+	return items,total,nil
+}
+
+func (s *Service) SetAdminLicenseStatus(ctx context.Context,actorID,licenseID,status string)(AdminLicense,error) {
+	if status!="active" && status!="suspended" {return AdminLicense{},ErrInvalidLicenseStatus}
+	tx,err:=s.pool.BeginTx(ctx,pgx.TxOptions{})
+	if err!=nil{return AdminLicense{},fmt.Errorf("begin license status update: %w",err)}
+	defer tx.Rollback(ctx)
+	var item AdminLicense
+	err=tx.QueryRow(ctx,`UPDATE licenses l SET status=$2,updated_at=now()
+		FROM users u WHERE l.id=$1 AND u.id=l.user_id AND ($2<>'active' OR l.expires_at>now())
+		RETURNING l.id::text,l.user_id::text,u.email,u.display_name,l.plan_name,l.status,l.starts_at,l.expires_at,l.bot_limit,l.group_limit`,
+		licenseID,status).Scan(&item.ID,&item.UserID,&item.UserEmail,&item.DisplayName,&item.PlanName,&item.Status,&item.StartsAt,&item.ExpiresAt,&item.BotLimit,&item.GroupLimit)
+	if errors.Is(err,pgx.ErrNoRows){
+		var exists bool
+		if checkErr:=tx.QueryRow(ctx,`SELECT EXISTS(SELECT 1 FROM licenses WHERE id=$1)`,licenseID).Scan(&exists);checkErr!=nil{return AdminLicense{},fmt.Errorf("check license after update: %w",checkErr)}
+		if exists && status=="active" {return AdminLicense{},ErrLicenseExpired}
+		return AdminLicense{},ErrLicenseNotFound
+	}
+	if err!=nil{return AdminLicense{},fmt.Errorf("update license status: %w",err)}
+	var tenantID string
+	if err:=tx.QueryRow(ctx,`SELECT tenant_id::text FROM users WHERE id=$1`,actorID).Scan(&tenantID);err!=nil{return AdminLicense{},fmt.Errorf("load license admin tenant: %w",err)}
+	if _,err:=tx.Exec(ctx,`INSERT INTO audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id)
+		VALUES($1,$2,$3,'license',$4)`,tenantID,actorID,"license."+status,item.ID);err!=nil{return AdminLicense{},fmt.Errorf("audit license status update: %w",err)}
+	if err:=tx.Commit(ctx);err!=nil{return AdminLicense{},fmt.Errorf("commit license status update: %w",err)}
+	return item,nil
+}
