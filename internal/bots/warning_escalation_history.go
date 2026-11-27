@@ -26,21 +26,37 @@ type WarningEscalationExecution struct {
 }
 
 func (s *Service) ListWarningEscalations(ctx context.Context, tenantID, groupID string, userID int64, limit int) ([]WarningEscalationExecution, error) {
+	items, _, err := s.ListWarningEscalationsPage(ctx, tenantID, groupID, userID, limit, 0)
+	return items, err
+}
+
+// ListWarningEscalationsPage returns one stable page and the matching total.
+// Tenant, group and member filters are shared by the count and item queries.
+func (s *Service) ListWarningEscalationsPage(ctx context.Context, tenantID, groupID string, userID int64, limit, offset int) ([]WarningEscalationExecution, int, error) {
 	if limit < 1 || limit > 100 { limit = 50 }
+	if offset < 0 { offset = 0 }
+	if offset > 100000 { offset = 100000 }
+	var total int
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM telegram_group_warning_escalations e
+		JOIN telegram_groups g ON g.id=e.group_id AND g.tenant_id=e.tenant_id
+		WHERE e.tenant_id=$1 AND e.group_id=$2 AND e.telegram_user_id=$3`, tenantID, groupID, userID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count warning escalation executions: %w", err)
+	}
 	rows, err := s.pool.Query(ctx, `SELECT e.id,e.group_id::text,e.rule_id::text,e.telegram_user_id,e.warning_count,e.action,e.duration_minutes,e.status,e.detail,e.created_at,e.updated_at
 		FROM telegram_group_warning_escalations e
 		JOIN telegram_groups g ON g.id=e.group_id AND g.tenant_id=e.tenant_id
-		WHERE e.tenant_id=$1 AND e.group_id=$2 AND ($3::bigint=0 OR e.telegram_user_id=$3)
-		ORDER BY e.created_at DESC,e.id DESC LIMIT $4`, tenantID, groupID, userID, limit)
-	if err != nil { return nil, fmt.Errorf("list warning escalation executions: %w", err) }
+		WHERE e.tenant_id=$1 AND e.group_id=$2 AND e.telegram_user_id=$3
+		ORDER BY e.created_at DESC,e.id DESC LIMIT $4 OFFSET $5`, tenantID, groupID, userID, limit, offset)
+	if err != nil { return nil, 0, fmt.Errorf("list warning escalation executions: %w", err) }
 	defer rows.Close()
 	items := make([]WarningEscalationExecution, 0)
 	for rows.Next() {
 		var item WarningEscalationExecution
-		if err := rows.Scan(&item.ID,&item.GroupID,&item.RuleID,&item.TelegramUserID,&item.WarningCount,&item.Action,&item.DurationMinutes,&item.Status,&item.Detail,&item.CreatedAt,&item.UpdatedAt); err != nil { return nil, err }
+		if err := rows.Scan(&item.ID,&item.GroupID,&item.RuleID,&item.TelegramUserID,&item.WarningCount,&item.Action,&item.DurationMinutes,&item.Status,&item.Detail,&item.CreatedAt,&item.UpdatedAt); err != nil { return nil, 0, err }
 		items = append(items,item)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil { return nil, 0, err }
+	return items, total, nil
 }
 
 // RetryWarningEscalation retries only a previously failed execution. The status
