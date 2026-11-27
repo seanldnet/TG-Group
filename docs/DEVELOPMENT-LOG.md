@@ -1147,3 +1147,6 @@
 - 重要金额边界：EPUSDT 的 `actual_amount` 为小数加密资产数量，而项目业务要求 USDT 整数；充值实现必须拒绝非整数到账金额，不能浮点四舍五入/截断，或先由产品明确调整最小精度单位。
 - 尚未接入支付网关配置、充值订单、主动查单、回调路由和钱包入账；需取得实际 Base URL、PID/Secret、网络/Token 配置与公网 HTTPS 回调地址后联调。
 - 参考官方文档：https://www.epusdt.com/api/payment 、https://www.epusdt.com/api/reference。
+
+
+- 在 GMPay HMAC-SHA256 基础上补齐 EPUSDT EPay 兼容 MD5 签名/常量时间验签函数，并以官方 EPay 文档公开示例向量测试。该兼容算法仅用于明确启用 EPay 兼容模式，不替代新集成优先的 GMPay HMAC-SHA256。
