@@ -68,6 +68,16 @@ export default function BotsPage() {
     void refresh()
   }, [refresh])
 
+  const filteredItems = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase()
+    return items.filter((bot) => {
+      const matchesStatus = statusFilter === "all" || bot.status === statusFilter
+      const matchesSearch = !query || [bot.username, bot.first_name, String(bot.telegram_bot_id)]
+        .some((value) => value.toLocaleLowerCase().includes(query))
+      return matchesStatus && matchesSearch
+    })
+  }, [items, search, statusFilter])
+
   function openAddDialog() {
     setDialogMode("add")
     setSelectedBot(null)
@@ -170,7 +180,14 @@ export default function BotsPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-[minmax(220px,1fr)_180px]">
+              <div className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><Input className="pl-9" value={search} onChange={event=>setSearch(event.target.value)} placeholder="搜索 Bot 名称、用户名或 Telegram ID"/></div>
+              <Select value={statusFilter} onValueChange={value=>setStatusFilter(value as typeof statusFilter)}>
+                <SelectTrigger aria-label="Bot 状态筛选"><SelectValue/></SelectTrigger>
+                <SelectContent><SelectItem value="all">全部状态</SelectItem><SelectItem value="active">已启用</SelectItem><SelectItem value="disabled">已停用</SelectItem></SelectContent>
+              </Select>
+            </div>
             {loading ? (
               <p className="py-10 text-center text-sm text-muted-foreground">正在加载 Bot 列表...</p>
             ) : items.length === 0 ? (
@@ -182,6 +199,8 @@ export default function BotsPage() {
                 </div>
                 <Button variant="outline" onClick={openAddDialog}>添加第一个 Bot</Button>
               </div>
+            ) : filteredItems.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">没有符合当前搜索和状态条件的 Bot。</p>
             ) : (
               <Table>
                 <TableHeader>
