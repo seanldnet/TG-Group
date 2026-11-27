@@ -161,6 +161,26 @@ export function getAgentAccount() {
   })
 }
 
+export type AgentUpgradeOrder = {
+  id: string
+  order_no: string
+  from_level_id: string | null
+  target_level_id: string
+  amount_usdt: number
+  payment_method: "wallet" | "usdt" | "epusdt" | "gmpay"
+  status: "pending" | "paid" | "failed" | "cancelled"
+  paid_at: string | null
+  created_at: string
+}
+
+export function upgradeAgentWithWallet(targetLevelID: string, idempotencyKey: string) {
+  return request<AgentUpgradeOrder>("/api/v1/account/agent/upgrade", {
+    method: "POST",
+    headers: { ...authenticatedHeaders(), "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ target_level_id: targetLevelID }),
+  })
+}
+
 export function listWalletLedger(limit = 20, offset = 0) {
   return request<{ items: WalletLedgerEntry[]; total: number; limit: number; offset: number }>(
     `/api/v1/account/wallet/ledger?limit=${limit}&offset=${offset}`,
