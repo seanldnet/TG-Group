@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react"
-import { Bot, KeyRound, Plus, RefreshCw, Trash2 } from "lucide-react"
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react"
+import { Bot, KeyRound, Plus, RefreshCw, Search, Trash2 } from "lucide-react"
 
 import {
   addBot,
@@ -19,6 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import {
   Dialog,
@@ -48,6 +49,8 @@ export default function BotsPage() {
   const [selectedBot, setSelectedBot] = useState<TelegramBot | null>(null)
   const [token, setToken] = useState("")
   const [saving, setSaving] = useState(false)
+  const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState<"all" | TelegramBot["status"]>("all")
 
   const refresh = useCallback(async () => {
     setError("")
@@ -146,7 +149,7 @@ export default function BotsPage() {
               添加 BotFather Token 后，平台会向 Telegram 验证身份，并加密保存 Token。启用的 Bot 会由后台长轮询 worker 接收更新，并自动发现其所在群组。
             </p>
           </div>
-          <Button onClick={openAddDialog}>
+          <div className="flex gap-2"><Button variant="outline" onClick={() => void refresh()} disabled={loading}><RefreshCw className={`mr-2 size-4 ${loading ? "animate-spin" : ""}`}/>刷新</Button><Button onClick={openAddDialog}>
             <Plus className="mr-2 size-4" />
             添加 Bot
           </Button>
@@ -163,7 +166,7 @@ export default function BotsPage() {
               </div>
               <div>
                 <CardTitle>已接入 Bot</CardTitle>
-                <CardDescription>共登记 {items.length} 个 Bot；Token 不会在列表中展示。</CardDescription>
+                <CardDescription>共登记 {items.length} 个 Bot，当前显示 {filteredItems.length} 个；Token 不会在列表中展示。</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -191,7 +194,7 @@ export default function BotsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {items.map((bot) => (
+                  {filteredItems.map((bot) => (
                     <TableRow key={bot.id}>
                       <TableCell>
                         <div className="font-medium">{bot.first_name || "Telegram Bot"}</div>
