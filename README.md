@@ -24,7 +24,7 @@ Telegram 多用户、多 Bot、多群组管理平台。
 - 群管 Telegram Inline Keyboard 已有主菜单、分类导航、部分规则/成员/消息/群组设置操作；并非所有群管功能都已完成，详见开发计划。
 - 群成员名单执行、警告递进处罚、执行历史和失败人工重试已有基础闭环；后台自动重试/崩溃恢复仍未完成。
 
-套餐/订单/支付（USDT、EPUSDT、GMPay）、赞助商、AI 智能审核、完整群管需求矩阵及网站/Telegram 双端逐项等价仍在开发中。
+套餐/订单/授权完整闭环、EPUSDT 主动查单与沙箱/生产验收、赞助商、AI 智能审核、完整群管需求矩阵及网站/Telegram 双端逐项等价仍在开发中。钱包已接入 GMPay 充值订单创建与签名回调事务入账代码，但需配置商户凭证和 HTTPS 公网回调地址并完成沙箱验收后才能投入生产。
 
 ## 本地启动
 
@@ -71,7 +71,7 @@ TG_GROUP_API_PROXY="http://127.0.0.1:8080" pnpm dev
 
 ## Docker 一键部署（无需服务器编译或手动配置）
 
-支持 Docker Engine + Docker Compose Plugin 的 Linux 服务器。部署脚本会在 Ubuntu/Debian 或 RHEL 系（dnf）环境自动安装 Docker（如尚未安装），自动生成数据库密码和 Bot Token 加密密钥，拉取 GHCR 预构建镜像并启动 PostgreSQL、API、Web。服务器不会执行 Go 或前端构建。
+支持 Docker Engine + Docker Compose Plugin 的 Linux 服务器。部署脚本会在 Ubuntu/Debian 或 RHEL 系（dnf）环境自动安装 Docker（如尚未安装），自动生成数据库密码、Bot Token 加密密钥和支付商户凭证加密密钥，拉取 GHCR 预构建镜像并启动 PostgreSQL、API、Web。服务器不会执行 Go 或前端构建。
 
 首次部署只需执行：
 
@@ -83,7 +83,7 @@ curl -fsSL https://raw.githubusercontent.com/seanldnet/Tg-group/main/deploy/inst
 - 测试管理员：用户名 `admin`，密码 `123456`
 - 数据库只在 Docker 内网开放，不映射到宿主机端口。
 - 数据持久化在 Docker volume `tg_group_postgres`；安装生成的数据库与 Bot 加密密钥位于 `/opt/tg-group/.env`。
-- 平台注册/身份 Bot 与用户群管 Bot 分离。管理员登录后可在「平台管理 → 平台设置」配置注册/身份 Bot；服务端先通过 Telegram `getMe` 校验身份，再使用部署时生成的 `BOT_TOKEN_ENCRYPTION_KEY` 以 AES-256-GCM 加密存储，并立即重启轮询管理器。停用状态会持久化，重启后不会被旧环境变量覆盖。旧安装仍兼容 `.env` 中的 `TG_GROUP_TELEGRAM_AUTH_BOT_TOKEN` 和 `TG_GROUP_TELEGRAM_AUTH_BOT_USERNAME`，首次迁移到网页配置后以数据库配置为准。
+- 在线充值需管理员在「平台管理 → 支付渠道」配置 EPUSDT GMPay 商户网关、PID、Secret、USD/USDT 和受支持网络；Secret 使用独立的 AES-256-GCM 加密密钥保存。配置公网 HTTPS 域名后，在 `/opt/tg-group/.env` 设置 `TG_GROUP_PAYMENT_PUBLIC_BASE_URL=https://你的域名` 并执行 `docker compose --env-file .env -f docker-compose.yml up -d api`，让 EPUSDT 回调到 `https://你的域名/api/v1/payments/epusdt/gmpay/notify`。未设置公网 HTTPS 地址时充值保持关闭。整数 USDT 以外的实际到账数量不会自动入账。\n- 平台注册/身份 Bot 与用户群管 Bot 分离。管理员登录后可在「平台管理 → 平台设置」配置注册/身份 Bot；服务端先通过 Telegram `getMe` 校验身份，再使用部署时生成的 `BOT_TOKEN_ENCRYPTION_KEY` 以 AES-256-GCM 加密存储，并立即重启轮询管理器。停用状态会持久化，重启后不会被旧环境变量覆盖。旧安装仍兼容 `.env` 中的 `TG_GROUP_TELEGRAM_AUTH_BOT_TOKEN` 和 `TG_GROUP_TELEGRAM_AUTH_BOT_USERNAME`，首次迁移到网页配置后以数据库配置为准。
 - 查看日志：`cd /opt/tg-group && docker compose logs -f`
 - 更新镜像：`cd /opt/tg-group && docker compose pull && docker compose up -d`
 - 停止：`cd /opt/tg-group && docker compose down`（不会删除数据库卷）；彻底删除数据需另行执行 `docker compose down -v`。
