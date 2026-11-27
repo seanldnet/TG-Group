@@ -13,6 +13,7 @@ import (
 	"strconv"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
 )
 
 var ErrInvalidChannelConfig = errors.New("invalid payment channel configuration")
@@ -76,13 +77,21 @@ func (s *ConfigStore) Save(ctx context.Context,c ChannelConfig,actorID string) e
 	nonce:=make([]byte,s.aead.NonceSize())
 	if _,err:=rand.Read(nonce);err!=nil{return fmt.Errorf("generate payment credential nonce: %w",err)}
 	ciphertext:=s.aead.Seal(nil,nonce,[]byte(strings.TrimSpace(c.SecretKey)),[]byte("tg-group/payment-channel/"+c.Code+"/v1"))
-	_,err:=s.pool.Exec(ctx,`INSERT INTO payment_channels(code,name,base_url,merchant_pid,secret_ciphertext,secret_nonce,currency,token,network,enabled,updated_by,updated_at)
+	tx,err:=s.pool.BeginTx(ctx,pgx.TxOptions{})
+	if err!=nil{return fmt.Errorf("begin payment channel update: %w",err)}
+	defer tx.Rollback(ctx)
+	_,err=tx.Exec(ctx,`INSERT INTO payment_channels(code,name,base_url,merchant_pid,secret_ciphertext,secret_nonce,currency,token,network,enabled,updated_by,updated_at)
 		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now())
 		ON CONFLICT(code) DO UPDATE SET name=EXCLUDED.name,base_url=EXCLUDED.base_url,merchant_pid=EXCLUDED.merchant_pid,
 		secret_ciphertext=EXCLUDED.secret_ciphertext,secret_nonce=EXCLUDED.secret_nonce,currency=EXCLUDED.currency,
 		token=EXCLUDED.token,network=EXCLUDED.network,enabled=EXCLUDED.enabled,updated_by=EXCLUDED.updated_by,updated_at=now()`,
 		c.Code,c.Name,strings.TrimRight(strings.TrimSpace(c.BaseURL),"/"),c.MerchantPID,ciphertext,nonce,c.Currency,c.Token,c.Network,c.Enabled,actorID)
 	if err!=nil{return fmt.Errorf("save payment channel: %w",err)}
+	_,err=tx.Exec(ctx,`INSERT INTO audit_logs(actor_user_id,action,resource_type,resource_id,metadata)
+		VALUES($1,'payment.channel.update','payment_channel',$2,jsonb_build_object('enabled',$3::boolean,'currency',$4::text,'token',$5::text,'network',$6::text))`,
+		actorID,c.Code,c.Enabled,c.Currency,c.Token,c.Network)
+	if err!=nil{return fmt.Errorf("audit payment channel update: %w",err)}
+	if err=tx.Commit(ctx);err!=nil{return fmt.Errorf("commit payment channel update: %w",err)}
 	return nil
 }
 
