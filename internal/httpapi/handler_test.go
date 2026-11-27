@@ -65,6 +65,7 @@ func TestAuthEndpointsRequireDatabase(t *testing.T) {
 		{http.MethodGet, "/api/v1/account/agent/orders"},
 		{http.MethodGet, "/api/v1/admin/agent-levels"},
 		{http.MethodGet, "/api/v1/admin/payment-channels"},
+		{http.MethodGet, "/api/v1/admin/payment-channels/epusdt_gmpay/assets"},
 		{http.MethodPut, "/api/v1/admin/payment-channels/epusdt_gmpay"},
 		{http.MethodPost, "/api/v1/account/wallet/recharge"},
 		{http.MethodGet, "/api/v1/account/wallet/recharges"},
