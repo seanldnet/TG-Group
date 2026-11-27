@@ -200,7 +200,7 @@ var (
 )
 
 func validateAgentLevel(code,name string,price int64,sortOrder int32) error {
-	if len(code)<2 || len(code)>40 || len(name)==0 || len(name)>80 || price<0 || sortOrder<0 {
+	if len(code)<2 || len(code)>40 || strings.TrimSpace(name)=="" || len(name)>80 || price<0 || sortOrder<0 {
 		return ErrInvalidAgentLevel
 	}
 	for _,r:=range code {
