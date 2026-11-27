@@ -46,6 +46,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState("")
+  const [notice, setNotice] = useState("")
   const [permissions, setPermissions] = useState<TelegramGroupBotPermissions | null>(null)
   const [actingUserID, setActingUserID] = useState<number | null>(null)
   const [warningUserID, setWarningUserID] = useState<number | null>(null)
@@ -175,12 +176,14 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
     if (!window.confirm(`确认对选中的 ${selectedUserIDs.length} 位成员执行${labels[action]}？每位成员会单独检查权限，部分失败不会回滚已成功的操作。`)) return
     setBulkBusy(true)
     setError("")
+    setNotice("")
     try {
       const result = await bulkModerateGroupMembers(groupID, selectedUserIDs, action, duration)
       const failures = result.items.filter(item => !item.ok)
-      setError(failures.length ? `批量操作完成：成功 ${result.succeeded} 位，失败 ${result.failed} 位。失败详情：${failures.slice(0, 5).map(item => `${item.telegram_user_id}: ${item.error}`).join("；")}` : `批量操作完成：成功处理 ${result.succeeded} 位成员。`)
       setSelectedUserIDs([])
       await refresh()
+      if (failures.length) setError(`批量操作完成：成功 ${result.succeeded} 位，失败 ${result.failed} 位。失败详情：${failures.slice(0, 5).map(item => `${item.telegram_user_id}: ${item.error}`).join("；")}`)
+      else setNotice(`批量操作完成：成功处理 ${result.succeeded} 位成员。`)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "批量成员操作失败")
     } finally { setBulkBusy(false) }
@@ -232,6 +235,7 @@ export default function GroupMembersPage({ groupID }: { groupID: string }) {
         )}
         {permissions && (!["administrator", "creator"].includes(permissions.bot_status) || !permissions.can_restrict_members) && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">Bot 需要群管理员身份及限制成员权限才能执行处罚。</p>}
         {error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p>}
+        {notice && <p role="status" className="rounded-lg border px-4 py-3 text-sm text-muted-foreground">{notice}</p>}
 
         <Card>
           <CardHeader>
