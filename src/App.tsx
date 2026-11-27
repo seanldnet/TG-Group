@@ -34,6 +34,7 @@ import GroupRulesPage from "@/pages/GroupRulesPage"
 import GroupRuleEventsPage from "@/pages/GroupRuleEventsPage"
 import PersonalCenterPage from "@/pages/PersonalCenterPage"
 import BusinessWorkspacePage from "@/pages/BusinessWorkspacePage"
+import AgentCenterPage from "@/pages/AgentCenterPage"
 import NotFoundPage from "@/pages/NotFoundPage"
 
 import { Badge } from "@/components/ui/badge"
@@ -403,6 +404,7 @@ export default function App() {
   else if (pathname === "/dashboard/platform") page = <PlatformSettingsPage />
   else if (pathname === "/dashboard/admin/users") page = <AdminUsersPage />
   else if (pathname === "/dashboard/account/profile") page = <PersonalCenterPage />
+  else if (pathname === "/dashboard/account/agent") page = <AgentCenterPage />
   else if (pathname === "/dashboard/account/links") page = <AccountLinksPage />
   else if (pathname === "/dashboard/security/password") page = <SecurityPage section="password" />
   else if (pathname === "/dashboard/security/sessions") page = <SecurityPage section="sessions" />
