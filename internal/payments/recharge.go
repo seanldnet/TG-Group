@@ -90,6 +90,7 @@ func (s *RechargeService) CreateGMPayOrder(ctx context.Context,userID string,amo
 }
 
 func (s *RechargeService) ApplyGMPayCallback(ctx context.Context,params map[string]string,payloadHash []byte)error{
+	if len(payloadHash)!=32{return ErrInvalidGMPayCallback}
 	var channelCode string
 	var expectedPID string
 	var secret string
