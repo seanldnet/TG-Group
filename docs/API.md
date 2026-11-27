@@ -461,3 +461,13 @@ openssl rand -base64 32
 - 余额不足、套餐停用/不存在、授权暂停时拒绝购买；所有用户订单与授权查询均由 Bearer 会话解析用户 ID，不接受客户端传入 user_id。
 - 同一用户同一套餐再次购买时，若授权仍有效则从当前到期时间续期；若已过期则从当前时间重新起算；已暂停授权不允许通过自助购买绕过暂停。
 - **当前边界**：此阶段实现钱包余额购买；在线支付订单创建与网关回调联动、管理员全站订单检索、授权暂停/恢复管理、Bot/群组运行时额度 enforcement 和到期 worker 仍需后续开发。
+
+
+## 平台订单与授权管理
+
+- `GET /api/v1/admin/orders?status=paid&q=keyword&limit=20&offset=0`：仅平台管理员查询全站套餐订单，支持状态筛选、订单号/邮箱/昵称搜索和服务端分页。
+- `GET /api/v1/admin/licenses?status=active&q=keyword&limit=20&offset=0`：仅平台管理员查询全站授权，支持 active/expired/suspended 状态筛选、邮箱/昵称/套餐搜索和分页。
+- `PATCH /api/v1/admin/licenses/{licenseID}/status`：仅平台管理员可设置 `active` 或 `suspended`；所有变更写入平台审计日志。
+- 已到期授权不能通过状态接口直接恢复为 active；必须重新购买套餐续期，避免绕过期限计费。
+- 平台订单查询为只读核查，不提供手动标记支付成功或手动入账操作。
+- 当前套餐订单仅由钱包余额购买产生；在线支付订单与渠道回调联动仍待开发。

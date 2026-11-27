@@ -42,6 +42,8 @@ import PlanCatalogPage from "@/pages/PlanCatalogPage"
 import OrdersPage from "@/pages/OrdersPage"
 import LicensesPage from "@/pages/LicensesPage"
 import NotFoundPage from "@/pages/NotFoundPage"
+import AdminOrdersPage from "@/pages/AdminOrdersPage"
+import AdminLicensesPage from "@/pages/AdminLicensesPage"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -417,6 +419,8 @@ export default function App() {
   else if (pathname === "/dashboard/orders") page = <OrdersPage />
   else if (pathname === "/dashboard/licenses") page = <LicensesPage />
   else if (pathname === "/dashboard/admin/plans") page = <PlanCatalogPage admin />
+  else if (pathname === "/dashboard/admin/orders") page = <AdminOrdersPage />
+  else if (pathname === "/dashboard/admin/licenses") page = <AdminLicensesPage />
   else if (pathname === "/dashboard/account/profile") page = <PersonalCenterPage />
   else if (pathname === "/dashboard/account/agent") page = <AgentCenterPage />
   else if (pathname === "/dashboard/account/links") page = <AccountLinksPage />
