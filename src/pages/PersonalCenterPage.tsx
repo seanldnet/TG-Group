@@ -56,7 +56,7 @@ export default function PersonalCenterPage() {
       setSaving(false)
     }
   }
-  const displayName = user?.display_name || "用户"
+  const displayName = user?.display_name || (loading ? "正在加载" : "账户信息不可用")
   const telegramName = telegram?.linked
     ? [telegram.telegram.first_name, telegram.telegram.last_name].filter(Boolean).join(" ") || telegram.telegram.username || "已关联账号"
     : "尚未关联"
@@ -71,7 +71,7 @@ export default function PersonalCenterPage() {
       <CardContent className="flex flex-wrap items-center gap-4 p-5 sm:p-6">
         <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary"><CircleUserRound className="size-7"/></div>
         <div className="min-w-0 flex-1"><p className="truncate text-lg font-semibold">{displayName}</p><p className="truncate text-sm text-muted-foreground">{loading ? "正在加载账户..." : user?.email || "账户信息不可用"}</p></div>
-        <Badge variant={user?.role === "admin" ? "default" : "secondary"}>{user?.role === "admin" ? "管理员" : user?.role === "agent" ? "代理" : "普通用户"}</Badge>
+        <Badge variant={user?.role === "admin" ? "default" : "secondary"}>{user ? user.role === "admin" ? "管理员" : user.role === "agent" ? "代理" : "普通用户" : loading ? "加载中" : "不可用"}</Badge>
       </CardContent>
     </Card>
     <div className="grid gap-5 lg:grid-cols-[1.35fr_1fr]">
