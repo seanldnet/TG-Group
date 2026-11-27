@@ -55,6 +55,7 @@ func NewHandlerWithPlatformBot(logger *slog.Logger, authService *auth.Service, b
 	mux.HandleFunc("GET /api/v1/account/agent",h.agentAccount)
 	mux.HandleFunc("GET /api/v1/account/wallet/ledger",h.walletLedger)
 	mux.HandleFunc("POST /api/v1/account/agent/upgrade",h.upgradeAgent)
+	mux.HandleFunc("GET /api/v1/account/agent/orders",h.agentUpgradeOrders)
 	mux.HandleFunc("GET /api/v1/admin/agent-levels",h.adminAgentLevels)
 	mux.HandleFunc("POST /api/v1/admin/agent-levels",h.createAdminAgentLevel)
 	mux.HandleFunc("PATCH /api/v1/admin/agent-levels/{levelID}",h.updateAdminAgentLevel)
@@ -343,6 +344,26 @@ func (h *Handler) walletLedger(w http.ResponseWriter,r *http.Request) {
 	}
 	items,total,err:=h.auth.ListWalletLedger(r.Context(),user.ID,limit,offset)
 	if err!=nil { h.logger.Error("list wallet ledger","error",err);writeError(w,http.StatusInternalServerError,"读取钱包流水失败");return }
+	writeJSON(w,http.StatusOK,map[string]any{"items":items,"total":total,"limit":limit,"offset":offset})
+}
+
+func (h *Handler) agentUpgradeOrders(w http.ResponseWriter,r *http.Request){
+	if !h.requireAuthStore(w){return}
+	user,err:=h.auth.Authenticate(r.Context(),bearerToken(r))
+	if err!=nil{writeError(w,http.StatusUnauthorized,"unauthorized");return}
+	limit,offset:=20,0
+	if raw:=r.URL.Query().Get("limit");raw!=""{
+		value,parseErr:=strconv.Atoi(raw)
+		if parseErr!=nil||value<1||value>100{writeError(w,http.StatusBadRequest,"limit must be between 1 and 100");return}
+		limit=value
+	}
+	if raw:=r.URL.Query().Get("offset");raw!=""{
+		value,parseErr:=strconv.Atoi(raw)
+		if parseErr!=nil||value<0||value>1000000{writeError(w,http.StatusBadRequest,"offset must be between 0 and 1000000");return}
+		offset=value
+	}
+	items,total,err:=h.auth.ListAgentUpgradeOrders(r.Context(),user.ID,limit,offset)
+	if err!=nil{h.logger.Error("list agent upgrade orders","error",err);writeError(w,http.StatusInternalServerError,"读取代理升级订单失败");return}
 	writeJSON(w,http.StatusOK,map[string]any{"items":items,"total":total,"limit":limit,"offset":offset})
 }
 
