@@ -66,6 +66,9 @@ func NewHandlerWithPayments(logger *slog.Logger, authService *auth.Service, botS
 	mux.HandleFunc("POST /api/v1/account/agent/upgrade",h.upgradeAgent)
 	mux.HandleFunc("GET /api/v1/account/agent/orders",h.agentUpgradeOrders)
 	mux.HandleFunc("GET /api/v1/plans",h.plans)
+	mux.HandleFunc("POST /api/v1/account/orders",h.purchasePlan)
+	mux.HandleFunc("GET /api/v1/account/orders",h.accountOrders)
+	mux.HandleFunc("GET /api/v1/account/licenses",h.accountLicenses)
 	mux.HandleFunc("GET /api/v1/admin/plans",h.adminPlans)
 	mux.HandleFunc("POST /api/v1/admin/plans",h.createAdminPlan)
 	mux.HandleFunc("PATCH /api/v1/admin/plans/{planID}",h.updateAdminPlan)
@@ -408,6 +411,50 @@ func (h *Handler) upgradeAgent(w http.ResponseWriter,r *http.Request) {
 	case errors.Is(err,auth.ErrAgentProfileSuspended): writeError(w,http.StatusForbidden,"代理账户当前已暂停")
 	default: h.logger.Error("upgrade agent with wallet failed","error",err);writeError(w,http.StatusInternalServerError,"代理升级失败")
 	}
+}
+
+type purchasePlanRequest struct { PlanID string `json:"plan_id"` }
+
+func (h *Handler) purchasePlan(w http.ResponseWriter,r *http.Request) {
+	if !h.requireAuthStore(w){return}
+	user,err:=h.auth.Authenticate(r.Context(),bearerToken(r))
+	if err!=nil{writeError(w,http.StatusUnauthorized,"unauthorized");return}
+	var input purchasePlanRequest
+	if !decodeJSON(w,r,&input){return}
+	order,err:=h.auth.PurchasePlanWithWallet(r.Context(),user.ID,input.PlanID,r.Header.Get("Idempotency-Key"))
+	switch {
+	case err==nil:writeJSON(w,http.StatusCreated,order)
+	case errors.Is(err,auth.ErrInvalidOrderIdempotencyKey):writeError(w,http.StatusBadRequest,"缺少或无效的订单幂等键")
+	case errors.Is(err,auth.ErrOrderIdempotencyConflict):writeError(w,http.StatusConflict,"该幂等键已用于购买其他套餐")
+	case errors.Is(err,auth.ErrPlanUnavailable):writeError(w,http.StatusNotFound,"套餐不存在或已停止销售")
+	case errors.Is(err,auth.ErrInsufficientPlanBalance):writeError(w,http.StatusConflict,"USDT 余额不足，请先充值")
+	case errors.Is(err,auth.ErrLicenseSuspended):writeError(w,http.StatusForbidden,"该套餐授权当前已暂停，请联系平台管理员")
+	default:h.logger.Error("purchase plan with wallet failed","error",err);writeError(w,http.StatusInternalServerError,"购买套餐失败")
+	}
+}
+
+func accountPageParams(w http.ResponseWriter,r *http.Request)(int,int,bool) {
+	limit,offset:=20,0
+	if raw:=r.URL.Query().Get("limit");raw!=""{value,err:=strconv.Atoi(raw);if err!=nil||value<1||value>100{writeError(w,http.StatusBadRequest,"limit must be between 1 and 100");return 0,0,false};limit=value}
+	if raw:=r.URL.Query().Get("offset");raw!=""{value,err:=strconv.Atoi(raw);if err!=nil||value<0||value>1000000{writeError(w,http.StatusBadRequest,"offset must be between 0 and 1000000");return 0,0,false};offset=value}
+	return limit,offset,true
+}
+
+func (h *Handler) accountOrders(w http.ResponseWriter,r *http.Request) {
+	if !h.requireAuthStore(w){return}
+	user,err:=h.auth.Authenticate(r.Context(),bearerToken(r));if err!=nil{writeError(w,http.StatusUnauthorized,"unauthorized");return}
+	limit,offset,ok:=accountPageParams(w,r);if !ok{return}
+	items,total,err:=h.auth.ListAccountOrders(r.Context(),user.ID,limit,offset)
+	if err!=nil{h.logger.Error("list account orders","error",err);writeError(w,http.StatusInternalServerError,"读取订单失败");return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":items,"total":total,"limit":limit,"offset":offset})
+}
+
+func (h *Handler) accountLicenses(w http.ResponseWriter,r *http.Request) {
+	if !h.requireAuthStore(w){return}
+	user,err:=h.auth.Authenticate(r.Context(),bearerToken(r));if err!=nil{writeError(w,http.StatusUnauthorized,"unauthorized");return}
+	items,err:=h.auth.ListAccountLicenses(r.Context(),user.ID)
+	if err!=nil{h.logger.Error("list account licenses","error",err);writeError(w,http.StatusInternalServerError,"读取授权失败");return}
+	writeJSON(w,http.StatusOK,map[string]any{"items":items})
 }
 
 type adminPlanRequest struct {
