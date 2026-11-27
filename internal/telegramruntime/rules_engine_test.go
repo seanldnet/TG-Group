@@ -150,7 +150,7 @@ func TestParseGroupRuleEditCallback(t *testing.T) {
 func TestGroupRuleEditConfigProducesValidTypeSpecificConfig(t *testing.T) {
 	tests:=[]struct{kind,preset string}{
 		{"welcome","w1"},{"leave_notice","l2"},{"keyword_filter","k1"},
-		{"sensitive_word","k2"},{"anti_ad","a1"},{"anti_spam","s3"},{"media_restriction","m1"},
+		{"sensitive_word","k2"},{"anti_ad","a1"},{"anti_spam","s3"},{"anti_spam","s4"},{"anti_spam","s5"},{"media_restriction","m1"},
 		{"join_verification","v2"},{"join_verification","vr"},
 	}
 	for _,tt:=range tests {
