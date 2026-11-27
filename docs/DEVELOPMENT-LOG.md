@@ -1103,3 +1103,14 @@
 - 涉及：`internal/auth/agent_wallet.go`、`internal/auth/service.go`、`internal/httpapi/handler.go`、`internal/httpapi/handler_test.go`、`src/lib/api.ts`、`src/pages/AgentCenterPage.tsx`、`src/App.tsx`。
 - 当前边界：等级目录和账户/流水查询已接入；管理员等级 CRUD、升级订单、事务扣款、充值与在线支付仍未完成。升级流程继续遵守用户自助购买、支付成功自动生效，不设置人工申请审核。
 - 验证：代码已提交 main，等待最新 Go CI、前端构建及 Docker workflow 结果。
+
+
+## 2026-11-27（代理等级钱包自助升级闭环）
+
+- 新增代理升级订单表，记录升级前后等级、整数 USDT 金额、支付方式、状态、幂等键和支付时间；内部迁移与根目录迁移镜像保持一致。
+- 新增钱包余额升级服务：行锁保护钱包与当前代理档案，校验目标等级必须启用且高于当前等级；余额扣减、升级订单、资金流水、代理档案等级变更和用户 agent 角色更新在同一事务中提交。
+- 使用 `Idempotency-Key` 防止重复请求重复扣款；同一用户重复提交返回原订单。余额不足、等级无效或代理暂停时拒绝升级。
+- 代理中心等级卡片开放真实的余额升级操作；扣款成功后自动刷新等级与余额。未开放在线支付渠道，不伪装在线支付已完成。
+- 涉及：`000021_agent_upgrade_orders` 迁移、`internal/auth/agent_wallet.go`、`internal/httpapi/handler.go`、`internal/httpapi/handler_test.go`、`src/lib/api.ts`、`src/pages/AgentCenterPage.tsx`、`docs/API.md`。
+- 当前边界：用户钱包余额自助升级已有事务实现；平台管理员等级 CRUD、充值入账、USDT/EPUSDT/GMPay 官方支付接入、订单查询和佣金仍未完成。在线支付成功回调未来必须复用同一事务化升级逻辑或等效幂等处理，不引入人工审批。
+- 验证：本轮代码提交后 CI 尚待运行，以最新 main SHA 的 GitHub Actions 结果为准。
