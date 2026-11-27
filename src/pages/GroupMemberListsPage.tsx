@@ -57,7 +57,7 @@ export default function GroupMemberListsPage({ groupID }: { groupID: string }) {
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const id = Number(userID)
-    if (!/^\\d+$/.test(userID.trim()) || !Number.isSafeInteger(id) || id <= 0) {
+    if (!/^\d+$/.test(userID.trim()) || !Number.isSafeInteger(id) || id <= 0) {
       setError("Telegram 用户 ID 必须是正整数")
       return
     }
